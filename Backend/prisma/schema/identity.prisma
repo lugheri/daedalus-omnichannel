@@ -1,0 +1,32 @@
+// Módulo identity. Usuários e sessões são GLOBAIS (sem tenant): uma pessoa
+// tem um login e pode pertencer a vários tenants (ADR 0003).
+
+model User {
+  id           String   @id @db.Uuid
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  platformRole String?  @map("platform_role")
+  createdAt    DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@map("users")
+  @@schema("identity")
+}
+
+model Session {
+  id               String    @id @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  membershipId     String    @map("membership_id") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  createdAt        DateTime  @map("created_at") @db.Timestamptz(3)
+  lastRotatedAt    DateTime? @map("last_rotated_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  // Para revogar todas as sessões de um usuário ou de um vínculo.
+  @@index([userId])
+  @@index([membershipId])
+  @@map("sessions")
+  @@schema("identity")
+}

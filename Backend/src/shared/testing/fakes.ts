@@ -1,6 +1,7 @@
 import type { EventBus } from '../application/event-bus';
 import type { IdGenerator } from '../application/id-generator';
 import { TenantNotResolvedError, type TenantContext } from '../application/tenant-context';
+import type { UnitOfWork } from '../application/unit-of-work';
 import type { DomainEvent } from '../domain/domain-event';
 
 /**
@@ -24,6 +25,20 @@ export class RecordingEventBus implements EventBus {
   publish(events: DomainEvent[]): Promise<void> {
     this.published.push(...events);
     return Promise.resolve();
+  }
+}
+
+/**
+ * Executa o trabalho sem transação real e conta as execuções — o teste
+ * verifica que o use case usou a unidade de trabalho. (Rollback de verdade
+ * só existe contra o banco: é assunto de teste e2e.)
+ */
+export class ImmediateUnitOfWork implements UnitOfWork {
+  runs = 0;
+
+  run<T>(work: () => Promise<T>): Promise<T> {
+    this.runs++;
+    return work();
   }
 }
 

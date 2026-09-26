@@ -38,6 +38,8 @@ npm run prisma:generate
 
 O Prisma 7 não roda mais o `generate` após o `migrate dev` — use o script, não o comando direto.
 
+Em ambiente **não interativo** (agente, CI), `prisma migrate dev` pode travar esperando entrada e segurar o advisory lock do banco. Nesse caso: `npx prisma migrate dev --create-only --name <nome>`, revisar o SQL gerado, `npx prisma migrate deploy` e `npm run prisma:generate`.
+
 ## Estrutura
 
 ```
@@ -47,8 +49,8 @@ src/
 ├── config/                          # env.schema.ts (Zod) — o boot falha se a env for inválida
 ├── health/
 ├── shared/                          # shared kernel — SEM regra de negócio
-│   ├── domain/                      # Entity, AggregateRoot, DomainEvent, DomainError/NotFoundError/ConflictError
-│   ├── application/                 # ports genéricos: EventBus, IdGenerator, TenantContext; pagination
+│   ├── domain/                      # Entity, AggregateRoot, DomainEvent, DomainError/UnauthorizedError/NotFoundError/ConflictError
+│   ├── application/                 # ports genéricos: EventBus, IdGenerator, TenantContext, UnitOfWork; pagination
 │   ├── infra/                       # shared-infra.module.ts (liga ports → adapters), prisma, events, context (CLS), id
 │   ├── http/                        # shared-http.module.ts, DomainErrorFilter, ZodValidationPipe
 │   └── testing/                     # fakes dos ports do shared kernel (só para .spec.ts)
@@ -73,8 +75,8 @@ O módulo `contacts` é a **implementação de referência** da estrutura: na d�
 
 Módulos iniciais:
 
-- `identity` — users, credenciais, sessões (login, refresh, logout)
-- `accounts` — tenants, memberships, roles, teams, invitations
+- `identity` — users, credenciais, sessões e tokens (rotas `/v1/auth/refresh` e `/v1/auth/logout`). Não conhece tenants além dos ids gravados na sessão.
+- `accounts` — tenants, memberships, roles, catálogo de permissões e cargos padrão (rotas `/v1/auth/signup` e `/v1/auth/login`, porque envolvem tenants). Depende de `identity`, **nunca o contrário**.
 - `contacts`
 - `channels` — integração com provedores e webhooks
 - `conversations`
@@ -87,6 +89,7 @@ Módulos iniciais:
 - `infra/` e `http/` implementam ports e podem usar qualquer lib.
 - Dependências apontam **para dentro**: `http → application → domain` e `infra → application/domain`. Nunca o contrário.
 - Ports são interfaces + um `Symbol` como token; a ligação port → adapter acontece **somente** no `<modulo>.module.ts`.
+- **Nunca use alias de tipo (`type X = ...`) em parâmetro de construtor injetado**: o TypeScript grava `Object` nos metadados e o Nest não resolve a dependência. Escreva a classe (`TransactionHost<...>`) ou use `@Inject(TOKEN)`.
 - Controllers são finos: validam (DTO), chamam **um** use case e mapeiam a resposta. Sem regra de negócio.
 - Um use case = uma classe com um método público `execute(input)`.
 
@@ -95,6 +98,7 @@ Módulos iniciais:
 - Um módulo só importa de outro através do `index.ts` dele. Importar arquivos internos de outro módulo é proibido (o lint barra).
 - As fronteiras são verificadas pelo `npm run lint` (`eslint.config.mjs`): direção das camadas, acesso entre módulos só via `index.ts`, domínio sem pacotes externos, `testing/` só em `.spec.ts`. As regras são genéricas por padrão de pasta — módulos novos são cobertos sem alterar a config.
 - Comunicação entre módulos: **síncrona** via Facade exportada, ou **assíncrona** via eventos (preferível quando o chamador não precisa da resposta).
+- Quem consome a facade de outro módulo declara um **port gateway** em `application/ports/` (ex.: `IdentityGateway` em accounts) com o que precisa, nos seus termos, e um adapter em `infra/` sobre a facade. Use cases nunca recebem a facade de outro módulo direto.
 - Cada módulo é dono das suas tabelas. Repositórios de um módulo só acessam os models do próprio módulo.
 - **Sem relations do Prisma entre models de módulos diferentes** — guarde só o ID (`contactId: String`). Sem JOIN entre módulos.
 - `shared/` não pode depender de nenhum módulo.
@@ -107,8 +111,10 @@ Módulos iniciais:
 - Violação de `@@unique` (P2002) é traduzida no repositório para o `ConflictError` do domínio, identificando a constraint pelo nome gerado (`<tabela>_<colunas>_key`).
 - Tipos gerados pelo Prisma **nunca saem de `infra/`**. O repositório converte com um mapper (`toDomain` / `toPersistence`).
 - IDs são UUIDv7 gerados pela aplicação (via port `IdGenerator`), não pelo banco.
-- Toda tabela de negócio tem `tenantId` e toda query filtra por ele.
-- Repositórios acessam o banco **sempre** por `TransactionHost.tx` (nunca pelo `PrismaService` direto), para participar da transação em andamento. Use cases com mais de uma escrita usam `@Transactional()`.
+- Toda tabela de negócio tem `tenantId` e toda query filtra por ele. Exceções conscientes, documentadas no port: tabelas globais do `identity` (users, sessions) e as consultas de login do `accounts` (tenants/memberships são a origem do tenant).
+- Relations (FKs) só entre models do mesmo módulo.
+- Repositórios acessam o banco **sempre** por `TransactionHost.tx` (nunca pelo `PrismaService` direto), para participar da transação em andamento.
+- Use cases com mais de uma escrita envolvem o trabalho em `unitOfWork.run(...)` (port `UnitOfWork`, token `UNIT_OF_WORK`) — **não** usar o decorator `@Transactional()`, que acopla a application ao nestjs-cls e quebra os testes com `new`. A transação vale entre módulos (ex.: cadastro grava em identity e accounts).
 - Migrations sempre pelo Prisma; nunca alterar o banco manualmente.
 
 ## Eventos, filas e webhooks
@@ -125,7 +131,8 @@ Módulos iniciais:
 - DTOs validam só o **formato**; regras de negócio (telefone válido, duplicidade) ficam no domínio.
 - Respostas passam por um presenter (`<entidade>.presenter.ts`) — a entidade nunca é serializada direto.
 - Erros de domínio estendem `DomainError` (com `code` estável, ex.: `CONTACT_INVALID_PHONE`); o `DomainErrorFilter` mapeia para HTTP. Nunca lançar `HttpException` fora de `http/`.
-- Corpo de erro sempre `{ code, message }` (+ `issues` em validação). Status: `VALIDATION_ERROR` 400 · tenant ausente 401 · `NotFoundError` 404 · `ConflictError` 409 · demais `DomainError` 422.
+- Corpo de erro sempre `{ code, message }` (+ `issues` em validação). Status: `VALIDATION_ERROR` 400 · tenant ausente e `UnauthorizedError` 401 · `NotFoundError` 404 · `ConflictError` 409 · demais `DomainError` 422.
+- Erros de autenticação nunca revelam o que existe: mesma resposta para e-mail inexistente e senha errada; mesma para conta inexistente e sem acesso; logout com token inválido é no-op silencioso.
 - Recurso de outro tenant responde **404** (não 403), para não revelar que existe.
 - Listagens usam paginação por cursor (`limit` + `cursor`, resposta `{ items, nextCursor }`), ordenadas por id (UUIDv7) decrescente.
 
@@ -138,8 +145,10 @@ Módulos iniciais:
 - Jobs de fila carregam `tenantId`; o processor preenche o `TenantContext` antes de executar.
 - WebSocket: token validado na conexão; eventos emitidos só para a sala do tenant.
 - Índices de tabelas de negócio começam pelo `tenantId`.
-- Access token contém só `sub`, `tid`, `mid`; permissões são resolvidas por requisição (cache Redis).
-- **TEMPORÁRIO:** enquanto o módulo `identity` não existe, o tenant vem do header `x-dev-tenant-id` (UUID), aceito **só fora de produção** (`shared/infra/context/dev-tenant-header.ts`). Remover junto com a criação do AuthGuard; os controllers afetados têm `TODO(auth)`.
+- Access token (JWT HS256, `JWT_SECRET`, 15 min) contém só `sub` (user), `tid` (tenant), `mid` (membership) e `sid` (sessão); permissões são resolvidas por requisição (cache Redis).
+- Refresh token = `<sessionId>.<segredo>`; no banco fica só o SHA-256 do segredo. Rotação a cada uso; reuso de um segredo antigo revoga a sessão inteira.
+- Senhas: Argon2id (`@node-rs/argon2`), atrás do port `PasswordHasher`. A senha em texto puro só existe no value object `Password` (que não se serializa).
+- **TEMPORÁRIO:** enquanto o AuthGuard não existe, o tenant vem do header `x-dev-tenant-id` (UUID), aceito **só fora de produção** (`shared/infra/context/dev-tenant-header.ts`), e as rotas de auth ainda não são `@Public()`. Remover junto com a criação do AuthGuard; os pontos afetados têm `TODO(auth)`.
 
 ## Convenções de nomes
 

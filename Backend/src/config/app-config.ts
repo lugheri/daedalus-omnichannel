@@ -22,4 +22,16 @@ export class AppConfig {
   get databaseUrl() {
     return this.env.DATABASE_URL;
   }
+
+  get jwtSecret() {
+    return this.env.JWT_SECRET;
+  }
+
+  get accessTokenTtlSeconds() {
+    return this.env.ACCESS_TOKEN_TTL_SECONDS;
+  }
+
+  get refreshTokenTtlDays() {
+    return this.env.REFRESH_TOKEN_TTL_DAYS;
+  }
 }

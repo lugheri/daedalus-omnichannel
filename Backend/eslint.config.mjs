@@ -135,6 +135,8 @@ export default defineConfig(
                   own('application'),
                   own('domain'),
                   ...shared('shared-infra', 'shared-application', 'shared-domain'),
+                  // adapters de gateway sobre a facade de outro módulo
+                  anyModulePublicApi,
                 ],
               },
             },
@@ -146,6 +148,8 @@ export default defineConfig(
                   own('application'),
                   own('domain'),
                   ...shared('shared-http', 'shared-application'),
+                  // presenters públicos de outro módulo (ex.: AuthTokensPresenter)
+                  anyModulePublicApi,
                 ],
               },
             },
@@ -159,6 +163,8 @@ export default defineConfig(
                   own('infra'),
                   own('http'),
                   anyModulePublicApi,
+                  // a montagem do módulo lê a configuração (ex.: segredo do JWT)
+                  ...shared('config'),
                 ],
               },
             },

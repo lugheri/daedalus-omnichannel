@@ -1,0 +1,53 @@
+// Módulo accounts. Relations só entre models DESTE módulo; o usuário
+// (módulo identity) é referenciado apenas pelo id.
+
+model Tenant {
+  id        String   @id @db.Uuid
+  name      String
+  slug      String   @unique
+  status    String
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  roles       Role[]
+  memberships Membership[]
+
+  @@map("tenants")
+  @@schema("accounts")
+}
+
+model Role {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  key         String?
+  name        String
+  permissions String[]
+  isSystem    Boolean  @map("is_system")
+  createdAt   DateTime @map("created_at") @db.Timestamptz(3)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  memberships Membership[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, key])
+  @@map("roles")
+  @@schema("accounts")
+}
+
+model Membership {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  status    String
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  // Uma pessoa tem no máximo um vínculo por tenant.
+  @@unique([tenantId, userId])
+  // Login: "em quais tenants este usuário pode entrar?"
+  @@index([userId])
+  @@map("memberships")
+  @@schema("accounts")
+}

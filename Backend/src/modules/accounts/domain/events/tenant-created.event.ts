@@ -1,0 +1,13 @@
+import { DomainEvent } from '../../../../shared/domain/domain-event';
+
+export class TenantCreatedEvent extends DomainEvent {
+  static readonly eventName = 'tenant.created.v1';
+  readonly eventName = TenantCreatedEvent.eventName;
+
+  constructor(
+    aggregateId: string,
+    readonly name: string,
+  ) {
+    super(aggregateId);
+  }
+}

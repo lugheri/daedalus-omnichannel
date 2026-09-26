@@ -8,12 +8,14 @@ import { AppConfig } from '../../config/app-config';
 import { EVENT_BUS } from '../application/event-bus';
 import { ID_GENERATOR } from '../application/id-generator';
 import { TENANT_CONTEXT } from '../application/tenant-context';
+import { UNIT_OF_WORK } from '../application/unit-of-work';
 import { ClsTenantContext } from './context/cls-tenant-context';
 import { applyDevTenantHeader } from './context/dev-tenant-header';
 import { InMemoryEventBus } from './events/in-memory-event-bus';
 import { UuidV7IdGenerator } from './id/uuid-v7.id-generator';
 import { PrismaModule } from './prisma/prisma.module';
 import { PrismaService } from './prisma/prisma.service';
+import { PrismaUnitOfWork } from './prisma/prisma-unit-of-work';
 
 /**
  * Infraestrutura transversal, disponível para todos os módulos:
@@ -46,7 +48,8 @@ import { PrismaService } from './prisma/prisma.service';
     { provide: ID_GENERATOR, useClass: UuidV7IdGenerator },
     { provide: EVENT_BUS, useClass: InMemoryEventBus },
     { provide: TENANT_CONTEXT, useClass: ClsTenantContext },
+    { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
   ],
-  exports: [ID_GENERATOR, EVENT_BUS, TENANT_CONTEXT],
+  exports: [ID_GENERATOR, EVENT_BUS, TENANT_CONTEXT, UNIT_OF_WORK],
 })
 export class SharedInfraModule {}
