@@ -1,0 +1,12 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../../src/shared/infra/prisma/generated"
+  moduleFormat = "cjs"
+}
+
+// Cada módulo tem seu próprio schema Postgres. Ao criar um módulo com
+// tabelas, adicione o schema dele nesta lista.
+datasource db {
+  provider = "postgresql"
+  schemas  = ["public", "contacts"]
+}

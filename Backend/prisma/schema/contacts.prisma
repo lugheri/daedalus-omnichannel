@@ -1,0 +1,19 @@
+// Módulo contacts. Sem relations com models de outros módulos (só ids).
+
+model Contact {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String?
+  phone     String?
+  email     String?
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  // Unicidade por tenant. No Postgres, NULLs não colidem entre si:
+  // vários contatos sem e-mail são permitidos.
+  @@unique([tenantId, phone])
+  @@unique([tenantId, email])
+  // Listagem por tenant, mais recentes primeiro (UUIDv7 ordena por criação).
+  @@index([tenantId, id(sort: Desc)])
+  @@map("contacts")
+  @@schema("contacts")
+}

@@ -18,4 +18,8 @@ export class AppConfig {
   get port() {
     return this.env.PORT;
   }
+
+  get databaseUrl() {
+    return this.env.DATABASE_URL;
+  }
 }
