@@ -50,9 +50,9 @@ src/
 ├── health/
 ├── shared/                          # shared kernel — SEM regra de negócio
 │   ├── domain/                      # Entity, AggregateRoot, DomainEvent, DomainError/UnauthorizedError/NotFoundError/ConflictError
-│   ├── application/                 # ports genéricos: EventBus, IdGenerator, TenantContext, UnitOfWork; pagination
-│   ├── infra/                       # shared-infra.module.ts (liga ports → adapters), prisma, events, context (CLS), id
-│   ├── http/                        # shared-http.module.ts, DomainErrorFilter, ZodValidationPipe
+│   ├── application/                 # ports genéricos: ActorContext, TenantContext, EventBus, IdGenerator, UnitOfWork; pagination
+│   ├── infra/                       # shared-infra.module.ts (liga ports → adapters), prisma, redis, rate-limit, events, context (CLS), id
+│   ├── http/                        # shared-http.module.ts, DomainErrorFilter, ZodValidationPipe, @Public, TrustedOriginGuard
 │   └── testing/                     # fakes dos ports do shared kernel (só para .spec.ts)
 └── modules/
     └── <modulo>/
@@ -148,7 +148,11 @@ Módulos iniciais:
 - Access token (JWT HS256, `JWT_SECRET`, 15 min) contém só `sub` (user), `tid` (tenant), `mid` (membership) e `sid` (sessão); permissões são resolvidas por requisição (cache Redis).
 - Refresh token = `<sessionId>.<segredo>`; no banco fica só o SHA-256 do segredo. Rotação a cada uso; reuso de um segredo antigo revoga a sessão inteira.
 - Senhas: Argon2id (`@node-rs/argon2`), atrás do port `PasswordHasher`. A senha em texto puro só existe no value object `Password` (que não se serializa).
-- **TEMPORÁRIO:** enquanto o AuthGuard não existe, o tenant vem do header `x-dev-tenant-id` (UUID), aceito **só fora de produção** (`shared/infra/context/dev-tenant-header.ts`), e as rotas de auth ainda não são `@Public()`. Remover junto com a criação do AuthGuard; os pontos afetados têm `TODO(auth)`.
+- `JwtAuthGuard` (identity, `APP_GUARD`) valida o `Authorization: Bearer` e grava o ator no `ActorContext` (CLS); `TenantContext` lê o tenant dele. Rotas abertas usam `@Public()` (`shared/http`): hoje só `/health/*` e `/v1/auth/*`.
+- Refresh token em cookie (ADR 0005), via `RefreshTokenCookie` (exportado pelo identity): `HttpOnly`, `SameSite=Strict`, `Path=/v1/auth`, `Secure` fora de dev. Rotas autenticadas por cookie usam `@UseGuards(TrustedOriginGuard)` (CSRF: `Origin` precisa estar em `CORS_ORIGINS`).
+- Rate limit (`@nestjs/throttler`, storage próprio no Redis): padrão 300 req/min por IP em toda a API; rotas sensíveis apertam com `@Throttle` (login 10/min com bloqueio de 15 min; cadastro 5/h; refresh 30/min). Sondas de health usam `@SkipThrottle()`. Se o Redis cair, o limite **falha aberto** (log de aviso) em vez de derrubar a API.
+- `TRUST_PROXY=true` só atrás do Traefik — senão o cliente forja o IP usado no rate limit.
+- Pendente (entrega 3): `@RequirePermissions` e checagem por requisição de que o vínculo segue ativo (hoje um access token vale até expirar, mesmo após logout).
 
 ## Convenções de nomes
 

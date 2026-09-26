@@ -5,7 +5,7 @@ Plataforma de atendimento omnichannel (WhatsApp, Instagram, e-mail etc.). Fase a
 ## Repositório
 
 - `Backend/` — API + Worker em NestJS. Regras específicas em [Backend/CLAUDE.md](Backend/CLAUDE.md).
-- `Frontend/` — stack a definir. Regras próprias irão em `Frontend/CLAUDE.md`.
+- `Frontend/` — SPA em **React + Vite** (ainda não iniciada). Regras próprias irão em `Frontend/CLAUDE.md`.
 - `Docker/` — compose de desenvolvimento e stack de produção (Docker Swarm).
 
 ## Princípios de arquitetura
@@ -18,7 +18,7 @@ Plataforma de atendimento omnichannel (WhatsApp, Instagram, e-mail etc.). Fase a
 
 ## Multitenancy e acesso
 
-Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003](docs/adr/0003-controle-de-acesso.md) e [0004](docs/adr/0004-autenticacao.md).
+Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003](docs/adr/0003-controle-de-acesso.md), [0004](docs/adr/0004-autenticacao.md) e [0005](docs/adr/0005-refresh-token-em-cookie.md).
 
 - **Tenant = conta/empresa cliente.** Banco compartilhado com `tenantId` em toda tabela de negócio.
 - **O `tenantId` vem só do token autenticado** — nunca de body, URL, query ou header.
@@ -26,7 +26,8 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 - **Cargo (Role) define o que se pode fazer; Equipe (Team) define sobre quais dados.** Cargos são por tenant; permissões são um catálogo fixo no código (`recurso:ação`).
 - Cargos padrão: Owner (de sistema, intocável), Admin, Supervisor, Agent.
 - Administração da plataforma (`platformRole` no User) é separada dos cargos de tenant.
-- Limites de plano são *entitlements* do tenant, não permissões.
+- Limites de plano são _entitlements_ do tenant, não permissões.
+- **Sessão no navegador:** access token no corpo (o front guarda só em memória); refresh token em cookie `HttpOnly` + `SameSite=Strict` restrito a `/v1/auth`. Por isso **front e API precisam estar no mesmo site** (ex.: `app.dominio.com` e `api.dominio.com`) e o front usa `credentials: 'include'` nas rotas de auth.
 
 ## Infraestrutura
 
@@ -42,7 +43,8 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 - Windows + Docker Engine **dentro do WSL** (Ubuntu 22.04), sem Docker Desktop. Comandos `docker` rodam num terminal WSL.
 - O WSL desliga quando não há sessão aberta, derrubando os containers: manter um terminal WSL aberto enquanto desenvolve.
 - A API roda no Windows (`npm run start:dev`) e acessa os containers via `localhost`.
-- Infra local em `Docker/compose.dev.yaml`.
+- Infra local em `Docker/compose.dev.yaml`: Postgres (5432) e Redis (6379).
+- Se o Docker não conseguir baixar imagens ("i/o timeout" no Docker Hub) mas o Windows tiver internet, a rede do WSL travou: rodar `wsl --shutdown` no PowerShell (derruba os containers) e abrir o terminal WSL de novo.
 
 ## Convenções gerais
 

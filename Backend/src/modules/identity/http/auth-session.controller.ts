@@ -1,30 +1,46 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe';
+import { Controller, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { Public } from '../../../shared/http/public.decorator';
+import { TrustedOriginGuard } from '../../../shared/http/trusted-origin.guard';
 import { EndSessionUseCase } from '../application/use-cases/end-session/end-session.use-case';
 import { RefreshSessionUseCase } from '../application/use-cases/refresh-session/refresh-session.use-case';
 import { AuthTokensPresenter } from './auth-tokens.presenter';
-import { refreshTokenSchema, type RefreshTokenDto } from './dto/refresh-token.dto';
+import { RefreshTokenCookie } from './refresh-token-cookie';
 
 /**
- * Rotas de sessão que só dependem do refresh token. Cadastro e login ficam
- * no módulo accounts, porque envolvem tenants e vínculos.
+ * Rotas de sessão que só dependem do refresh token (lido do cookie).
+ * Cadastro e login ficam no módulo accounts, porque envolvem tenants.
  */
+@Public()
+@UseGuards(TrustedOriginGuard)
 @Controller('v1/auth')
 export class AuthSessionController {
   constructor(
     private readonly refreshSession: RefreshSessionUseCase,
     private readonly endSession: EndSessionUseCase,
+    private readonly cookie: RefreshTokenCookie,
   ) {}
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body(new ZodValidationPipe(refreshTokenSchema)) body: RefreshTokenDto) {
-    return AuthTokensPresenter.toHttp(await this.refreshSession.execute(body.refreshToken));
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async refresh(@Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+    try {
+      const tokens = await this.refreshSession.execute(this.cookie.read(request) ?? '');
+      this.cookie.write(reply, tokens);
+      return AuthTokensPresenter.toHttp(tokens);
+    } catch (error) {
+      // Cookie inválido/revogado não serve para nada: remove do navegador.
+      this.cookie.clear(reply);
+      throw error;
+    }
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Body(new ZodValidationPipe(refreshTokenSchema)) body: RefreshTokenDto) {
-    await this.endSession.execute(body.refreshToken);
+  async logout(@Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+    await this.endSession.execute(this.cookie.read(request) ?? '');
+    this.cookie.clear(reply);
   }
 }

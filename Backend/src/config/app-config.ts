@@ -23,6 +23,18 @@ export class AppConfig {
     return this.env.DATABASE_URL;
   }
 
+  get redisUrl() {
+    return this.env.REDIS_URL;
+  }
+
+  get corsOrigins(): readonly string[] {
+    return this.env.CORS_ORIGINS;
+  }
+
+  get trustProxy() {
+    return this.env.TRUST_PROXY;
+  }
+
   get jwtSecret() {
     return this.env.JWT_SECRET;
   }

@@ -18,5 +18,19 @@ services:
       timeout: 3s
       retries: 10
 
+  # Rate limit, cache de permissões, filas (BullMQ) e tempo real (Socket.IO).
+  # Em dev sem persistência: os dados do Redis são descartáveis.
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   pgdata:

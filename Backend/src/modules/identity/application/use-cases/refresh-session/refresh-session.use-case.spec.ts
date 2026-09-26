@@ -19,7 +19,7 @@ describe('Session lifecycle (start → refresh → logout)', () => {
   beforeEach(() => {
     sessions = new InMemorySessionRepository();
     const secrets = new SequentialRefreshSecretGenerator();
-    const settings = { accessTokenTtlSeconds: 900, refreshTokenTtlDays: 30 };
+    const settings = { accessTokenTtlSeconds: 900, refreshTokenTtlDays: 30, secureCookies: true };
     const tokens = new AuthTokensFactory(new FakeAccessTokenIssuer());
 
     start = new StartSessionUseCase(

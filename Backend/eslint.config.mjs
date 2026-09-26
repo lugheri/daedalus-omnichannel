@@ -87,7 +87,7 @@ export default defineConfig(
             },
             {
               from: { element: { type: 'shared-http' } },
-              allow: { to: shared('shared-http', 'shared-application', 'shared-domain') },
+              allow: { to: shared('shared-http', 'shared-application', 'shared-domain', 'config') },
             },
             {
               from: { element: { type: 'shared-testing' } },
@@ -98,7 +98,7 @@ export default defineConfig(
             { from: { element: { type: 'config' } }, allow: { to: shared('config') } },
             {
               from: { element: { type: 'health' } },
-              allow: { to: shared('health', 'shared-infra') },
+              allow: { to: shared('health', 'shared-infra', 'shared-http') },
             },
             {
               from: { file: { categories: 'app-root' } },

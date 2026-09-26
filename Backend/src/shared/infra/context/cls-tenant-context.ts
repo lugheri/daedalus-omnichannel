@@ -1,19 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { ClsService } from 'nestjs-cls';
-import { TenantNotResolvedError, type TenantContext } from '../../application/tenant-context';
-import type { AppClsStore } from './app-cls-store';
+import { Inject, Injectable } from '@nestjs/common';
+import { ACTOR_CONTEXT, type ActorContext } from '../../application/actor-context';
+import type { TenantContext } from '../../application/tenant-context';
 
-/**
- * Lê o tenant do contexto da operação (CLS = continuation-local storage:
- * um "armazenamento por requisição" que acompanha todo o fluxo assíncrono).
- */
+/** O tenant da operação é o do ator autenticado (vem do token, ADR 0002). */
 @Injectable()
 export class ClsTenantContext implements TenantContext {
-  constructor(private readonly cls: ClsService<AppClsStore>) {}
+  constructor(@Inject(ACTOR_CONTEXT) private readonly actors: ActorContext) {}
 
   get tenantId(): string {
-    const tenantId = this.cls.get('tenantId');
-    if (!tenantId) throw new TenantNotResolvedError();
-    return tenantId;
+    return this.actors.actor.tenantId;
   }
 }

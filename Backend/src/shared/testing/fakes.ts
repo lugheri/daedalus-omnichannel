@@ -1,3 +1,4 @@
+import type { Actor, ActorContext } from '../application/actor-context';
 import type { EventBus } from '../application/event-bus';
 import type { IdGenerator } from '../application/id-generator';
 import { TenantNotResolvedError, type TenantContext } from '../application/tenant-context';
@@ -39,6 +40,20 @@ export class ImmediateUnitOfWork implements UnitOfWork {
   run<T>(work: () => Promise<T>): Promise<T> {
     this.runs++;
     return work();
+  }
+}
+
+/** Guarda o ator autenticado em memória, como o contexto da requisição faria. */
+export class InMemoryActorContext implements ActorContext {
+  private current: Actor | null = null;
+
+  get actor(): Actor {
+    if (!this.current) throw new TenantNotResolvedError();
+    return this.current;
+  }
+
+  authenticate(actor: Actor): void {
+    this.current = actor;
   }
 }
 

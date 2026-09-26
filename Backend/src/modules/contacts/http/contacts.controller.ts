@@ -8,8 +8,8 @@ import { ContactPresenter } from './contact.presenter';
 import { createContactSchema, type CreateContactDto } from './dto/create-contact.dto';
 import { listContactsQuerySchema, type ListContactsQuery } from './dto/list-contacts.query';
 
-// TODO(auth): proteger com @RequirePermissions('contacts:*') quando o
-// módulo accounts existir. Hoje o tenant vem do header de desenvolvimento.
+// Autenticação: guard global (o tenant vem do token).
+// TODO(permissions): @RequirePermissions('contacts:view' / 'contacts:edit').
 @Controller('v1/contacts')
 export class ContactsController {
   constructor(
