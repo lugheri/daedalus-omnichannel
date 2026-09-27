@@ -1,23 +1,44 @@
 import fastifyCookie from '@fastify/cookie';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/app-config';
 import { validateEnv } from './config/env.schema';
+import { requestIdFor, type WithHeaders } from './shared/infra/context/request-id';
 
+/** Ponto de entrada do processo `api` (`node dist/main.js`). */
 async function bootstrap() {
   // O adapter HTTP é criado antes do container de DI; por isso lê o env direto.
   const { TRUST_PROXY } = validateEnv(process.env);
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ trustProxy: TRUST_PROXY }),
+    // O id da requisição do Fastify é o correlation id (X-Request-Id recebido
+    // ou um novo): o mesmo usado pelo contexto (CLS), pelos logs e pelos jobs.
+    new FastifyAdapter({
+      trustProxy: TRUST_PROXY,
+      genReqId: (req: WithHeaders) => requestIdFor(req),
+    }),
+    { bufferLogs: true },
   );
+  app.useLogger(app.get(Logger));
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addHook('onRequest', (request, reply, done) => {
+      void reply.header('x-request-id', request.id);
+      done();
+    });
   const config = app.get(AppConfig);
 
   await app.register(fastifyCookie);
   // Só o frontend conhecido pode chamar a API pelo navegador, com cookies.
-  app.enableCors({ origin: [...config.corsOrigins], credentials: true });
+  app.enableCors({
+    origin: [...config.corsOrigins],
+    credentials: true,
+    exposedHeaders: ['x-request-id'],
+  });
   app.enableShutdownHooks();
 
   await app.listen(config.port, config.host);

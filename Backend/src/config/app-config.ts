@@ -39,6 +39,18 @@ export class AppConfig {
     return this.env.TRUST_PROXY;
   }
 
+  get queuePrefix() {
+    return this.env.QUEUE_PREFIX;
+  }
+
+  get logLevel() {
+    return this.env.LOG_LEVEL;
+  }
+
+  get workerHealthPort() {
+    return this.env.WORKER_HEALTH_PORT;
+  }
+
   get jwtSecret() {
     return this.env.JWT_SECRET;
   }

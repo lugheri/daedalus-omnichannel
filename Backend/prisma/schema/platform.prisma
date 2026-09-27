@@ -1,0 +1,19 @@
+// Infraestrutura compartilhada (shared kernel) — não pertence a nenhum módulo.
+
+// Outbox: eventos de domínio gravados na mesma transação dos dados que os
+// geraram; o relay do worker os entrega aos consumidores.
+model OutboxEvent {
+  id            String    @id @db.Uuid
+  eventName     String    @map("event_name")
+  aggregateId   String    @map("aggregate_id")
+  tenantId      String?   @map("tenant_id") @db.Uuid
+  payload       Json
+  correlationId String?   @map("correlation_id")
+  occurredAt    DateTime  @map("occurred_at") @db.Timestamptz(3)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+
+  // O relay busca "ainda não publicados, mais antigos primeiro".
+  @@index([publishedAt, occurredAt])
+  @@map("outbox_events")
+  @@schema("platform")
+}

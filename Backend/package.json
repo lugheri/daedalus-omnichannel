@@ -6,10 +6,13 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "npm run start:dev",
+    "dev": "concurrently --names api,worker --prefix-colors cyan,magenta --kill-others-on-fail \"npm:start:dev\" \"npm:start:worker:dev\"",
+    "prebuild": "node -e \"for (const p of ['dist','tsconfig.build.tsbuildinfo']) require('fs').rmSync(p,{recursive:true,force:true})\"",
     "build": "nest build",
     "start:dev": "nest start --watch --env-file .env",
+    "start:worker:dev": "nest start --watch --entryFile worker --env-file .env",
     "start:prod": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -18,7 +21,8 @@
     "prisma:migrate": "prisma migrate dev && prisma generate",
     "test": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js",
     "test:watch": "npm test -- --watch",
-    "test:cov": "npm test -- --coverage"
+    "test:cov": "npm test -- --coverage",
+    "test:e2e": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e.json --runInBand"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -31,23 +35,30 @@
     "transform": {
       "^.+\\.ts$": "ts-jest"
     },
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    }
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
     "@nestjs-cls/transactional": "^4.0.1",
     "@nestjs-cls/transactional-adapter-prisma": "^2.0.1",
+    "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^12.1.0",
     "@nestjs/core": "^12.1.0",
-    "@nestjs/event-emitter": "^12.0.1",
     "@nestjs/jwt": "^12.0.2",
     "@nestjs/platform-fastify": "^12.1.0",
     "@nestjs/throttler": "^6.7.1",
     "@node-rs/argon2": "^2.2.1",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "bullmq": "^6.3.9",
     "ioredis": "^6.0.0",
     "nestjs-cls": "^7.0.1",
+    "nestjs-pino": "^5.2.1",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^4.6.5"
@@ -56,14 +67,17 @@
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^12.0.7",
     "@nestjs/schematics": "^12.0.5",
+    "@nestjs/testing": "^12.1.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.3",
+    "concurrently": "^10.0.5",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.2.0",
     "globals": "^17.12.0",
     "jest": "^30.5.2",
+    "pino-pretty": "^13.1.3",
     "prettier": "^3.9.9",
     "prisma": "7.10.0",
     "ts-jest": "^29.4.14",
@@ -74,6 +88,7 @@
     "prisma": false,
     "@prisma/engines": false,
     "@parcel/watcher": false,
-    "unrs-resolver": false
+    "unrs-resolver": false,
+    "msgpackr-extract": false
   }
 }

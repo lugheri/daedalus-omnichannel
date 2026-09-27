@@ -14,24 +14,24 @@ Monólito modular em NestJS (adapter **Fastify**) com Clean/Hexagonal Architectu
   - Client gerado em `src/shared/infra/prisma/generated/` (não versionado; gerado no `postinstall`)
   - Install scripts do `prisma`/`@prisma/engines` negados via `allowScripts` — não são necessários
 - Zod para validação de entrada (via `ZodValidationPipe` próprio, em `shared/http`) e das env vars
-- BullMQ (`@nestjs/bullmq`) + Redis para filas
+- BullMQ (`@nestjs/bullmq`) + Redis para filas; outbox próprio para eventos de domínio
 - Socket.IO com Redis adapter para tempo real
 - `nestjs-cls` + `@nestjs-cls/transactional` (adapter Prisma) para contexto por requisição (tenant), transações e correlation ID
-- `@nestjs/event-emitter` como base do event bus em memória
 - `eslint-plugin-boundaries` + `no-restricted-imports` para as fronteiras de arquitetura
-- Pino (`nestjs-pino`) para logs; `@nestjs/terminus` para health checks
+- Pino (`nestjs-pino`) para logs estruturados; health checks próprios (`HealthService`)
 - Jest para testes
 
 ## Comandos
 
 ```bash
-npm run start:dev          # API em watch mode
-npm run start:worker:dev   # Worker em watch mode
+npm run dev                # API + worker em watch mode (um terminal, saída prefixada)
+npm run start:dev          # só a API
+npm run start:worker:dev   # só o worker
 npm run build
 npm run lint               # inclui a checagem de fronteiras entre módulos
 npm run format             # Prettier (aspas simples, trailing comma, 100 colunas)
 npm test                   # unitários (test:watch, test:cov)
-npm run test:e2e
+npm run test:e2e           # integração contra Postgres/Redis do Docker (test/e2e)
 npm run prisma:migrate -- --name <nome>   # nova migration + regenera o client
 npm run prisma:generate
 ```
@@ -117,13 +117,23 @@ Módulos iniciais:
 - Use cases com mais de uma escrita envolvem o trabalho em `unitOfWork.run(...)` (port `UnitOfWork`, token `UNIT_OF_WORK`) — **não** usar o decorator `@Transactional()`, que acopla a application ao nestjs-cls e quebra os testes com `new`. A transação vale entre módulos (ex.: cadastro grava em identity e accounts).
 - Migrations sempre pelo Prisma; nunca alterar o banco manualmente.
 
-## Eventos, filas e webhooks
+## Eventos, filas e worker
 
-- Eventos de domínio são registrados no aggregate e publicados após o commit. Eventos que cruzam módulos passam pelo **outbox** (gravado na mesma transação).
-- O `EventBus` é um port: em memória no MVP, broker (RabbitMQ/NATS) quando um módulo for extraído. Handlers não sabem qual implementação está em uso.
-- Contrato de evento é público e versionado (`message.received.v1`); ficam em `domain/events/` e são exportados no `index.ts`.
-- Webhooks de canais: o controller valida a assinatura, enfileira o payload bruto e responde 200. O processamento acontece no Worker.
-- Todo processor de fila é **idempotente** (dedup pelo ID externo da mensagem) e usa retry com backoff.
+- **Três processos, a mesma imagem:** `api` (`main.ts`), `worker` (`worker.ts`, sem HTTP — só health check em `WORKER_HEALTH_PORT`) e, a partir do módulo channels, `whatsapp-connector` (ADR 0006).
+- **Eventos de domínio usam outbox:** `EventBus.publish` grava o evento em `platform.outbox_events` **na mesma transação** dos dados (o use case deve usar `UnitOfWork`). O `OutboxRelay` (worker) lê os pendentes a cada segundo e cria **um job por consumidor** na fila `domain-events` (id estável `<evento>:<consumidor>`), com retry exponencial.
+- **Consumir um evento:** método num provider do módulo (`application/event-handlers/`), marcado com `@HandlesDomainEvent(OutroModuloEvent)`, recebendo `DeliveredEvent<E>` (dados do evento + `eventId`). Roda no worker, no tenant do evento. Entrega é "ao menos uma vez": **todo consumidor é idempotente** (use o `eventId`).
+- Evento de módulo multi-tenant carrega `tenantId` (o do evento prevalece sobre o do contexto). Contrato público e versionado (`message.received.v1`), em `domain/events/`, exportado no `index.ts`.
+- **Jobs:** declare com `defineJob<Payload>('<fila>', '<nome>')` e enfileire pelo port `JobQueue` (`JOB_QUEUE`) — sem importar BullMQ na application. Tenant e correlation id seguem no envelope do job automaticamente. `jobId` estável = dedup (ex.: id externo da mensagem); `:` no id é trocado pelo adapter.
+- **Processar:** processor em `infra/` que estende `TenantAwareProcessor` (restaura tenant e correlation id), registrado num `<modulo>.worker.module.ts` importado **só** pelo `WorkerModule`; a fila é registrada no módulo com `BullModule.registerQueue`.
+- Todo processor é **idempotente** e usa retry com backoff (padrão: 5 tentativas).
+- Webhooks de canais: o controller valida a assinatura, enfileira o payload bruto e responde 200. O processamento acontece no worker.
+- `QUEUE_PREFIX` separa as filas por ambiente (os testes e2e usam `omni-e2e`).
+
+## Logs e correlation id
+
+- Pino (`nestjs-pino`): JSON em produção, legível em dev. Use o `Logger` do `@nestjs/common` (`new Logger(Classe.name)`); nunca `console.log`.
+- Toda linha leva `correlationId` e, quando houver, `tenantId`. O correlation id é o `X-Request-Id` recebido (se válido) ou um novo — definido pelo `genReqId` do Fastify —, devolvido no header da resposta e propagado aos jobs e eventos gerados: uma operação é rastreável da requisição até o worker.
+- Nunca logar senha, tokens, cookies ou payloads com dados pessoais (o `redact` do logger cobre headers e campos comuns — não confie só nele).
 
 ## HTTP
 
@@ -173,7 +183,8 @@ Módulos iniciais:
 - `domain/`: testes unitários puros, sem Nest.
 - Use cases: unitários com fakes dos ports, sem banco e sem Nest (instanciados com `new`). Fakes do shared kernel em `shared/testing/fakes.ts`; repositório em memória do módulo em `<modulo>/testing/`, reproduzindo o contrato do real (isolamento por tenant, unicidade, ordem).
 - Todo módulo tenant-aware tem teste provando que um tenant não enxerga dados de outro (`FakeTenantContext.switchTo`).
-- Repositórios e fluxos HTTP: e2e em `test/e2e/` contra Postgres real (container).
+- Integração em `test/e2e/*.e2e-spec.ts` (Postgres e Redis reais do Docker, filas em prefixo próprio): repositórios, outbox, filas. Dados de teste com ids/e-mails próprios (`@teste.dev`), limpos no `afterAll`.
+- O `dist` é compartilhado por API e worker no watch: por isso `deleteOutDir: false` no nest-cli e a limpeza fica no `prebuild` (dist + tsbuildinfo).
 - Todo use case novo vem com `.spec.ts`.
 
 ## Criando um módulo novo

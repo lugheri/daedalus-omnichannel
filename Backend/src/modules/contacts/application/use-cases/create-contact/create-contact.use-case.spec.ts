@@ -1,5 +1,6 @@
 import {
   FakeTenantContext,
+  ImmediateUnitOfWork,
   RecordingEventBus,
   SequentialIdGenerator,
 } from '../../../../../shared/testing/fakes';
@@ -18,7 +19,13 @@ describe('CreateContactUseCase', () => {
     tenant = new FakeTenantContext('tenant-a');
     contacts = new InMemoryContactRepository(tenant);
     events = new RecordingEventBus();
-    useCase = new CreateContactUseCase(contacts, new SequentialIdGenerator(), tenant, events);
+    useCase = new CreateContactUseCase(
+      contacts,
+      new SequentialIdGenerator(),
+      tenant,
+      events,
+      new ImmediateUnitOfWork(),
+    );
   });
 
   it('creates the contact in the current tenant', async () => {

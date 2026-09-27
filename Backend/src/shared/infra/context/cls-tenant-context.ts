@@ -1,13 +1,19 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { ACTOR_CONTEXT, type ActorContext } from '../../application/actor-context';
-import type { TenantContext } from '../../application/tenant-context';
+import { Injectable } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
+import { TenantNotResolvedError, type TenantContext } from '../../application/tenant-context';
+import type { AppClsStore } from './app-cls-store';
 
-/** O tenant da operação é o do ator autenticado (vem do token, ADR 0002). */
+/**
+ * O tenant da operação: o do ator autenticado (HTTP, vindo do token) ou,
+ * em jobs do worker, o que veio junto com o job (ver TenantAwareProcessor).
+ */
 @Injectable()
 export class ClsTenantContext implements TenantContext {
-  constructor(@Inject(ACTOR_CONTEXT) private readonly actors: ActorContext) {}
+  constructor(private readonly cls: ClsService<AppClsStore>) {}
 
   get tenantId(): string {
-    return this.actors.actor.tenantId;
+    const tenantId = this.cls.get('actor')?.tenantId ?? this.cls.get('tenantId');
+    if (!tenantId) throw new TenantNotResolvedError();
+    return tenantId;
   }
 }

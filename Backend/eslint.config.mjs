@@ -98,7 +98,7 @@ export default defineConfig(
             { from: { element: { type: 'config' } }, allow: { to: shared('config') } },
             {
               from: { element: { type: 'health' } },
-              allow: { to: shared('health', 'shared-infra', 'shared-http') },
+              allow: { to: shared('health', 'shared-infra', 'shared-http', 'config') },
             },
             {
               from: { file: { categories: 'app-root' } },

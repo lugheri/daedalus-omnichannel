@@ -25,6 +25,14 @@ export const envSchema = z.object({
   // true atrás de um reverse proxy (Traefik), para o IP real vir do X-Forwarded-For.
   // Nunca true com a API exposta direto: o cliente poderia forjar o próprio IP.
   TRUST_PROXY: z.stringbool().default(false),
+  // Prefixo das chaves das filas no Redis (testes usam outro, para não disputar jobs).
+  QUEUE_PREFIX: z
+    .string()
+    .regex(/^[\w-]+$/)
+    .default('omni'),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  // O worker não expõe a API; só um servidor mínimo de health check nesta porta.
+  WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   // Segredo de assinatura do access token. Gere com:
   // node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
   JWT_SECRET: z.string().min(32, 'JWT_SECRET precisa de pelo menos 32 caracteres'),
