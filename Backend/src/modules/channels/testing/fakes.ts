@@ -29,6 +29,15 @@ export class InMemoryChannelRepository implements ChannelRepository {
     return Promise.resolve(this.items.filter((c) => c.tenantId === tenantId));
   }
 
+  clearTeam(teamId: string): Promise<void> {
+    for (const channel of this.items) {
+      if (channel.teamId === teamId && channel.tenantId === this.tenant.tenantId) {
+        channel.setTeam(null);
+      }
+    }
+    return Promise.resolve();
+  }
+
   delete(channel: Channel): Promise<void> {
     const tenantId = this.tenant.tenantId;
     this.items = this.items.filter((c) => !(c.id === channel.id && c.tenantId === tenantId));

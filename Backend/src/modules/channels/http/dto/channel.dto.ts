@@ -10,3 +10,6 @@ export const testMessageSchema = z.object({
   text: z.string().trim().min(1).max(4096),
 });
 export type TestMessageDto = z.infer<typeof testMessageSchema>;
+
+export const channelTeamSchema = z.object({ teamId: z.uuid().nullable() });
+export type ChannelTeamDto = z.infer<typeof channelTeamSchema>;

@@ -4,7 +4,14 @@ import type { Message } from './api'
 import { kindLabel, messageTime, sendErrorLabel } from './format'
 
 /** Uma mensagem: do cliente à esquerda, nossa à direita (com o status do envio). */
-export function MessageBubble({ message }: { message: Message }) {
+export function MessageBubble({
+  message,
+  senderName,
+}: {
+  message: Message
+  /** Quem enviou pelo sistema ("Você" ou o nome do colega). */
+  senderName: string | null
+}) {
   const outbound = message.direction === 'outbound'
   const failed = message.status === 'failed'
   const label = kindLabel(message)
@@ -18,6 +25,9 @@ export function MessageBubble({ message }: { message: Message }) {
           failed && 'bg-destructive/10 text-foreground ring-destructive/40 ring-1',
         )}
       >
+        {outbound && senderName && (
+          <p className="mb-0.5 text-[11px] font-medium opacity-80">{senderName}</p>
+        )}
         {label && <p className="italic opacity-80">{label}</p>}
         {message.text && <p className="break-words whitespace-pre-wrap">{message.text}</p>}
 

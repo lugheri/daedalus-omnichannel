@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe';
 import { RequirePermissions } from '../../accounts';
@@ -10,19 +20,24 @@ import {
   ListChannelsUseCase,
   RemoveChannelUseCase,
   SendTestMessageUseCase,
+  SetChannelTeamUseCase,
 } from '../application/use-cases/manage-channels.use-case';
 import type { Channel } from '../domain/channel.entity';
 import {
+  channelTeamSchema,
   createChannelSchema,
   testMessageSchema,
+  type ChannelTeamDto,
   type CreateChannelDto,
   type TestMessageDto,
 } from './dto/channel.dto';
 
 const idParam = z.uuid();
 
-const present = (channel: Channel) => ({
+const present = (channel: Channel, teamName: string | null = null) => ({
   id: channel.id,
+  teamId: channel.teamId,
+  teamName,
   name: channel.name,
   provider: channel.provider,
   status: channel.status,
@@ -43,11 +58,14 @@ export class ChannelsController {
     private readonly getQrCode: GetChannelQrCodeUseCase,
     private readonly sendTestMessage: SendTestMessageUseCase,
     private readonly removeChannel: RemoveChannelUseCase,
+    private readonly setChannelTeam: SetChannelTeamUseCase,
   ) {}
 
   @Get()
   async list() {
-    return (await this.listChannels.execute()).map(present);
+    return (await this.listChannels.execute()).map(({ channel, teamName }) =>
+      present(channel, teamName),
+    );
   }
 
   @Post()
@@ -72,6 +90,16 @@ export class ChannelsController {
   @HttpCode(HttpStatus.ACCEPTED)
   async disconnect(@Param('id', new ZodValidationPipe(idParam)) id: string) {
     await this.disconnectChannel.execute(id);
+  }
+
+  /** Equipe que recebe as conversas novas do canal (`null` = fila geral). */
+  @Patch(':id/team')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async team(
+    @Param('id', new ZodValidationPipe(idParam)) channelId: string,
+    @Body(new ZodValidationPipe(channelTeamSchema)) body: ChannelTeamDto,
+  ) {
+    await this.setChannelTeam.execute({ channelId, teamId: body.teamId });
   }
 
   /** Só canais desconectados ou não pareados (senão 409 CHANNEL_STILL_ACTIVE). */

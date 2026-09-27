@@ -66,3 +66,18 @@ export class ConversationAssignedEvent extends DomainEvent {
     super(conversationId);
   }
 }
+
+/** Transferida para outra equipe (ou para a fila geral, com `teamId` null). */
+export class ConversationTeamChangedEvent extends DomainEvent {
+  static readonly eventName = 'conversation.team-changed.v1';
+  readonly eventName = ConversationTeamChangedEvent.eventName;
+
+  constructor(
+    conversationId: string,
+    readonly tenantId: string,
+    readonly teamId: string | null,
+    readonly previousTeamId: string | null,
+  ) {
+    super(conversationId);
+  }
+}

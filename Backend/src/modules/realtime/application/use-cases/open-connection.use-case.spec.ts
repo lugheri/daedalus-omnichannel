@@ -11,6 +11,7 @@ const authenticator: ConnectionAuthenticator = {
           tenantId: 'tenant-a',
           membershipId: 'agent-1',
           permissions: ['contacts:view', 'conversations:view:own'],
+          teamIds: ['sales'],
           expiresAt,
         })
       : Promise.reject(new Error('AUTH_INVALID_ACCESS_TOKEN')),
@@ -19,7 +20,7 @@ const authenticator: ConnectionAuthenticator = {
 describe('OpenConnectionUseCase', () => {
   const open = (token?: string) => new OpenConnectionUseCase(authenticator).execute(token);
 
-  it('joins the member room and one room per permission of the tenant', async () => {
+  it('joins the member room, one room per permission and one per (team, permission)', async () => {
     expect(await open('valid-token')).toEqual({
       tenantId: 'tenant-a',
       membershipId: 'agent-1',
@@ -27,6 +28,8 @@ describe('OpenConnectionUseCase', () => {
         'member:agent-1',
         'tenant:tenant-a:perm:contacts:view',
         'tenant:tenant-a:perm:conversations:view:own',
+        'team:sales:perm:contacts:view',
+        'team:sales:perm:conversations:view:own',
       ],
       expiresAt,
     });

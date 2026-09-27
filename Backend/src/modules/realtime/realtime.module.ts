@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AccountsModule } from '../accounts';
 import { IdentityModule } from '../identity';
+import { TeamsModule } from '../teams';
 import { CONNECTION_AUTHENTICATOR } from './application/ports/connection-authenticator';
 import { OpenConnectionUseCase } from './application/use-cases/open-connection.use-case';
 import { RealtimeGateway } from './http/realtime.gateway';
@@ -12,7 +13,7 @@ import { FacadesConnectionAuthenticator } from './infra/facades-connection-authe
  * qualquer processo.
  */
 @Module({
-  imports: [IdentityModule, AccountsModule],
+  imports: [IdentityModule, AccountsModule, TeamsModule],
   providers: [
     RealtimeGateway,
     OpenConnectionUseCase,

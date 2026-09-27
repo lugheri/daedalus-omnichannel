@@ -15,9 +15,12 @@ export const REALTIME_NOTIFIER = Symbol('RealtimeNotifier');
 
 /**
  * Salas de cada conexão (o gateway coloca a conexão nelas ao autenticar):
- * o membro, e uma sala por permissão que ele tem no tenant.
+ * o membro, uma sala por permissão que ele tem no tenant e, para cada equipe
+ * dele, uma sala por permissão ("supervisores da equipe X" = equipe X +
+ * conversations:view:team).
  */
 export const RealtimeRooms = {
   member: (membershipId: string) => `member:${membershipId}`,
   permission: (tenantId: string, permission: string) => `tenant:${tenantId}:perm:${permission}`,
+  teamPermission: (teamId: string, permission: string) => `team:${teamId}:perm:${permission}`,
 };

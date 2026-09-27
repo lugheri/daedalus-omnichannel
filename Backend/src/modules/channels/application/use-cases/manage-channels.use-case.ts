@@ -10,7 +10,9 @@ import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/applicati
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../shared/application/unit-of-work';
 import { Channel } from '../../domain/channel.entity';
 import { ChannelNotFoundError } from '../../domain/errors/channel-not-found.error';
+import { ChannelTeamNotFoundError } from '../../domain/errors/channel-team-not-found.error';
 import { ChannelTextSender } from '../channel-text-sender';
+import { TEAM_GATEWAY, type TeamGateway } from '../ports/team-gateway';
 import { CHANNEL_REPOSITORY, type ChannelRepository } from '../ports/channel.repository';
 import { QR_CODE_READER, type QrCodeReader } from '../ports/qr-code-reader';
 
@@ -23,10 +25,37 @@ async function load(channels: ChannelRepository, id: string): Promise<Channel> {
 
 @Injectable()
 export class ListChannelsUseCase {
-  constructor(@Inject(CHANNEL_REPOSITORY) private readonly channels: ChannelRepository) {}
+  constructor(
+    @Inject(CHANNEL_REPOSITORY) private readonly channels: ChannelRepository,
+    @Inject(TEAM_GATEWAY) private readonly teams: TeamGateway,
+  ) {}
 
-  execute(): Promise<Channel[]> {
-    return this.channels.list();
+  /** Canais com o nome da equipe (quem configura canais nem sempre gerencia equipes). */
+  async execute(): Promise<{ channel: Channel; teamName: string | null }[]> {
+    const channels = await this.channels.list();
+    const teamIds = channels.flatMap((c) => (c.teamId ? [c.teamId] : []));
+    const teams = new Map((await this.teams.findByIds(teamIds)).map((t) => [t.id, t.name]));
+    return channels.map((channel) => ({
+      channel,
+      teamName: channel.teamId ? (teams.get(channel.teamId) ?? null) : null,
+    }));
+  }
+}
+
+/** Equipe que recebe as conversas NOVAS do canal (as existentes ficam onde estão). */
+@Injectable()
+export class SetChannelTeamUseCase {
+  constructor(
+    @Inject(CHANNEL_REPOSITORY) private readonly channels: ChannelRepository,
+    @Inject(TEAM_GATEWAY) private readonly teams: TeamGateway,
+  ) {}
+
+  async execute(input: { channelId: string; teamId: string | null }): Promise<void> {
+    const channel = await load(this.channels, input.channelId);
+    if (input.teamId && !(await this.teams.exists(input.teamId)))
+      throw new ChannelTeamNotFoundError();
+    channel.setTeam(input.teamId);
+    await this.channels.save(channel);
   }
 }
 

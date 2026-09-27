@@ -3,7 +3,9 @@ import {
   ConversationAssignedEvent,
   ConversationMessageAddedEvent,
   ConversationStatusChangedEvent,
+  ConversationTeamChangedEvent,
 } from './events/conversation-events';
+import { ConversationAlreadyAssignedError } from './errors/conversation-already-assigned.error';
 import { InvalidMessageTextError } from './errors/invalid-message-text.error';
 import { Message } from './message.entity';
 import { isVisible, scopeFor } from './visibility';
@@ -14,7 +16,12 @@ const inbound = (text: string, sentAt = new Date('2030-01-01T10:00:00Z'), id = '
 
 describe('Conversation', () => {
   const start = () =>
-    Conversation.start('conv-1', { tenantId: 't-1', channelId: 'ch-1', contactId: 'c-1' });
+    Conversation.start('conv-1', {
+      tenantId: 't-1',
+      channelId: 'ch-1',
+      contactId: 'c-1',
+      teamId: 'team-sales',
+    });
 
   it('counts customer messages as unread and shows the last one in the inbox', () => {
     const conversation = start();
@@ -124,21 +131,64 @@ describe('Message', () => {
   });
 });
 
-describe('visibility', () => {
-  it('view:all sees everything; own/team see their own and the unassigned', () => {
-    const all = scopeFor({ membershipId: 'a', permissions: ['conversations:view:all'] })!;
-    const own = scopeFor({ membershipId: 'a', permissions: ['conversations:view:own'] })!;
-    const team = scopeFor({ membershipId: 'a', permissions: ['conversations:view:team'] })!;
+describe('assigning', () => {
+  const start = () =>
+    Conversation.start('conv-1', {
+      tenantId: 't-1',
+      channelId: 'ch-1',
+      contactId: 'c-1',
+      teamId: null,
+    });
 
-    expect(isVisible({ assigneeId: 'b' }, all)).toBe(true);
-    for (const scope of [own, team]) {
-      expect(isVisible({ assigneeId: 'a' }, scope)).toBe(true);
-      expect(isVisible({ assigneeId: null }, scope)).toBe(true);
-      expect(isVisible({ assigneeId: 'b' }, scope)).toBe(false);
-    }
+  it('a member claims an unassigned conversation', () => {
+    const conversation = start();
+    conversation.claim('agent-1');
+    conversation.claim('agent-1'); // de novo: nada muda
+
+    expect(conversation.assigneeId).toBe('agent-1');
+    expect(conversation.pullEvents()).toEqual([expect.any(ConversationAssignedEvent)]);
+  });
+
+  it('cannot claim a conversation someone else already has', () => {
+    const conversation = start();
+    conversation.claim('agent-1');
+
+    expect(() => conversation.claim('agent-2')).toThrow(ConversationAlreadyAssignedError);
+  });
+
+  it('moving to another team announces the change', () => {
+    const conversation = start();
+    conversation.moveToTeam('team-support');
+
+    expect(conversation.teamId).toBe('team-support');
+    expect(conversation.pullEvents()).toEqual([expect.any(ConversationTeamChangedEvent)]);
+  });
+});
+
+describe('visibility', () => {
+  const member = (permission: string) =>
+    scopeFor({ membershipId: 'me', permissions: [permission], teamIds: ['sales'] })!;
+  const all = member('conversations:view:all');
+  const team = member('conversations:view:team');
+  const own = member('conversations:view:own');
+
+  // [situação, all, team (supervisor), own (atendente)]
+  it.each([
+    ['mine, in my team', { assigneeId: 'me', teamId: 'sales' }, true, true, true],
+    ['mine, in another team', { assigneeId: 'me', teamId: 'support' }, true, true, true],
+    ['queue of my team', { assigneeId: null, teamId: 'sales' }, true, true, true],
+    ["a colleague's, in my team", { assigneeId: 'x', teamId: 'sales' }, true, true, false],
+    ['queue of another team', { assigneeId: null, teamId: 'support' }, true, false, false],
+    ["a colleague's, in another team", { assigneeId: 'x', teamId: 'support' }, true, false, false],
+    ['general queue (no team)', { assigneeId: null, teamId: null }, true, true, true],
+    ["a colleague's, no team", { assigneeId: 'x', teamId: null }, true, false, false],
+  ])('%s', (_, conversation, seenByAll, seenByTeam, seenByOwn) => {
+    expect(isVisible(conversation, all)).toBe(seenByAll);
+    expect(isVisible(conversation, team)).toBe(seenByTeam);
+    expect(isVisible(conversation, own)).toBe(seenByOwn);
   });
 
   it('no scope permission, no conversations', () => {
-    expect(scopeFor({ membershipId: 'a', permissions: ['contacts:view'] })).toBeNull();
+    expect(scopeFor({ membershipId: 'a', permissions: ['contacts:view'], teamIds: [] })).toBeNull();
   });
 });

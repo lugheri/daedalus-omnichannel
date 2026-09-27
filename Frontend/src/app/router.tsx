@@ -72,6 +72,15 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['teams:manage']} />,
+            children: [
+              {
+                path: '/settings/teams',
+                ...page(() => import('@/features/teams/teams-page'), 'TeamsPage'),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['members:manage']} />,
             children: [
               {

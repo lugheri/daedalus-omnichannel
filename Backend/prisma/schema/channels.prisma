@@ -9,6 +9,8 @@ model Channel {
   status       String
   phoneNumber  String?  @map("phone_number")
   statusReason String?  @map("status_reason")
+  // Equipe que recebe as conversas novas do canal (módulo teams; só o id).
+  teamId       String?  @map("team_id") @db.Uuid
   createdAt    DateTime @map("created_at") @db.Timestamptz(3)
   statusAt     DateTime @map("status_at") @db.Timestamptz(3)
 

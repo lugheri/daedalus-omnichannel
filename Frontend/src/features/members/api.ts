@@ -44,3 +44,26 @@ export function useMembers() {
 export function useInvitations() {
   return useQuery({ queryKey: invitationsQueryKey, queryFn: membersApi.listInvitations })
 }
+
+/** Colegas ativos (id do vínculo + nome) — aberto a qualquer membro. */
+export interface DirectoryEntry {
+  membershipId: string
+  name: string
+}
+
+export const memberDirectoryQueryKey = ['members', 'directory'] as const
+
+export function useMemberDirectory() {
+  return useQuery({
+    queryKey: memberDirectoryQueryKey,
+    queryFn: () => api<DirectoryEntry[]>('/v1/members/directory'),
+    staleTime: 60_000,
+  })
+}
+
+/** Nome de um colega pelo id do vínculo (para "atribuída a", remetente etc.). */
+export function useMemberNames(): (membershipId: string | null) => string | null {
+  const directory = useMemberDirectory()
+  const names = new Map(directory.data?.map((m) => [m.membershipId, m.name]))
+  return (id) => (id ? (names.get(id) ?? null) : null)
+}

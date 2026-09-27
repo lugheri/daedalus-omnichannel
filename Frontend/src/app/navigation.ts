@@ -1,4 +1,13 @@
-import { Contact, Home, Inbox, KeyRound, MessageCircle, Users, type LucideIcon } from 'lucide-react'
+import {
+  Contact,
+  Home,
+  Inbox,
+  KeyRound,
+  MessageCircle,
+  Network,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -20,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/conversations', label: 'Conversas', icon: Inbox, anyOf: CONVERSATION_SCOPES },
   { to: '/contacts', label: 'Contatos', icon: Contact, anyOf: ['contacts:view'] },
   { to: '/settings/channels', label: 'Canais', icon: MessageCircle, anyOf: ['channels:manage'] },
+  { to: '/settings/teams', label: 'Equipes', icon: Network, anyOf: ['teams:manage'] },
   { to: '/settings/members', label: 'Membros', icon: Users, anyOf: ['members:manage'] },
   {
     to: '/settings/roles',

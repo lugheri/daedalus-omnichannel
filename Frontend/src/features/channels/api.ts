@@ -11,6 +11,9 @@ export interface Channel {
   status: ChannelStatus
   phoneNumber: string | null
   statusReason: string | null
+  /** Equipe que recebe as conversas novas; null = fila geral. */
+  teamId: string | null
+  teamName: string | null
   statusAt: string
   createdAt: string
 }
@@ -27,6 +30,8 @@ export const channelsApi = {
   connection: (id: string) => api<ChannelConnection>(`/v1/channels/${id}/connection`),
   connect: (id: string) => api<void>(`/v1/channels/${id}/connect`, { method: 'POST' }),
   disconnect: (id: string) => api<void>(`/v1/channels/${id}/disconnect`, { method: 'POST' }),
+  setTeam: (id: string, teamId: string | null) =>
+    api<void>(`/v1/channels/${id}/team`, { method: 'PATCH', body: { teamId } }),
   remove: (id: string) => api<void>(`/v1/channels/${id}`, { method: 'DELETE' }),
   sendTestMessage: (id: string, input: { to: string; text: string }) =>
     api<{ messageId: string }>(`/v1/channels/${id}/test-message`, {

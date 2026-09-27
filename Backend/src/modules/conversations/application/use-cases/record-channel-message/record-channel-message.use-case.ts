@@ -8,6 +8,7 @@ import {
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../../shared/application/unit-of-work';
 import { Conversation } from '../../../domain/conversation.entity';
 import { Message, type MessageKind } from '../../../domain/message.entity';
+import { CHANNEL_GATEWAY, type ChannelGateway } from '../../ports/channel-gateway';
 import { CONTACT_DIRECTORY, type ContactDirectory } from '../../ports/contact-directory';
 import {
   CONVERSATION_REPOSITORY,
@@ -45,6 +46,7 @@ export class RecordChannelMessageUseCase {
     @Inject(CONVERSATION_REPOSITORY) private readonly conversations: ConversationRepository,
     @Inject(MESSAGE_REPOSITORY) private readonly messages: MessageRepository,
     @Inject(CONTACT_DIRECTORY) private readonly contacts: ContactDirectory,
+    @Inject(CHANNEL_GATEWAY) private readonly channels: ChannelGateway,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(EVENT_BUS) private readonly events: EventBus,
@@ -71,11 +73,7 @@ export class RecordChannelMessageUseCase {
       });
       const conversation =
         (await this.conversations.findByChannelAndContact(input.channelId, contact.id)) ??
-        Conversation.start(this.ids.generate(), {
-          tenantId: this.tenant.tenantId,
-          channelId: input.channelId,
-          contactId: contact.id,
-        });
+        (await this.startConversation(input.channelId, contact.id));
 
       const data = {
         tenantId: this.tenant.tenantId,
@@ -95,6 +93,17 @@ export class RecordChannelMessageUseCase {
       await this.messages.save(message);
       await this.events.publish([...conversation.pullEvents(), ...message.pullEvents()]);
       return 'recorded';
+    });
+  }
+
+  /** Conversa nova entra na fila da equipe do canal (ou na fila geral). */
+  private async startConversation(channelId: string, contactId: string): Promise<Conversation> {
+    const [channel] = await this.channels.findByIds([channelId]);
+    return Conversation.start(this.ids.generate(), {
+      tenantId: this.tenant.tenantId,
+      channelId,
+      contactId,
+      teamId: channel?.teamId ?? null,
     });
   }
 }

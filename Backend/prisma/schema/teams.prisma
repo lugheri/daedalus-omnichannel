@@ -1,0 +1,26 @@
+// Módulo teams. Membros são vínculos (memberships) do accounts: só ids.
+
+model Team {
+  id        String       @id @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  name      String
+  createdAt DateTime     @map("created_at") @db.Timestamptz(3)
+  members   TeamMember[]
+
+  @@unique([tenantId, name])
+  @@map("teams")
+  @@schema("teams")
+}
+
+model TeamMember {
+  teamId       String @map("team_id") @db.Uuid
+  team         Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  membershipId String @map("membership_id") @db.Uuid
+  tenantId     String @map("tenant_id") @db.Uuid
+
+  @@id([teamId, membershipId])
+  // "Quais são as equipes deste membro?" — escopo das conversas e salas do tempo real.
+  @@index([tenantId, membershipId])
+  @@map("team_members")
+  @@schema("teams")
+}

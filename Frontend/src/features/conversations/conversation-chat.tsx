@@ -4,7 +4,15 @@ import {
   type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query'
-import { ArrowLeft, CheckCheck, RotateCcw, SendHorizontal, Timer } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRightLeft,
+  CheckCheck,
+  Hand,
+  RotateCcw,
+  SendHorizontal,
+  Timer,
+} from 'lucide-react'
 import { Fragment, useEffect, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
@@ -13,6 +21,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useMe, usePermissions } from '@/features/auth/session-context'
+import { useMemberNames } from '@/features/members/api'
 import { errorMessage } from '@/lib/api/api-error'
 import { formatPhone } from '@/lib/phone'
 import {
@@ -25,6 +35,7 @@ import {
 } from './api'
 import { contactInitials, contactLabel, dayLabel, isSameDay } from './format'
 import { MessageBubble } from './message-bubble'
+import { TransferDialog } from './transfer-dialog'
 
 type MessagePages = InfiniteData<{ items: Message[]; nextCursor: string | null }>
 
@@ -40,6 +51,10 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
   const conversation = useConversation(id)
   const messages = useMessages(id)
   const [draft, setDraft] = useState('')
+  const [transferring, setTransferring] = useState(false)
+  const me = useMe()
+  const { can } = usePermissions()
+  const nameOf = useMemberNames()
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: conversationKeys.all })
 
@@ -63,6 +78,15 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
     mutationFn: (status: ConversationStatus) => conversationsApi.changeStatus(id, status),
     onSuccess: (_, status) => {
       toast.success(status === 'resolved' ? 'Conversa resolvida.' : 'Status atualizado.')
+      void refresh()
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  })
+
+  const claim = useMutation({
+    mutationFn: () => conversationsApi.claim(id),
+    onSuccess: () => {
+      toast.success('Conversa atribuída a você.')
       void refresh()
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -115,8 +139,38 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
               <p className="text-muted-foreground truncate text-xs">
                 {data.contact.name && data.contact.phone && `${formatPhone(data.contact.phone)} · `}
                 {data.channel.name ?? 'Canal removido'}
+                {data.team && ` · ${data.team.name}`}
+              </p>
+              <p className="text-muted-foreground truncate text-xs">
+                {data.assigneeId === me.membershipId
+                  ? 'Responsável: você'
+                  : data.assigneeId
+                    ? `Responsável: ${nameOf(data.assigneeId) ?? 'outro membro'}`
+                    : 'Sem responsável'}
               </p>
             </div>
+            {!data.assigneeId && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={claim.isPending}
+                onClick={() => claim.mutate()}
+              >
+                <Hand />
+                Assumir
+              </Button>
+            )}
+            {can('conversations:assign') && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Transferir"
+                title="Transferir"
+                onClick={() => setTransferring(true)}
+              >
+                <ArrowRightLeft />
+              </Button>
+            )}
             <Badge variant="outline" className="hidden sm:inline-flex">
               {STATUS_LABEL[data.status]}
             </Badge>
@@ -172,7 +226,15 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
           const older = items[index + 1]
           return (
             <Fragment key={message.id}>
-              <MessageBubble message={message} />
+              <MessageBubble
+                message={message}
+                senderName={
+                  message.senderMembershipId === me.membershipId ||
+                  message.senderMembershipId === 'me'
+                    ? 'Você'
+                    : nameOf(message.senderMembershipId)
+                }
+              />
               {(!older || !isSameDay(older.sentAt, message.sentAt)) && (
                 <div className="text-muted-foreground my-2 self-center rounded-full bg-background px-3 py-0.5 text-xs shadow-xs">
                   {dayLabel(message.sentAt)}
@@ -194,6 +256,10 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
           </Button>
         )}
       </div>
+
+      {data && transferring && (
+        <TransferDialog conversation={data} open onOpenChange={setTransferring} />
+      )}
 
       <form
         className="flex items-end gap-2 border-t p-3"

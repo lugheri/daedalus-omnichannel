@@ -24,6 +24,8 @@ export interface ChannelProps {
   status: ChannelStatus;
   phoneNumber: string | null;
   statusReason: string | null;
+  /** Equipe que recebe as conversas novas do canal; null = fila geral. */
+  teamId: string | null;
   createdAt: Date;
   statusAt: Date;
 }
@@ -39,6 +41,7 @@ export class Channel extends AggregateRoot<ChannelProps> {
       status: 'pending',
       phoneNumber: null,
       statusReason: null,
+      teamId: null,
       createdAt: now,
       statusAt: now,
     });
@@ -107,6 +110,15 @@ export class Channel extends AggregateRoot<ChannelProps> {
 
   get phoneNumber() {
     return this.props.phoneNumber;
+  }
+
+  /** Quem existe como equipe, o use case confere (módulo teams). */
+  setTeam(teamId: string | null): void {
+    this.props.teamId = teamId;
+  }
+
+  get teamId() {
+    return this.props.teamId;
   }
 
   get statusReason() {

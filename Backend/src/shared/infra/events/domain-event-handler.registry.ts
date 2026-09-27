@@ -35,6 +35,11 @@ export class DomainEventHandlerRegistry implements OnModuleInit {
         if (!eventName) continue;
 
         const id = `${instance.constructor.name}.${method}`;
+        // O id vai no id do job de entrega: dois consumidores com o mesmo nome
+        // de classe (em módulos diferentes) se sobrescreveriam em silêncio.
+        if (this.byId.has(id)) {
+          throw new Error(`Consumidor de evento duplicado: "${id}" — use nomes de classe únicos`);
+        }
         this.byId.set(id, (event) => Promise.resolve(target.call(instance, event)));
         this.byEvent.set(eventName, [...(this.byEvent.get(eventName) ?? []), id]);
       }

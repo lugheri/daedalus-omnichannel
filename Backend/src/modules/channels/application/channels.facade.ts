@@ -10,6 +10,8 @@ export interface ChannelSummary {
   name: string;
   provider: ChannelProvider;
   status: ChannelStatus;
+  /** Equipe que recebe as conversas novas; null = fila geral. */
+  teamId: string | null;
 }
 
 /**
@@ -54,5 +56,6 @@ function summarize(channel: Channel): ChannelSummary {
     name: channel.name,
     provider: channel.provider,
     status: channel.status,
+    teamId: channel.teamId,
   };
 }

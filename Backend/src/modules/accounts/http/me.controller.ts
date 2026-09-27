@@ -17,6 +17,8 @@ export class MeController {
     return {
       user,
       tenant: TenantPresenter.toHttp(tenant),
+      /** O vínculo do usuário nesta conta ("atribuída a mim", "Você" nas mensagens). */
+      membershipId: access.membershipId,
       role: access.role,
       permissions: access.permissions,
     };

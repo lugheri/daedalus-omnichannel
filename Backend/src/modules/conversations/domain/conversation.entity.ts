@@ -3,7 +3,9 @@ import {
   ConversationAssignedEvent,
   ConversationMessageAddedEvent,
   ConversationStatusChangedEvent,
+  ConversationTeamChangedEvent,
 } from './events/conversation-events';
+import { ConversationAlreadyAssignedError } from './errors/conversation-already-assigned.error';
 import type { Message } from './message.entity';
 
 export type ConversationStatus =
@@ -19,6 +21,8 @@ export interface ConversationProps {
   contactId: string;
   status: ConversationStatus;
   assigneeId: string | null;
+  /** Equipe da conversa (herdada do canal); null = fila geral. */
+  teamId: string | null;
   lastMessageAt: Date;
   lastMessagePreview: string | null;
   unreadCount: number;
@@ -33,7 +37,7 @@ export interface ConversationProps {
 export class Conversation extends AggregateRoot<ConversationProps> {
   static start(
     id: string,
-    input: { tenantId: string; channelId: string; contactId: string },
+    input: { tenantId: string; channelId: string; contactId: string; teamId: string | null },
   ): Conversation {
     const now = new Date();
     return new Conversation(id, {
@@ -101,6 +105,24 @@ export class Conversation extends AggregateRoot<ConversationProps> {
     );
   }
 
+  /**
+   * "Assumir": quem vê uma conversa sem responsável a pega para si. Com
+   * responsável, só uma transferência (`assign`) muda de mão.
+   */
+  claim(membershipId: string): void {
+    if (this.props.assigneeId === membershipId) return;
+    if (this.props.assigneeId) throw new ConversationAlreadyAssignedError();
+    this.assign(membershipId);
+  }
+
+  /** Muda a conversa de equipe. Quem existe como equipe, o use case confere. */
+  moveToTeam(teamId: string | null): void {
+    const previous = this.props.teamId;
+    if (previous === teamId) return;
+    this.props.teamId = teamId;
+    this.addEvent(new ConversationTeamChangedEvent(this.id, this.props.tenantId, teamId, previous));
+  }
+
   markRead(): void {
     this.props.unreadCount = 0;
   }
@@ -119,6 +141,9 @@ export class Conversation extends AggregateRoot<ConversationProps> {
   }
   get assigneeId() {
     return this.props.assigneeId;
+  }
+  get teamId() {
+    return this.props.teamId;
   }
   get lastMessageAt() {
     return this.props.lastMessageAt;

@@ -7,7 +7,15 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRealtimeStatus } from '@/features/realtime/realtime-context'
 import { cn } from '@/lib/utils'
-import { useConversations, type ConversationStatus } from './api'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useMemberNames } from '@/features/members/api'
+import { useConversations, type AssigneeFilter, type ConversationStatus } from './api'
 import { contactInitials, contactLabel, listTime } from './format'
 
 const TABS: { value: ConversationStatus; label: string }[] = [
@@ -25,14 +33,21 @@ const EMPTY: Record<ConversationStatus, string> = {
 /** Coluna da esquerda: conversas do status escolhido, mais recentes primeiro. */
 export function ConversationList({
   status,
-  onStatusChange,
+  assignee,
   selectedId,
+  linkTo,
+  onStatusChange,
+  onAssigneeChange,
 }: {
   status: ConversationStatus
-  onStatusChange: (status: ConversationStatus) => void
+  assignee: AssigneeFilter
   selectedId: string | undefined
+  linkTo: (conversationId: string) => string
+  onStatusChange: (status: ConversationStatus) => void
+  onAssigneeChange: (assignee: AssigneeFilter) => void
 }) {
-  const conversations = useConversations(status)
+  const conversations = useConversations(status, assignee)
+  const nameOf = useMemberNames()
   const realtime = useRealtimeStatus()
   const items = conversations.data?.pages.flatMap((page) => page.items) ?? []
 
@@ -57,6 +72,16 @@ export function ConversationList({
             ))}
           </TabsList>
         </Tabs>
+        <Select value={assignee} onValueChange={(v) => onAssigneeChange(v as AssigneeFilter)}>
+          <SelectTrigger size="sm" className="mt-2 w-full" aria-label="Filtrar por responsável">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas que eu vejo</SelectItem>
+            <SelectItem value="me">Minhas</SelectItem>
+            <SelectItem value="none">Sem responsável</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <nav aria-label="Conversas" className="min-h-0 flex-1 overflow-y-auto">
@@ -76,7 +101,7 @@ export function ConversationList({
           return (
             <Link
               key={conversation.id}
-              to={`/conversations/${conversation.id}?status=${status}`}
+              to={linkTo(conversation.id)}
               aria-current={selected ? 'page' : undefined}
               className={cn(
                 'hover:bg-accent flex gap-3 border-b px-3 py-3',
@@ -110,8 +135,14 @@ export function ConversationList({
                     </Badge>
                   )}
                 </div>
-                <span className="text-muted-foreground text-xs">
-                  {conversation.channel.name ?? 'Canal removido'}
+                <span className="text-muted-foreground block truncate text-xs">
+                  {[
+                    conversation.channel.name ?? 'Canal removido',
+                    conversation.team?.name,
+                    nameOf(conversation.assigneeId) ?? 'Sem responsável',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
               </div>
             </Link>

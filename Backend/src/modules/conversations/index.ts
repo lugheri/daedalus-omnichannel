@@ -9,5 +9,6 @@ export {
   ConversationMessageAddedEvent,
   ConversationMessageStatusChangedEvent,
   ConversationStatusChangedEvent,
+  ConversationTeamChangedEvent,
 } from './domain/events/conversation-events';
 export type { MessageDirection, MessageStatus } from './domain/message.entity';

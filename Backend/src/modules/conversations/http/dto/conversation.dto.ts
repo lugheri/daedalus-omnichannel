@@ -5,6 +5,8 @@ const status = z.enum(CONVERSATION_STATUSES as [string, ...string[]]);
 
 export const listConversationsQuerySchema = z.object({
   status: status.optional(),
+  /** Recorte: só as minhas, ou só as sem responsável. */
+  assignee: z.enum(['me', 'none']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
   /** Opaco: repasse o `nextCursor` da página anterior. */
   cursor: z.string().max(200).optional(),
@@ -23,3 +25,11 @@ export type SendMessageDto = z.infer<typeof sendMessageSchema>;
 
 export const changeStatusSchema = z.object({ status });
 export type ChangeStatusDto = z.infer<typeof changeStatusSchema>;
+
+/** Campo ausente = não muda; null = tira (fila geral / sem responsável). */
+export const transferSchema = z
+  .object({ teamId: z.uuid().nullable().optional(), assigneeId: z.uuid().nullable().optional() })
+  .refine((v) => v.teamId !== undefined || v.assigneeId !== undefined, {
+    message: 'Informe a equipe e/ou o responsável',
+  });
+export type TransferDto = z.infer<typeof transferSchema>;

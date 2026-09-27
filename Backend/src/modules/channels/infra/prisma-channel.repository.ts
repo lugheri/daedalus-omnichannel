@@ -48,6 +48,13 @@ export class PrismaChannelRepository implements ChannelRepository {
     return rows.map(toDomain);
   }
 
+  async clearTeam(teamId: string): Promise<void> {
+    await this.txHost.tx.channel.updateMany({
+      where: { teamId, tenantId: this.tenant.tenantId },
+      data: { teamId: null },
+    });
+  }
+
   async delete(channel: Channel): Promise<void> {
     await this.txHost.tx.channel.deleteMany({
       where: { id: channel.id, tenantId: this.tenant.tenantId },
@@ -63,6 +70,7 @@ function toDomain(row: ChannelModel): Channel {
     status: row.status as ChannelStatus,
     phoneNumber: row.phoneNumber,
     statusReason: row.statusReason,
+    teamId: row.teamId,
     createdAt: row.createdAt,
     statusAt: row.statusAt,
   });
@@ -77,6 +85,7 @@ function toPersistence(channel: Channel): ChannelModel {
     status: channel.status,
     phoneNumber: channel.phoneNumber,
     statusReason: channel.statusReason,
+    teamId: channel.teamId,
     createdAt: channel.createdAt,
     statusAt: channel.statusAt,
   };

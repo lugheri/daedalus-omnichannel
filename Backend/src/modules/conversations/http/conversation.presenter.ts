@@ -3,10 +3,11 @@ import type { Message } from '../domain/message.entity';
 
 /** Formato público de conversas e mensagens na API. */
 export const ConversationPresenter = {
-  toHttp: ({ conversation, contact, channel }: ConversationView) => ({
+  toHttp: ({ conversation, contact, channel, team }: ConversationView) => ({
     id: conversation.id,
     status: conversation.status,
     assigneeId: conversation.assigneeId,
+    team,
     unreadCount: conversation.unreadCount,
     lastMessageAt: conversation.lastMessageAt.toISOString(),
     lastMessagePreview: conversation.lastMessagePreview,

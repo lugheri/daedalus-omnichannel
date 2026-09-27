@@ -16,6 +16,8 @@ export interface RoleSummary {
 export interface Me {
   user: { id: string; name: string; email: string }
   tenant: Tenant
+  /** O vínculo do usuário nesta conta (id usado em responsável e remetente). */
+  membershipId: string
   role: RoleSummary
   permissions: string[]
 }

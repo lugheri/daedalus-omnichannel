@@ -203,6 +203,7 @@ describe('Conversas (Postgres e Redis reais)', () => {
           tenantId,
           channelId,
           contactId: randomUUID(),
+          teamId: null,
         });
         conversation.addMessage(
           Message.inbound(randomUUID(), {
@@ -221,9 +222,10 @@ describe('Conversas (Postgres e Redis reais)', () => {
     });
 
     const all = await inTenant(async () => {
-      const first = await repository.list({ scope: { kind: 'all' }, limit: 2 });
+      const first = await repository.list({ scope: { kind: 'all' }, me: MINE, limit: 2 });
       const second = await repository.list({
         scope: { kind: 'all' },
+        me: MINE,
         limit: 2,
         cursor: first.nextCursor ?? undefined,
       });
@@ -235,7 +237,11 @@ describe('Conversas (Postgres e Redis reais)', () => {
     expect(all.second.nextCursor).toBeNull();
 
     const own = await inTenant(() =>
-      repository.list({ scope: { kind: 'own', membershipId: MINE }, limit: 10 }),
+      repository.list({
+        scope: { kind: 'own', membershipId: MINE, teamIds: [] },
+        me: MINE,
+        limit: 10,
+      }),
     );
     expect(own.items.map((c) => c.lastMessagePreview)).toEqual([
       'alguém?', // sem responsável

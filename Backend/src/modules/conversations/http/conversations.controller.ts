@@ -1,7 +1,11 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe';
-import { RequireAnyPermission } from '../../accounts';
+import { RequireAnyPermission, RequirePermissions } from '../../accounts';
+import {
+  ClaimConversationUseCase,
+  TransferConversationUseCase,
+} from '../application/use-cases/assign-conversation/assign-conversation.use-cases';
 import { GetConversationUseCase } from '../application/use-cases/get-conversation/get-conversation.use-case';
 import { ListConversationsUseCase } from '../application/use-cases/list-conversations/list-conversations.use-case';
 import { ListMessagesUseCase } from '../application/use-cases/list-messages/list-messages.use-case';
@@ -17,10 +21,12 @@ import {
   listConversationsQuerySchema,
   listMessagesQuerySchema,
   sendMessageSchema,
+  transferSchema,
   type ChangeStatusDto,
   type ListConversationsQuery,
   type ListMessagesQuery,
   type SendMessageDto,
+  type TransferDto,
 } from './dto/conversation.dto';
 
 const idParam = new ZodValidationPipe(z.uuid());
@@ -39,6 +45,8 @@ export class ConversationsController {
     private readonly sendMessage: SendMessageUseCase,
     private readonly changeStatus: ChangeConversationStatusUseCase,
     private readonly markRead: MarkConversationReadUseCase,
+    private readonly claimConversation: ClaimConversationUseCase,
+    private readonly transferConversation: TransferConversationUseCase,
   ) {}
 
   @Get()
@@ -88,6 +96,24 @@ export class ConversationsController {
       conversationId: id,
       status: body.status as ConversationStatus,
     });
+  }
+
+  /** Pega para si uma conversa sem responsável (qualquer escopo). */
+  @Post(':id/claim')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async claim(@Param('id', idParam) id: string) {
+    await this.claimConversation.execute(id);
+  }
+
+  /** Transfere para uma equipe e/ou pessoa. */
+  @RequirePermissions('conversations:assign')
+  @Post(':id/transfer')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async transfer(
+    @Param('id', idParam) id: string,
+    @Body(new ZodValidationPipe(transferSchema)) body: TransferDto,
+  ) {
+    await this.transferConversation.execute({ conversationId: id, ...body });
   }
 
   @Post(':id/read')

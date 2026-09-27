@@ -11,6 +11,7 @@ import type {
   ConversationRepository,
 } from '../application/ports/conversation.repository';
 import { Conversation, type ConversationStatus } from '../domain/conversation.entity';
+import type { ConversationScope } from '../domain/visibility';
 import { afterKeyset, decodeKeyset, encodeKeyset } from './keyset-cursor';
 import { isUuid } from './uuid';
 
@@ -57,6 +58,8 @@ export class PrismaConversationRepository implements ConversationRepository {
   async list({
     scope,
     status,
+    assignee,
+    me,
     limit,
     cursor,
   }: ConversationListQuery): Promise<CursorPage<Conversation>> {
@@ -65,9 +68,8 @@ export class PrismaConversationRepository implements ConversationRepository {
       tenantId: this.tenant.tenantId,
       ...(status && { status }),
       AND: [
-        scope.kind === 'own'
-          ? { OR: [{ assigneeId: scope.membershipId }, { assigneeId: null }] }
-          : {},
+        scopeFilter(scope),
+        assignee === 'me' ? { assigneeId: me } : assignee === 'none' ? { assigneeId: null } : {},
         // Depois do último item da página anterior, na ordem (data, id).
         after ? afterKeyset('lastMessageAt', after) : {},
       ],
@@ -86,6 +88,24 @@ export class PrismaConversationRepository implements ConversationRepository {
       nextCursor: hasMore && last ? encodeKeyset({ at: last.lastMessageAt, id: last.id }) : null,
     };
   }
+
+  async clearTeam(teamId: string): Promise<void> {
+    await this.db.conversation.updateMany({
+      where: { teamId, tenantId: this.tenant.tenantId },
+      data: { teamId: null },
+    });
+  }
+}
+
+/** A regra de domain/visibility.ts (isVisible), traduzida para consulta. */
+function scopeFilter(scope: ConversationScope): Prisma.ConversationWhereInput {
+  if (scope.kind === 'all') return {};
+  const mine = { assigneeId: scope.membershipId };
+  const myTeams = { teamId: { in: [...scope.teamIds] } };
+  if (scope.kind === 'team') {
+    return { OR: [mine, myTeams, { teamId: null, assigneeId: null }] };
+  }
+  return { OR: [mine, { assigneeId: null, OR: [{ teamId: null }, myTeams] }] };
 }
 
 function toDomain(row: ConversationModel): Conversation {
@@ -95,6 +115,7 @@ function toDomain(row: ConversationModel): Conversation {
     contactId: row.contactId,
     status: row.status as ConversationStatus,
     assigneeId: row.assigneeId,
+    teamId: row.teamId,
     lastMessageAt: row.lastMessageAt,
     lastMessagePreview: row.lastMessagePreview,
     unreadCount: row.unreadCount,
@@ -110,6 +131,7 @@ function toPersistence(conversation: Conversation): ConversationModel {
     contactId: conversation.contactId,
     status: conversation.status,
     assigneeId: conversation.assigneeId,
+    teamId: conversation.teamId,
     lastMessageAt: conversation.lastMessageAt,
     lastMessagePreview: conversation.lastMessagePreview,
     unreadCount: conversation.unreadCount,

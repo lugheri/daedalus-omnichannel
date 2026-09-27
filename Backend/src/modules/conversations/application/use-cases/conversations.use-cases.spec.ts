@@ -6,6 +6,8 @@ import {
 } from '../../../../shared/testing/fakes';
 import { ConversationNotFoundError } from '../../domain/errors/conversation-not-found.error';
 import { ContactWithoutPhoneError } from '../../domain/errors/contact-without-phone.error';
+import { InvalidAssigneeError } from '../../domain/errors/invalid-assignee.error';
+import { InvalidTeamError } from '../../domain/errors/invalid-team.error';
 import {
   ConversationMessageAddedEvent,
   ConversationMessageStatusChangedEvent,
@@ -14,10 +16,15 @@ import {
   FakeChannelGateway,
   FakeContactDirectory,
   FakeMemberAccess,
+  FakeTeamDirectory,
   InMemoryConversationRepository,
   InMemoryMessageRepository,
 } from '../../testing/fakes';
 import { VisibleConversations } from '../visible-conversations';
+import {
+  ClaimConversationUseCase,
+  TransferConversationUseCase,
+} from './assign-conversation/assign-conversation.use-cases';
 import { ApplySendResultUseCase } from './apply-send-result/apply-send-result.use-case';
 import { ListConversationsUseCase } from './list-conversations/list-conversations.use-case';
 import { ListMessagesUseCase } from './list-messages/list-messages.use-case';
@@ -51,6 +58,7 @@ describe('Conversations', () => {
     access = new FakeMemberAccess({
       membershipId: 'agent-1',
       permissions: ['conversations:view:own'],
+      teamIds: [],
     });
     events = new RecordingEventBus();
     ids = new SequentialIdGenerator();
@@ -63,6 +71,7 @@ describe('Conversations', () => {
       conversations,
       messages,
       contacts,
+      channels,
       tenant,
       ids,
       events,
@@ -89,9 +98,14 @@ describe('Conversations', () => {
       uow,
       visible,
     ).execute({ conversationId, text });
-  const list = () =>
-    new ListConversationsUseCase(conversations, contacts, channels, visible).execute({
+  const teams = new FakeTeamDirectory([
+    { id: 'team-sales', name: 'Vendas' },
+    { id: 'team-support', name: 'Suporte' },
+  ]);
+  const list = (filter: { assignee?: 'me' | 'none' } = {}) =>
+    new ListConversationsUseCase(conversations, contacts, channels, teams, visible).execute({
       limit: 20,
+      ...filter,
     });
   const onlyConversation = async () => (await list()).items[0].conversation;
 
@@ -216,7 +230,11 @@ describe('Conversations', () => {
       conversation.assign('agent-2');
       await conversations.save(conversation);
 
-      access.member = { membershipId: 'admin-1', permissions: ['conversations:view:all'] };
+      access.member = {
+        membershipId: 'admin-1',
+        permissions: ['conversations:view:all'],
+        teamIds: [],
+      };
 
       expect((await list()).items).toHaveLength(1);
     });
@@ -242,5 +260,99 @@ describe('Conversations', () => {
     await new MarkConversationReadUseCase(conversations, visible).execute(conversation.id);
 
     expect(await onlyConversation()).toMatchObject({ status: 'resolved', unreadCount: 0 });
+  });
+  describe('teams and assignment', () => {
+    const claim = (id: string) =>
+      new ClaimConversationUseCase(conversations, events, uow, visible).execute(id);
+    const transfer = (input: {
+      conversationId: string;
+      teamId?: string | null;
+      assigneeId?: string | null;
+    }) =>
+      new TransferConversationUseCase(conversations, events, uow, teams, access, visible).execute(
+        input,
+      );
+    const asSupervisor = () =>
+      (access.member = {
+        membershipId: 'sup-1',
+        permissions: ['conversations:view:team', 'conversations:assign'],
+        teamIds: ['team-sales'],
+      });
+
+    it("a new conversation enters the channel's team queue", async () => {
+      channels.teams.set('channel-1', 'team-sales');
+      access.member = { ...access.member, teamIds: ['team-sales'] };
+      await record();
+
+      const [view] = (await list()).items;
+      expect(view.conversation.teamId).toBe('team-sales');
+      expect(view.team).toEqual({ id: 'team-sales', name: 'Vendas' });
+    });
+
+    it("an agent does not see another team's queue", async () => {
+      channels.teams.set('channel-1', 'team-support');
+      await record();
+
+      expect((await list()).items).toHaveLength(0);
+    });
+
+    it('claiming takes the conversation; a colleague can no longer claim it', async () => {
+      await record();
+      const conversation = await onlyConversation();
+
+      await claim(conversation.id);
+      expect(await list({ assignee: 'me' })).toMatchObject({ items: [expect.anything()] });
+
+      access.member = {
+        membershipId: 'agent-2',
+        permissions: ['conversations:view:own'],
+        teamIds: [],
+      };
+      await expect(claim(conversation.id)).rejects.toThrow(ConversationNotFoundError);
+    });
+
+    it('transferring to a team sends it to that queue, unassigned', async () => {
+      channels.teams.set('channel-1', 'team-sales');
+      await record();
+      asSupervisor();
+      const conversation = await onlyConversation();
+      await claim(conversation.id);
+
+      await transfer({ conversationId: conversation.id, teamId: 'team-support' });
+
+      const moved = await conversations.findById(conversation.id);
+      expect(moved).toMatchObject({ teamId: 'team-support', assigneeId: null });
+      // Saiu da equipe do supervisor: ele não vê mais.
+      expect((await list()).items).toHaveLength(0);
+    });
+
+    it('transfers to a person only if they are an active member', async () => {
+      await record();
+      asSupervisor();
+      const conversation = await onlyConversation();
+
+      await expect(
+        transfer({ conversationId: conversation.id, assigneeId: 'ghost' }),
+      ).rejects.toThrow(InvalidAssigneeError);
+      await expect(
+        transfer({ conversationId: conversation.id, teamId: 'no-such-team' }),
+      ).rejects.toThrow(InvalidTeamError);
+
+      access.active.add('agent-7');
+      await transfer({ conversationId: conversation.id, assigneeId: 'agent-7' });
+      expect(await conversations.findById(conversation.id)).toMatchObject({
+        assigneeId: 'agent-7',
+      });
+    });
+
+    it('filters: mine and unassigned', async () => {
+      await record();
+      await record({ externalId: 'WA-9', contactPhone: '+5511900000009' });
+      const [first] = (await list()).items;
+      await claim(first.conversation.id);
+
+      expect((await list({ assignee: 'me' })).items).toHaveLength(1);
+      expect((await list({ assignee: 'none' })).items).toHaveLength(1);
+    });
   });
 });

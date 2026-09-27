@@ -8,6 +8,7 @@ import type {
 } from '../application/ports/conversation.repository';
 import type { CurrentMember, MemberAccess } from '../application/ports/member-access';
 import type { MessageRepository } from '../application/ports/message.repository';
+import type { TeamDirectory, TeamInfo } from '../application/ports/team-directory';
 import type { Conversation } from '../domain/conversation.entity';
 import type { Message } from '../domain/message.entity';
 import { isVisible } from '../domain/visibility';
@@ -37,11 +38,25 @@ export class InMemoryConversationRepository implements ConversationRepository {
     );
   }
 
-  list({ scope, status, limit }: ConversationListQuery): Promise<CursorPage<Conversation>> {
+  list({
+    scope,
+    status,
+    assignee,
+    me,
+    limit,
+  }: ConversationListQuery): Promise<CursorPage<Conversation>> {
     const items = this.ofTenant()
       .filter((c) => (!status || c.status === status) && isVisible(c, scope))
+      .filter((c) =>
+        assignee === 'me' ? c.assigneeId === me : assignee === 'none' ? !c.assigneeId : true,
+      )
       .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
     return Promise.resolve({ items: items.slice(0, limit), nextCursor: null });
+  }
+
+  clearTeam(teamId: string): Promise<void> {
+    for (const c of this.ofTenant()) if (c.teamId === teamId) c.moveToTeam(null);
+    return Promise.resolve();
   }
 }
 
@@ -112,9 +127,13 @@ export class FakeChannelGateway implements ChannelGateway {
   readonly sent: { channelId: string; messageId: string; to: string; text: string }[] = [];
   connected = true;
   failEnqueue = false;
+  /** Equipe de cada canal (o resto fica na fila geral). */
+  readonly teams = new Map<string, string>();
 
   findByIds(ids: string[]): Promise<ChannelInfo[]> {
-    return Promise.resolve(ids.map((id) => ({ id, name: `Canal ${id}` })));
+    return Promise.resolve(
+      ids.map((id) => ({ id, name: `Canal ${id}`, teamId: this.teams.get(id) ?? null })),
+    );
   }
 
   assertCanSend(): Promise<void> {
@@ -130,9 +149,28 @@ export class FakeChannelGateway implements ChannelGateway {
 }
 
 export class FakeMemberAccess implements MemberAccess {
+  /** Membros ativos da conta (para validar transferências). */
+  readonly active = new Set<string>();
+
   constructor(public member: CurrentMember) {}
 
   current(): Promise<CurrentMember> {
     return Promise.resolve(this.member);
+  }
+
+  activeMemberIds(ids: string[]): Promise<string[]> {
+    return Promise.resolve(ids.filter((id) => this.active.has(id)));
+  }
+}
+
+export class FakeTeamDirectory implements TeamDirectory {
+  constructor(private readonly teams: TeamInfo[] = []) {}
+
+  findByIds(ids: string[]): Promise<TeamInfo[]> {
+    return Promise.resolve(this.teams.filter((t) => ids.includes(t.id)));
+  }
+
+  exists(teamId: string): Promise<boolean> {
+    return Promise.resolve(this.teams.some((t) => t.id === teamId));
   }
 }

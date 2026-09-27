@@ -35,6 +35,7 @@ import { REMOVABLE, channelsApi, channelsQueryKey, useChannels, type Channel } f
 import { CreateChannelDialog, TestMessageDialog } from './channel-form-dialogs'
 import { ChannelStatusBadge } from './channel-status-badge'
 import { statusReasonLabel } from './status-reason'
+import { ChannelTeamDialog } from './channel-team-dialog'
 import { ConnectChannelDialog } from './connect-channel-dialog'
 
 export function ChannelsPage() {
@@ -45,6 +46,7 @@ export function ChannelsPage() {
   const [testing, setTesting] = useState<Channel | null>(null)
   const [disconnecting, setDisconnecting] = useState<Channel | null>(null)
   const [removing, setRemoving] = useState<Channel | null>(null)
+  const [teamOf, setTeamOf] = useState<Channel | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: channelsQueryKey, exact: true })
 
@@ -94,6 +96,7 @@ export function ChannelsPage() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Número</TableHead>
+              <TableHead>Equipe</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-12" />
             </TableRow>
@@ -101,14 +104,14 @@ export function ChannelsPage() {
           <TableBody>
             {channels.isPending && (
               <TableRow>
-                <TableCell colSpan={4}>
+                <TableCell colSpan={5}>
                   <Skeleton className="h-8" />
                 </TableCell>
               </TableRow>
             )}
             {channels.data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
                   Nenhum canal ainda. Crie um para conectar seu WhatsApp.
                 </TableCell>
               </TableRow>
@@ -122,6 +125,9 @@ export function ChannelsPage() {
                   <TableCell>
                     {channel.phoneNumber ? formatPhone(channel.phoneNumber) : '—'}
                   </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {channel.teamName ?? 'Fila geral'}
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col items-start gap-1">
                       <ChannelStatusBadge status={channel.status} />
@@ -131,7 +137,7 @@ export function ChannelsPage() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost" aria-label="Ações">
+                        <Button size="icon" variant="ghost" aria-label={`Ações de ${channel.name}`}>
                           <MoreHorizontal />
                         </Button>
                       </DropdownMenuTrigger>
@@ -145,6 +151,9 @@ export function ChannelsPage() {
                             Conectar (QR code)
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem onSelect={() => setTeamOf(channel)}>
+                          Definir equipe
+                        </DropdownMenuItem>
                         {channel.status !== 'logged_out' && (
                           <DropdownMenuItem
                             variant="destructive"
@@ -178,6 +187,7 @@ export function ChannelsPage() {
       />
       <ConnectChannelDialog channelId={pairingId} onOpenChange={() => setPairingId(null)} />
       <TestMessageDialog channel={testing} onOpenChange={() => setTesting(null)} />
+      <ChannelTeamDialog channel={teamOf} onOpenChange={() => setTeamOf(null)} />
 
       <AlertDialog
         open={disconnecting !== null}

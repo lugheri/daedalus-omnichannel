@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { AccountsFacade } from '../../accounts';
 import { ChannelsFacade } from '../../channels';
 import { ContactsFacade } from '../../contacts';
+import { TeamsFacade } from '../../teams';
 import type { ChannelGateway, ChannelInfo } from '../application/ports/channel-gateway';
 import type { ContactDirectory, ContactInfo } from '../application/ports/contact-directory';
 import type { CurrentMember, MemberAccess } from '../application/ports/member-access';
+import type { TeamDirectory, TeamInfo } from '../application/ports/team-directory';
 
 /** Adapters dos ports de conversations sobre as APIs públicas dos outros módulos. */
 
@@ -43,10 +45,31 @@ export class ChannelsFacadeGateway implements ChannelGateway {
 }
 
 @Injectable()
-export class AccountsFacadeMemberAccess implements MemberAccess {
-  constructor(private readonly accounts: AccountsFacade) {}
+export class FacadesMemberAccess implements MemberAccess {
+  constructor(
+    private readonly accounts: AccountsFacade,
+    private readonly teams: TeamsFacade,
+  ) {}
 
-  current(): Promise<CurrentMember> {
-    return this.accounts.currentMember();
+  async current(): Promise<CurrentMember> {
+    const member = await this.accounts.currentMember();
+    return { ...member, teamIds: await this.teams.teamIdsOf(member.membershipId) };
+  }
+
+  activeMemberIds(ids: string[]): Promise<string[]> {
+    return this.accounts.activeMemberIds(ids);
+  }
+}
+
+@Injectable()
+export class TeamsFacadeDirectory implements TeamDirectory {
+  constructor(private readonly teams: TeamsFacade) {}
+
+  findByIds(ids: string[]): Promise<TeamInfo[]> {
+    return this.teams.findByIds(ids);
+  }
+
+  exists(teamId: string): Promise<boolean> {
+    return this.teams.exists(teamId);
   }
 }

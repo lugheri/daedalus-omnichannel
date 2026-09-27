@@ -8,7 +8,7 @@ import {
 export interface OpenedConnection {
   tenantId: string;
   membershipId: string;
-  /** Salas em que a conexão entra: a do membro e uma por permissão. */
+  /** Salas: a do membro, uma por permissão e uma por (equipe, permissão). */
   rooms: string[];
   expiresAt: Date;
 }
@@ -33,6 +33,11 @@ export class OpenConnectionUseCase {
         RealtimeRooms.member(identity.membershipId),
         ...identity.permissions.map((permission) =>
           RealtimeRooms.permission(identity.tenantId, permission),
+        ),
+        ...identity.teamIds.flatMap((teamId) =>
+          identity.permissions.map((permission) =>
+            RealtimeRooms.teamPermission(teamId, permission),
+          ),
         ),
       ],
       expiresAt: identity.expiresAt,

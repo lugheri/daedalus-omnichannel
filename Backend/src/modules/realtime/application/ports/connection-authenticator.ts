@@ -7,6 +7,8 @@ export interface ConnectionIdentity {
   tenantId: string;
   membershipId: string;
   permissions: readonly string[];
+  /** Equipes do membro (salas de equipe). */
+  teamIds: readonly string[];
   /** A conexão cai quando o token expira; o cliente reconecta com um novo. */
   expiresAt: Date;
 }

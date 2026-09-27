@@ -7,6 +7,8 @@ export interface ChannelRepository {
   findByIds(ids: string[]): Promise<Channel[]>;
   list(): Promise<Channel[]>;
   delete(channel: Channel): Promise<void>;
+  /** Equipe excluída: os canais dela ficam sem equipe. */
+  clearTeam(teamId: string): Promise<void>;
 }
 
 export const CHANNEL_REPOSITORY = Symbol('ChannelRepository');

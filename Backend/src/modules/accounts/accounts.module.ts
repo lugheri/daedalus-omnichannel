@@ -24,6 +24,7 @@ import {
 } from './application/use-cases/invitations/manage-invitations.use-case';
 import { LogInUseCase } from './application/use-cases/log-in/log-in.use-case';
 import { ChangeMemberRoleUseCase } from './application/use-cases/members/change-member-role.use-case';
+import { ListMemberDirectoryUseCase } from './application/use-cases/members/list-member-directory.use-case';
 import { ListMembersUseCase } from './application/use-cases/members/list-members.use-case';
 import { SetMemberStatusUseCase } from './application/use-cases/members/set-member-status.use-case';
 import { ResolveAccessUseCase } from './application/use-cases/resolve-access/resolve-access.use-case';
@@ -41,6 +42,7 @@ import {
   InvitationsController,
 } from './http/invitations.controller';
 import { MeController } from './http/me.controller';
+import { MemberDirectoryController } from './http/member-directory.controller';
 import { MembersController } from './http/members.controller';
 import { RolesController } from './http/roles.controller';
 import { CryptoInvitationTokenGenerator } from './infra/crypto-invitation-token-generator';
@@ -66,6 +68,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
   controllers: [
     AuthController,
     MeController,
+    MemberDirectoryController,
     MembersController,
     InvitationsController,
     InvitationAcceptanceController,
@@ -82,6 +85,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     { provide: APP_GUARD, useClass: AccessGuard },
     // Membros
     ListMembersUseCase,
+    ListMemberDirectoryUseCase,
     ChangeMemberRoleUseCase,
     SetMemberStatusUseCase,
     // Convites

@@ -5,6 +5,8 @@
 export interface ChannelInfo {
   id: string;
   name: string;
+  /** Equipe que recebe as conversas novas do canal. */
+  teamId: string | null;
 }
 
 export interface ChannelGateway {
