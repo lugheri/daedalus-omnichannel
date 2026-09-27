@@ -1,9 +1,11 @@
 import type {
+  InvitationModel,
   MembershipModel,
   RoleModel,
   TenantModel,
 } from '../../../shared/infra/prisma/generated/models';
 import type { SystemRoleKey } from '../domain/default-roles';
+import { Invitation, type InvitationStatus } from '../domain/invitation.entity';
 import { Membership, type MembershipStatus } from '../domain/membership.entity';
 import { isPermission } from '../domain/permissions';
 import { Role } from '../domain/role.entity';
@@ -76,6 +78,37 @@ export const MembershipMapper = {
       roleId: membership.roleId,
       status: membership.status,
       createdAt: membership.createdAt,
+    };
+  },
+};
+
+export const InvitationMapper = {
+  toDomain(row: InvitationModel): Invitation {
+    return Invitation.restore(row.id, {
+      tenantId: row.tenantId,
+      email: row.email,
+      roleId: row.roleId,
+      tokenHash: row.tokenHash,
+      invitedByMembershipId: row.invitedByMembershipId,
+      status: row.status as InvitationStatus,
+      expiresAt: row.expiresAt,
+      createdAt: row.createdAt,
+      acceptedAt: row.acceptedAt,
+    });
+  },
+
+  toPersistence(invitation: Invitation): InvitationModel {
+    return {
+      id: invitation.id,
+      tenantId: invitation.tenantId,
+      email: invitation.email,
+      roleId: invitation.roleId,
+      tokenHash: invitation.tokenHash,
+      invitedByMembershipId: invitation.invitedByMembershipId,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      createdAt: invitation.createdAt,
+      acceptedAt: invitation.acceptedAt,
     };
   },
 };

@@ -5,7 +5,7 @@ Plataforma de atendimento omnichannel (WhatsApp, Instagram, e-mail etc.). Fase a
 ## Repositório
 
 - `Backend/` — API + Worker em NestJS. Regras específicas em [Backend/CLAUDE.md](Backend/CLAUDE.md).
-- `Frontend/` — SPA em **React + Vite** (ainda não iniciada). Regras próprias irão em `Frontend/CLAUDE.md`.
+- `Frontend/` — SPA em **React + Vite + shadcn/ui**. Regras específicas em [Frontend/CLAUDE.md](Frontend/CLAUDE.md).
 - `Docker/` — compose de desenvolvimento e stack de produção (Docker Swarm).
 
 ## Princípios de arquitetura
@@ -33,7 +33,12 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 
 - Containers Docker orquestrados com **Docker Swarm**; **Traefik** como reverse proxy e TLS.
 - **Postgres e Redis ficam fora do Swarm** (gerenciados ou VM dedicada com backup).
-- O backend gera **uma única imagem** executada como dois serviços: `api` (`node dist/main.js`) e `worker` (`node dist/worker.js`). Escalam de forma independente.
+- O backend gera **uma única imagem** executada como três serviços, que escalam e são atualizados de forma independente:
+  - `api` (`node dist/main.js`) — HTTP e WebSocket, stateless;
+  - `worker` (`node dist/worker.js`) — consumidores de fila;
+  - `whatsapp-connector` (`node dist/whatsapp-connector.js`) — conexões persistentes do Baileys (com estado; cada número pertence a uma instância). Tratado como serviço à parte: só fala com o resto por filas/eventos no Redis e tem tabelas próprias ([ADR 0006](docs/adr/0006-canais-whatsapp.md)).
+- **WhatsApp:** API oficial (Cloud API, empresa como Tech Provider da Meta) e não oficial (Baileys), atrás da mesma abstração no módulo `channels`. O Baileys é o canal inicial do MVP (clientes cientes).
+- **Arquivos:** S3 em produção, MinIO em desenvolvimento — mesmo adapter (API S3), muda só a configuração.
 - Configuração 100% por variáveis de ambiente (12-factor). Segredos via Docker secrets em produção; `.env` só em desenvolvimento e nunca versionado — manter `.env.example` atualizado.
 - Todo serviço expõe health checks (`/health/live`, `/health/ready`) e faz graceful shutdown (SIGTERM).
 - Nada de código específico de Swarm na aplicação: ela deve rodar igual em Kubernetes, para quando precisarmos de autoscaling (HPA/KEDA).
@@ -42,9 +47,10 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 
 - Windows + Docker Engine **dentro do WSL** (Ubuntu 22.04), sem Docker Desktop. Comandos `docker` rodam num terminal WSL.
 - O WSL desliga quando não há sessão aberta, derrubando os containers: manter um terminal WSL aberto enquanto desenvolve.
-- A API roda no Windows (`npm run start:dev`) e acessa os containers via `localhost`.
+- A API roda no Windows (`npm run start:dev`, porta 3000) e o front também (`npm run dev`, porta **5180** — a 5173 é usada por outro projeto da máquina).
 - Infra local em `Docker/compose.dev.yaml`: Postgres (5432) e Redis (6379).
-- Se o Docker não conseguir baixar imagens ("i/o timeout" no Docker Hub) mas o Windows tiver internet, a rede do WSL travou: rodar `wsl --shutdown` no PowerShell (derruba os containers) e abrir o terminal WSL de novo.
+- O WSL usa `networkingMode=mirrored` (em `%USERPROFILE%\.wslconfig`): no modo NAT padrão, as conexões TCP de saída do WSL eram bloqueadas nesta máquina (o Docker não baixava imagens). Se voltar a acontecer: `wsl --shutdown` no PowerShell e abrir o terminal WSL de novo.
+- Nesse modo, **só o IPv4 de loopback chega aos containers**: use `127.0.0.1` (não `localhost`, que pode resolver para `::1` e dar timeout — o CLI do Prisma cai nisso). O `.env` já usa `127.0.0.1`.
 
 ## Convenções gerais
 

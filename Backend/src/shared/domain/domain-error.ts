@@ -4,6 +4,7 @@
  *
  * Um exception filter global converte para HTTP:
  * - UnauthorizedError → 401
+ * - ForbiddenError → 403
  * - NotFoundError → 404
  * - ConflictError → 409
  * - demais DomainError → 422
@@ -18,6 +19,8 @@ export abstract class DomainError extends Error {
 }
 
 export abstract class UnauthorizedError extends DomainError {}
+
+export abstract class ForbiddenError extends DomainError {}
 
 export abstract class NotFoundError extends DomainError {}
 

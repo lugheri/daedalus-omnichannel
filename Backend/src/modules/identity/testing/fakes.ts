@@ -5,6 +5,7 @@ import type {
 } from '../application/ports/access-token-issuer';
 import type { PasswordHasher } from '../application/ports/password-hasher';
 import type { RefreshSecretGenerator } from '../application/ports/refresh-secret-generator';
+import type { RevokedSessionList } from '../application/ports/revoked-session-list';
 import type { SessionRepository } from '../application/ports/session.repository';
 import type { UserRepository } from '../application/ports/user.repository';
 import type { Email } from '../domain/email.vo';
@@ -45,6 +46,14 @@ export class InMemorySessionRepository implements SessionRepository {
   findById(id: string): Promise<Session | null> {
     return Promise.resolve(this.sessions.get(id) ?? null);
   }
+
+  findUnrevokedByMembershipId(membershipId: string): Promise<Session[]> {
+    return Promise.resolve(
+      [...this.sessions.values()].filter(
+        (s) => s.membershipId === membershipId && s.revokedAt === null,
+      ),
+    );
+  }
 }
 
 /** "Hash" legível e reversível — só para testes. Conta as verificações. */
@@ -71,6 +80,19 @@ export class SequentialRefreshSecretGenerator implements RefreshSecretGenerator 
 
   hash(secret: string): string {
     return `hash(${secret})`;
+  }
+}
+
+export class InMemoryRevokedSessionList implements RevokedSessionList {
+  readonly revoked = new Set<string>();
+
+  add(sessionId: string): Promise<void> {
+    this.revoked.add(sessionId);
+    return Promise.resolve();
+  }
+
+  has(sessionId: string): Promise<boolean> {
+    return Promise.resolve(this.revoked.has(sessionId));
   }
 }
 

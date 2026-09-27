@@ -8,6 +8,7 @@ import {
   REFRESH_SECRET_GENERATOR,
   type RefreshSecretGenerator,
 } from '../../ports/refresh-secret-generator';
+import { REVOKED_SESSION_LIST, type RevokedSessionList } from '../../ports/revoked-session-list';
 import { SESSION_REPOSITORY, type SessionRepository } from '../../ports/session.repository';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -18,6 +19,7 @@ export class RefreshSessionUseCase {
   constructor(
     @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
     @Inject(REFRESH_SECRET_GENERATOR) private readonly secrets: RefreshSecretGenerator,
+    @Inject(REVOKED_SESSION_LIST) private readonly revoked: RevokedSessionList,
     @Inject(IDENTITY_SETTINGS) private readonly settings: IdentitySettings,
     private readonly tokens: AuthTokensFactory,
   ) {}
@@ -41,6 +43,10 @@ export class RefreshSessionUseCase {
     // Salva também no caso de reuso: a revogação precisa ser persistida.
     await this.sessions.save(session);
 
+    if (result === 'reuse-detected') {
+      // Um atacante pode ter um access token desta sessão: invalida já.
+      await this.revoked.add(session.id, this.settings.accessTokenTtlSeconds);
+    }
     if (result !== 'rotated') throw new InvalidRefreshTokenError();
     return this.tokens.create(session, newSecret);
   }

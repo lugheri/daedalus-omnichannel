@@ -4,6 +4,7 @@ import { TenantNotResolvedError } from '../application/tenant-context';
 import {
   ConflictError,
   DomainError,
+  ForbiddenError,
   NotFoundError,
   UnauthorizedError,
 } from '../domain/domain-error';
@@ -25,6 +26,7 @@ export class DomainErrorFilter implements ExceptionFilter {
 function statusFor(error: DomainError | TenantNotResolvedError): number {
   if (error instanceof TenantNotResolvedError) return HttpStatus.UNAUTHORIZED;
   if (error instanceof UnauthorizedError) return HttpStatus.UNAUTHORIZED;
+  if (error instanceof ForbiddenError) return HttpStatus.FORBIDDEN;
   if (error instanceof NotFoundError) return HttpStatus.NOT_FOUND;
   if (error instanceof ConflictError) return HttpStatus.CONFLICT;
   return HttpStatus.UNPROCESSABLE_ENTITY;

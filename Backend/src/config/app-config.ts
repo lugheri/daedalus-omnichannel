@@ -23,6 +23,10 @@ export class AppConfig {
     return this.env.DATABASE_URL;
   }
 
+  get appUrl() {
+    return this.env.APP_URL;
+  }
+
   get redisUrl() {
     return this.env.REDIS_URL;
   }

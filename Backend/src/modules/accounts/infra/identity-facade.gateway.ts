@@ -15,11 +15,27 @@ export class IdentityFacadeGateway implements IdentityGateway {
     return this.identity.verifyCredentials(input);
   }
 
+  findUser(id: string) {
+    return this.identity.findUser(id);
+  }
+
+  findUserByEmail(email: string) {
+    return this.identity.findUserByEmail(email);
+  }
+
+  findUsers(ids: string[]) {
+    return this.identity.findUsers(ids);
+  }
+
   startSession(input: {
     userId: string;
     tenantId: string;
     membershipId: string;
   }): Promise<SessionTokens> {
     return this.identity.startSession(input);
+  }
+
+  async revokeMembershipSessions(membershipId: string): Promise<void> {
+    await this.identity.revokeMembershipSessions(membershipId);
   }
 }

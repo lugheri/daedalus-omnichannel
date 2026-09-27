@@ -9,12 +9,14 @@ import { ACCESS_TOKEN_VERIFIER } from './application/ports/access-token-verifier
 import { IDENTITY_SETTINGS, type IdentitySettings } from './application/ports/identity-settings';
 import { PASSWORD_HASHER } from './application/ports/password-hasher';
 import { REFRESH_SECRET_GENERATOR } from './application/ports/refresh-secret-generator';
+import { REVOKED_SESSION_LIST } from './application/ports/revoked-session-list';
 import { SESSION_REPOSITORY } from './application/ports/session.repository';
 import { USER_REPOSITORY } from './application/ports/user.repository';
 import { AuthenticateAccessTokenUseCase } from './application/use-cases/authenticate-access-token/authenticate-access-token.use-case';
 import { EndSessionUseCase } from './application/use-cases/end-session/end-session.use-case';
 import { RefreshSessionUseCase } from './application/use-cases/refresh-session/refresh-session.use-case';
 import { RegisterUserUseCase } from './application/use-cases/register-user/register-user.use-case';
+import { RevokeMembershipSessionsUseCase } from './application/use-cases/revoke-membership-sessions/revoke-membership-sessions.use-case';
 import { StartSessionUseCase } from './application/use-cases/start-session/start-session.use-case';
 import { VerifyCredentialsUseCase } from './application/use-cases/verify-credentials/verify-credentials.use-case';
 import { AuthSessionController } from './http/auth-session.controller';
@@ -26,6 +28,7 @@ import { JwtAccessTokenIssuer } from './infra/jwt-access-token-issuer';
 import { JwtAccessTokenVerifier } from './infra/jwt-access-token-verifier';
 import { PrismaSessionRepository } from './infra/prisma-session.repository';
 import { PrismaUserRepository } from './infra/prisma-user.repository';
+import { RedisRevokedSessionList } from './infra/redis-revoked-session-list';
 
 @Module({
   imports: [
@@ -46,6 +49,7 @@ import { PrismaUserRepository } from './infra/prisma-user.repository';
     RefreshSessionUseCase,
     EndSessionUseCase,
     AuthenticateAccessTokenUseCase,
+    RevokeMembershipSessionsUseCase,
     AuthTokensFactory,
     IdentityFacade,
     RefreshTokenCookie,
@@ -66,6 +70,7 @@ import { PrismaUserRepository } from './infra/prisma-user.repository';
     { provide: REFRESH_SECRET_GENERATOR, useClass: CryptoRefreshSecretGenerator },
     { provide: ACCESS_TOKEN_ISSUER, useClass: JwtAccessTokenIssuer },
     { provide: ACCESS_TOKEN_VERIFIER, useClass: JwtAccessTokenVerifier },
+    { provide: REVOKED_SESSION_LIST, useClass: RedisRevokedSessionList },
   ],
   exports: [IdentityFacade, RefreshTokenCookie],
 })

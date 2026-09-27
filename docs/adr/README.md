@@ -11,6 +11,7 @@ ADRs não são editados depois de aceitos: quando uma decisão muda, cria-se um 
 | [0003](0003-controle-de-acesso.md)      | Controle de acesso: memberships, cargos (RBAC) e equipes | Aceito |
 | [0004](0004-autenticacao.md)            | Autenticação própria com JWT e refresh token rotativo    | Aceito |
 | [0005](0005-refresh-token-em-cookie.md) | Refresh token em cookie HttpOnly e frontend SPA          | Aceito |
+| [0006](0006-canais-whatsapp.md)         | Canais de WhatsApp: API oficial e Baileys (conector)     | Aceito |
 
 ## Modelo
 

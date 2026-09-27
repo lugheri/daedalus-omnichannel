@@ -76,7 +76,7 @@ O módulo `contacts` é a **implementação de referência** da estrutura: na d�
 Módulos iniciais:
 
 - `identity` — users, credenciais, sessões e tokens (rotas `/v1/auth/refresh` e `/v1/auth/logout`). Não conhece tenants além dos ids gravados na sessão.
-- `accounts` — tenants, memberships, roles, catálogo de permissões e cargos padrão (rotas `/v1/auth/signup` e `/v1/auth/login`, porque envolvem tenants). Depende de `identity`, **nunca o contrário**.
+- `accounts` — tenants, memberships, roles, convites, catálogo de permissões e cargos padrão. Rotas: `/v1/auth/signup` e `/v1/auth/login` (envolvem tenants), `/v1/me`, `/v1/members`, `/v1/invitations` (+ `lookup` e `accept`, públicas) e `/v1/roles`. Depende de `identity`, **nunca o contrário**.
 - `contacts`
 - `channels` — integração com provedores e webhooks
 - `conversations`
@@ -131,7 +131,7 @@ Módulos iniciais:
 - DTOs validam só o **formato**; regras de negócio (telefone válido, duplicidade) ficam no domínio.
 - Respostas passam por um presenter (`<entidade>.presenter.ts`) — a entidade nunca é serializada direto.
 - Erros de domínio estendem `DomainError` (com `code` estável, ex.: `CONTACT_INVALID_PHONE`); o `DomainErrorFilter` mapeia para HTTP. Nunca lançar `HttpException` fora de `http/`.
-- Corpo de erro sempre `{ code, message }` (+ `issues` em validação). Status: `VALIDATION_ERROR` 400 · tenant ausente e `UnauthorizedError` 401 · `NotFoundError` 404 · `ConflictError` 409 · demais `DomainError` 422.
+- Corpo de erro sempre `{ code, message }` (+ `issues` em validação). Status: `VALIDATION_ERROR` 400 · tenant ausente e `UnauthorizedError` 401 · `ForbiddenError` 403 · `NotFoundError` 404 · excesso de requisições 429 · `ConflictError` 409 · demais `DomainError` 422.
 - Erros de autenticação nunca revelam o que existe: mesma resposta para e-mail inexistente e senha errada; mesma para conta inexistente e sem acesso; logout com token inválido é no-op silencioso.
 - Recurso de outro tenant responde **404** (não 403), para não revelar que existe.
 - Listagens usam paginação por cursor (`limit` + `cursor`, resposta `{ items, nextCursor }`), ordenadas por id (UUIDv7) decrescente.
@@ -139,8 +139,8 @@ Módulos iniciais:
 ## Autenticação, tenant e permissões
 
 - Guard global de JWT: **todo endpoint é autenticado por padrão**; exceções explícitas com `@Public()`.
-- Autorização por `@RequirePermissions('recurso:ação')` no controller. Permissões vêm do catálogo em código (módulo `accounts`) — nunca strings soltas.
-- Permissões com escopo de dados (`:own`, `:team`, `:all`): o guard checa se há alguma variante; o **use case/query aplica o escopo**.
+- Autorização por `@RequirePermissions('recurso:ação')` (exige todas; classe e método se somam) ou `@RequireAnyPermission(...)` (basta uma), importados do `index.ts` do accounts. Permissões vêm do catálogo `PERMISSIONS` — nunca strings soltas. Toda rota de negócio declara a permissão que exige.
+- Permissões com escopo de dados (`:own`, `:team`, `:all`): a rota usa `@RequireAnyPermission` com as variantes; o **use case/query aplica o escopo**.
 - O tenant da requisição fica no `TenantContext` (nestjs-cls). **Repositórios** leem o tenant do contexto e filtram toda query por ele; use cases e controllers não recebem `tenantId` como parâmetro.
 - Jobs de fila carregam `tenantId`; o processor preenche o `TenantContext` antes de executar.
 - WebSocket: token validado na conexão; eventos emitidos só para a sala do tenant.
@@ -152,7 +152,15 @@ Módulos iniciais:
 - Refresh token em cookie (ADR 0005), via `RefreshTokenCookie` (exportado pelo identity): `HttpOnly`, `SameSite=Strict`, `Path=/v1/auth`, `Secure` fora de dev. Rotas autenticadas por cookie usam `@UseGuards(TrustedOriginGuard)` (CSRF: `Origin` precisa estar em `CORS_ORIGINS`).
 - Rate limit (`@nestjs/throttler` + `AppThrottlerGuard`, storage próprio no Redis): padrão 300 req/min por IP **e por rota**; excesso responde 429 `RATE_LIMITED` com `Retry-After`; rotas sensíveis apertam com `@Throttle` (login 10/min com bloqueio de 15 min; cadastro 5/h; refresh 30/min). Sondas de health usam `@SkipThrottle()`. Se o Redis cair, o limite **falha aberto** (log de aviso) em vez de derrubar a API.
 - `TRUST_PROXY=true` só atrás do Traefik — senão o cliente forja o IP usado no rate limit.
-- Pendente (entrega 3): `@RequirePermissions` e checagem por requisição de que o vínculo segue ativo (hoje um access token vale até expirar, mesmo após logout).
+- `AccessGuard` (accounts, `APP_GUARD`, depois do `JwtAuthGuard`) roda em **toda** rota autenticada: confirma que o vínculo do token está ativo, pertence ao mesmo usuário/tenant e que a conta não está suspensa (senão 401 `AUTH_ACCOUNT_ACCESS_DENIED`), e checa as permissões da rota (senão 403 `AUTH_MISSING_PERMISSION`). A ordem dos guards globais depende da ordem de importação: `SharedInfraModule` → `IdentityModule` → `AccountsModule` no `AppModule`.
+- O acesso resolvido (cargo + permissões) fica em cache no Redis por 60 s, por membership (`AccessCache`). **Todo use case que muda cargo, vínculo ou status da conta chama `accessCache.invalidate(...)`.** Sem Redis, o acesso é resolvido no banco (nunca falha aberto).
+- Logout e reuso de refresh token colocam a sessão numa lista de revogadas no Redis (validade = TTL do access token): o access token dela é recusado na hora. Sem Redis, essa checagem falha aberta (o token vale até expirar).
+- `GET /v1/me`: usuário, tenant, cargo e permissões do ator — o front usa para montar a tela; a API continua checando tudo por conta própria.
+- **Gestão (members, invitations, roles):** o tenant é sempre o do ator (`CurrentAccess`); no accounts os repositórios recebem `tenantId` explícito, que vem só do ator ou de um convite validado.
+- **Regra anti-escalada (`assertCanGrant`):** ninguém concede uma permissão que não tem (ao criar/editar cargo, convidar ou trocar cargo) nem administra quem tem permissões além das suas. É o que impede um Admin de criar ou rebaixar um Owner.
+- A conta sempre mantém ao menos um Owner ativo; ninguém desativa a si mesmo; o cargo Owner é imutável; `account:manage` é exclusiva do Owner; cargo em uso (membros ou convite pendente) não pode ser excluído.
+- Desativar um membro invalida o cache de acesso **e** derruba as sessões dele naquela conta (`IdentityFacade.revokeMembershipSessions`) — sem isso o refresh token continuaria funcionando.
+- Convites: token aleatório com só o hash no banco, validade de 7 dias, uso único; convidar de novo o mesmo e-mail substitui o anterior. Sem provedor de e-mail, a criação devolve o `inviteUrl` (`APP_URL/invite/<token>`) para quem convidou repassar. No aceite, quem já tem conta confirma a própria senha; quem não tem cria a conta ali.
 
 ## Convenções de nomes
 

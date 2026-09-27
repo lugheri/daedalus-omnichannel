@@ -2,6 +2,7 @@ import { SequentialIdGenerator } from '../../../../../shared/testing/fakes';
 import { InvalidRefreshTokenError } from '../../../domain/errors/invalid-refresh-token.error';
 import {
   FakeAccessTokenIssuer,
+  InMemoryRevokedSessionList,
   InMemorySessionRepository,
   SequentialRefreshSecretGenerator,
 } from '../../../testing/fakes';
@@ -15,9 +16,11 @@ describe('Session lifecycle (start → refresh → logout)', () => {
   let start: StartSessionUseCase;
   let refresh: RefreshSessionUseCase;
   let end: EndSessionUseCase;
+  let revoked: InMemoryRevokedSessionList;
 
   beforeEach(() => {
     sessions = new InMemorySessionRepository();
+    revoked = new InMemoryRevokedSessionList();
     const secrets = new SequentialRefreshSecretGenerator();
     const settings = { accessTokenTtlSeconds: 900, refreshTokenTtlDays: 30, secureCookies: true };
     const tokens = new AuthTokensFactory(new FakeAccessTokenIssuer());
@@ -29,8 +32,31 @@ describe('Session lifecycle (start → refresh → logout)', () => {
       settings,
       tokens,
     );
-    refresh = new RefreshSessionUseCase(sessions, secrets, settings, tokens);
-    end = new EndSessionUseCase(sessions, secrets);
+    refresh = new RefreshSessionUseCase(sessions, secrets, revoked, settings, tokens);
+    end = new EndSessionUseCase(sessions, secrets, revoked, settings);
+  });
+
+  it('logout also invalidates the access tokens of the session', async () => {
+    const tokens = await startSession();
+
+    await end.execute(tokens.refreshToken);
+
+    expect(revoked.revoked.has('id-1')).toBe(true);
+  });
+
+  it('refresh-token reuse also invalidates the access tokens of the session', async () => {
+    const first = await startSession();
+    await refresh.execute(first.refreshToken);
+
+    await expect(refresh.execute(first.refreshToken)).rejects.toThrow(InvalidRefreshTokenError);
+    expect(revoked.revoked.has('id-1')).toBe(true);
+  });
+
+  it('a normal rotation does not revoke anything', async () => {
+    const first = await startSession();
+    await refresh.execute(first.refreshToken);
+
+    expect(revoked.revoked.size).toBe(0);
   });
 
   const startSession = () =>

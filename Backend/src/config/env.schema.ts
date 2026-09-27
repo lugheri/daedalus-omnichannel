@@ -6,10 +6,15 @@ export const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+  // URL do frontend: base dos links enviados por e-mail/compartilhados (ex.: convites).
+  APP_URL: z
+    .url()
+    .default('http://localhost:5180')
+    .transform((url) => url.replace(/\/+$/, '')),
   // Origens do frontend autorizadas (CORS e checagem de Origin), separadas por vírgula.
   CORS_ORIGINS: z
     .string()
-    .default('http://localhost:5173')
+    .default('http://localhost:5180')
     .transform((value) =>
       value
         .split(',')

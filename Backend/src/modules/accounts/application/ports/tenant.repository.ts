@@ -3,6 +3,7 @@ import type { Tenant } from '../../domain/tenant.entity';
 
 export interface TenantRepository {
   save(tenant: Tenant): Promise<void>;
+  findById(id: string): Promise<Tenant | null>;
   findManyByIds(ids: string[]): Promise<Tenant[]>;
   existsBySlug(slug: Slug): Promise<boolean>;
 }
