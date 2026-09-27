@@ -1,0 +1,29 @@
+// Processo whatsapp-connector (ADR 0006). Tabelas PRÓPRIAS do conector:
+// nenhum módulo de negócio as lê — a comunicação é só por filas.
+
+// Sessão desejada por canal: o conector mantém conectadas as que estão
+// `active` (qualquer instância pode assumir uma sessão sem dono).
+model WhatsAppSession {
+  channelId    String   @id @map("channel_id") @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  desiredState String   @map("desired_state")
+  updatedAt    DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@index([desiredState])
+  @@map("sessions")
+  @@schema("whatsapp_connector")
+}
+
+// Estado de autenticação do Baileys (credenciais e chaves de criptografia de
+// ponta a ponta). CIFRADO com ENCRYPTION_KEY — quem tem estes dados controla
+// o número.
+model WhatsAppAuthEntry {
+  channelId String   @map("channel_id") @db.Uuid
+  key       String
+  value     Bytes
+  updatedAt DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@id([channelId, key])
+  @@map("auth_entries")
+  @@schema("whatsapp_connector")
+}

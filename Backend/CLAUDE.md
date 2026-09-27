@@ -24,14 +24,15 @@ Monólito modular em NestJS (adapter **Fastify**) com Clean/Hexagonal Architectu
 ## Comandos
 
 ```bash
-npm run dev                # API + worker em watch mode (um terminal, saída prefixada)
-npm run start:dev          # só a API
-npm run start:worker:dev   # só o worker
+npm run dev                   # API + worker + conector do WhatsApp em watch mode (um terminal, saída prefixada)
+npm run start:dev             # só a API
+npm run start:worker:dev      # só o worker
+npm run start:connector:dev   # só o conector do WhatsApp (Baileys)
 npm run build
 npm run lint               # inclui a checagem de fronteiras entre módulos
 npm run format             # Prettier (aspas simples, trailing comma, 100 colunas)
 npm test                   # unitários (test:watch, test:cov)
-npm run test:e2e           # integração contra Postgres/Redis do Docker (test/e2e)
+npm run test:e2e           # integração contra Postgres/Redis do Docker, em banco próprio (test/e2e)
 npm run prisma:migrate -- --name <nome>   # nova migration + regenera o client
 npm run prisma:generate
 ```
@@ -46,6 +47,9 @@ Em ambiente **não interativo** (agente, CI), `prisma migrate dev` pode travar e
 src/
 ├── main.ts / app.module.ts          # processo API (HTTP + WebSocket)
 ├── worker.ts / worker.module.ts     # processo Worker (consumidores de fila)
+├── whatsapp-connector.ts            # processo whatsapp-connector (Baileys, ADR 0006)
+├── contracts/                       # contratos de fila entre processos (jobs + chaves Redis)
+├── connectors/whatsapp/             # o conector: sessões, lease, estado cifrado, normalização
 ├── config/                          # env.schema.ts (Zod) — o boot falha se a env for inválida
 ├── health/
 ├── shared/                          # shared kernel — SEM regra de negócio
@@ -78,8 +82,10 @@ Módulos iniciais:
 - `identity` — users, credenciais, sessões e tokens (rotas `/v1/auth/refresh` e `/v1/auth/logout`). Não conhece tenants além dos ids gravados na sessão.
 - `accounts` — tenants, memberships, roles, convites, catálogo de permissões e cargos padrão. Rotas: `/v1/auth/signup` e `/v1/auth/login` (envolvem tenants), `/v1/me`, `/v1/members`, `/v1/invitations` (+ `lookup` e `accept`, públicas) e `/v1/roles`. Depende de `identity`, **nunca o contrário**.
 - `contacts`
-- `channels` — integração com provedores e webhooks
-- `conversations`
+- `channels` — canais de atendimento (hoje WhatsApp via Baileys; depois API oficial). Rotas `/v1/channels` (permissão `channels:manage`): listar, criar, `GET /:id/connection` (status + QR), `connect`, `disconnect` e `test-message`. Não fala com o WhatsApp: enfileira comandos para o conector e aplica os relatos dele (worker).
+- `conversations` — conversas e mensagens. **Uma conversa por (canal, contato)**, status `open`/`pending`/`resolved` (mensagem do cliente reabre). Entrada pelo evento `channel.message.received.v1` (worker): acha/cria o contato pelo telefone (`ContactsFacade`), acha/abre a conversa e grava a mensagem — idempotente pelo `externalId` (único por canal). Resposta: `POST /v1/conversations/:id/messages` grava `pending` e enfileira via `ChannelsFacade` **depois** do commit; o resultado chega por `channel.message.send-result.v1`. Quem responde uma conversa sem responsável a assume. Rotas: `GET /v1/conversations` (cursor opaco, ordem da última mensagem), `GET /:id`, `GET /:id/messages`, `POST /:id/messages`, `POST /:id/status`, `POST /:id/read`. Publica `conversation.message.added.v1`, `conversation.message.status-changed.v1`, `conversation.status-changed.v1` e `conversation.assigned.v1`.
+  - **Escopo (`VisibleConversations`):** `view:all` vê tudo; `view:own` vê as suas e as sem responsável. **Provisório até existirem equipes:** `view:team` vale como `own`. Conversa fora do escopo responde 404.
+  - Contatos só com LID (sem telefone) ainda são ignorados na entrada (log de aviso).
 - futuro: `audit` (alimentado por eventos)
 
 ## Regras de camadas
@@ -119,7 +125,7 @@ Módulos iniciais:
 
 ## Eventos, filas e worker
 
-- **Três processos, a mesma imagem:** `api` (`main.ts`), `worker` (`worker.ts`, sem HTTP — só health check em `WORKER_HEALTH_PORT`) e, a partir do módulo channels, `whatsapp-connector` (ADR 0006).
+- **Três processos, a mesma imagem:** `api` (`main.ts`), `worker` (`worker.ts`, sem HTTP — só health check em `WORKER_HEALTH_PORT`) e `whatsapp-connector` (`whatsapp-connector.ts`, health check em `CONNECTOR_HEALTH_PORT`; ver seção própria).
 - **Eventos de domínio usam outbox:** `EventBus.publish` grava o evento em `platform.outbox_events` **na mesma transação** dos dados (o use case deve usar `UnitOfWork`). O `OutboxRelay` (worker) lê os pendentes a cada segundo e cria **um job por consumidor** na fila `domain-events` (id estável `<evento>:<consumidor>`), com retry exponencial.
 - **Consumir um evento:** método num provider do módulo (`application/event-handlers/`), marcado com `@HandlesDomainEvent(OutroModuloEvent)`, recebendo `DeliveredEvent<E>` (dados do evento + `eventId`). Roda no worker, no tenant do evento. Entrega é "ao menos uma vez": **todo consumidor é idempotente** (use o `eventId`).
 - Evento de módulo multi-tenant carrega `tenantId` (o do evento prevalece sobre o do contexto). Contrato público e versionado (`message.received.v1`), em `domain/events/`, exportado no `index.ts`.
@@ -129,6 +135,30 @@ Módulos iniciais:
 - Webhooks de canais: o controller valida a assinatura, enfileira o payload bruto e responde 200. O processamento acontece no worker.
 - `QUEUE_PREFIX` separa as filas por ambiente (os testes e2e usam `omni-e2e`).
 
+## Conector do WhatsApp (Baileys)
+
+Processo próprio (`whatsapp-connector.ts`, ADR 0006), mesma imagem. Regras:
+
+- **Só conversa pelo contrato** (`src/contracts/whatsapp-connector.contract.ts`): comandos na fila `whatsapp-connector` (start/stop/send), relatos na fila `whatsapp-events` (status, mensagem recebida, resultado de envio) e o QR code no Redis (`whatsapp:qr:<canal>`, TTL 60 s). O lint barra: `connectors/` nunca importa módulos, e módulos nunca importam `connectors/`.
+- Mudar o formato de um job do contrato quebra jobs já enfileirados: só acrescentar campos opcionais, ou criar um job novo (`-v2`).
+- **Tabelas próprias** no schema `whatsapp_connector`: `sessions` (estado desejado por canal) e `auth_entries` (credenciais do Baileys, **cifradas** com `ENCRYPTION_KEY` via `SecretBox`). Quem tem esses dados controla o número: nunca logar nem expor.
+- **Posse por lease no Redis** (`whatsapp:lease:<canal>`, 30 s, renovado a cada 5 s): cada número tem no máximo uma conexão viva entre todas as instâncias. O `SessionManager` reconcilia a cada 5 s (renova, encerra as indesejadas, assume as sem dono); comandos e reconciliação rodam em fila única por instância.
+- Envio numa instância que não é dona da sessão falha e volta para a fila (retry); esgotadas as tentativas, o resultado `failed` é relatado.
+- Reconexão: `restartRequired` (após escanear) e fim de ciclo de QR reconectam na hora; outras quedas usam backoff exponencial (até 1 min). Desiste (e marca a sessão como inativa) em logout pelo celular, QR não escaneado em 3 min e `connectionReplaced`.
+- SIGTERM encerra as conexões **sem logout** e libera os leases: outra instância reassume sem novo QR.
+- Grupos, status, canais (newsletter), reações e mensagens de protocolo são ignorados na normalização (`message-normalizer.ts`).
+- Health check em `CONNECTOR_HEALTH_PORT` (padrão 3002).
+
+## Tempo real (Socket.IO)
+
+- Gateway no processo `api` (módulo `realtime`, caminho `/socket.io`, **só transporte WebSocket**), com `RedisIoAdapter` (`@socket.io/redis-adapter`) entre réplicas. O `socket.io` fica fixado na versão que o `@nestjs/platform-socket.io` usa (hoje 4.8.3) — versões diferentes duplicam o pacote e quebram os tipos.
+- **Autenticação na conexão:** `auth.token` = access token, validado pelas mesmas regras do HTTP (`IdentityFacade.authenticateAccessToken` + `AccountsFacade.accessOf`); recusado → `connect_error: unauthorized`. **O servidor derruba a conexão quando o token expira** — o cliente renova e reconecta; nenhuma conexão sobrevive a um acesso revogado por mais que a validade do token. Mudança de cargo só vale para as salas na próxima conexão.
+- **Salas:** `member:<membershipId>` e `tenant:<id>:perm:<permissão>` (uma por permissão do membro). O gateway é genérico; **quem emite escolhe as salas** conforme a regra de visibilidade do próprio módulo.
+- **Emitir:** port `RealtimeNotifier` (`REALTIME_NOTIFIER`, shared kernel), implementado com `@socket.io/redis-emitter` — funciona de qualquer processo (o worker emite sem ter servidor Socket.IO). Normalmente a partir de um consumidor de evento de domínio (outbox), nunca dentro da transação.
+- **O aviso é só um sinal** (ex.: `conversation.changed { conversationId, reason }`), nunca o conteúdo: a tela busca pela API, que aplica permissão e escopo. Aviso perdido não é dado perdido (a tela se corrige ao reconectar).
+- Conversas: `NotifyRealtimeHandler` avisa `view:all`, o responsável e — sem responsável — `view:own`/`view:team`; na troca de responsável, avisa também o anterior.
+- Latência típica ~1–2,5 s: o outbox é lido a cada 1 s e uma mensagem passa por dois eventos (channels → conversations → aviso).
+
 ## Logs e correlation id
 
 - Pino (`nestjs-pino`): JSON em produção, legível em dev. Use o `Logger` do `@nestjs/common` (`new Logger(Classe.name)`); nunca `console.log`.
@@ -137,6 +167,7 @@ Módulos iniciais:
 
 ## HTTP
 
+- CORS (`main.ts`) lista os métodos explicitamente: o `@fastify/cors` só libera GET/HEAD/POST por padrão, e testes com curl não passam pelo preflight — verbo novo em rota usada pelo navegador precisa estar na lista.
 - Rotas versionadas: `/v1/...`. DTOs com Zod em `http/dto/`, aplicados com `new ZodValidationPipe(schema)` em `@Body`, `@Query` e `@Param`.
 - DTOs validam só o **formato**; regras de negócio (telefone válido, duplicidade) ficam no domínio.
 - Respostas passam por um presenter (`<entidade>.presenter.ts`) — a entidade nunca é serializada direto.
@@ -153,7 +184,7 @@ Módulos iniciais:
 - Permissões com escopo de dados (`:own`, `:team`, `:all`): a rota usa `@RequireAnyPermission` com as variantes; o **use case/query aplica o escopo**.
 - O tenant da requisição fica no `TenantContext` (nestjs-cls). **Repositórios** leem o tenant do contexto e filtram toda query por ele; use cases e controllers não recebem `tenantId` como parâmetro.
 - Jobs de fila carregam `tenantId`; o processor preenche o `TenantContext` antes de executar.
-- WebSocket: token validado na conexão; eventos emitidos só para a sala do tenant.
+- WebSocket: ver "Tempo real".
 - Índices de tabelas de negócio começam pelo `tenantId`.
 - Access token (JWT HS256, `JWT_SECRET`, 15 min) contém só `sub` (user), `tid` (tenant), `mid` (membership) e `sid` (sessão); permissões são resolvidas por requisição (cache Redis).
 - Refresh token = `<sessionId>.<segredo>`; no banco fica só o SHA-256 do segredo. Rotação a cada uso; reuso de um segredo antigo revoga a sessão inteira.
@@ -183,7 +214,7 @@ Módulos iniciais:
 - `domain/`: testes unitários puros, sem Nest.
 - Use cases: unitários com fakes dos ports, sem banco e sem Nest (instanciados com `new`). Fakes do shared kernel em `shared/testing/fakes.ts`; repositório em memória do módulo em `<modulo>/testing/`, reproduzindo o contrato do real (isolamento por tenant, unicidade, ordem).
 - Todo módulo tenant-aware tem teste provando que um tenant não enxerga dados de outro (`FakeTenantContext.switchTo`).
-- Integração em `test/e2e/*.e2e-spec.ts` (Postgres e Redis reais do Docker, filas em prefixo próprio): repositórios, outbox, filas. Dados de teste com ids/e-mails próprios (`@teste.dev`), limpos no `afterAll`.
+- Integração em `test/e2e/*.e2e-spec.ts`: repositórios, outbox, filas. Usa o Postgres e o Redis do Docker, mas **isolados do dev** (`test/e2e/e2e-env.ts`): banco `omnichannel_e2e` (criado e migrado pelo `global-setup.ts` a cada execução), Redis db 1 e filas `omni-e2e`. Pode rodar com o `npm run dev` de pé. Dados de teste com ids/e-mails próprios (`@teste.dev`), limpos no `afterAll`.
 - O `dist` é compartilhado por API e worker no watch: por isso `deleteOutDir: false` no nest-cli e a limpeza fica no `prebuild` (dist + tsbuildinfo).
 - Todo use case novo vem com `.spec.ts`.
 

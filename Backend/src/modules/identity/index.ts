@@ -2,6 +2,7 @@
  * API pública do módulo identity. Outros módulos só podem importar daqui.
  */
 export type { AuthTokens } from './application/auth-tokens';
+export type { AuthenticatedAccess } from './application/use-cases/authenticate-access-token/authenticate-access-token.use-case';
 export { IdentityFacade, type UserSummary } from './application/identity.facade';
 export { UserRegisteredEvent } from './domain/events/user-registered.event';
 export { AuthTokensPresenter } from './http/auth-tokens.presenter';

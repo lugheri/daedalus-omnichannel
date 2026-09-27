@@ -6,13 +6,15 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "concurrently --names api,worker --prefix-colors cyan,magenta --kill-others-on-fail \"npm:start:dev\" \"npm:start:worker:dev\"",
+    "dev": "concurrently --names api,worker,wa --prefix-colors cyan,magenta,green --kill-others-on-fail \"npm:start:dev\" \"npm:start:worker:dev\" \"npm:start:connector:dev\"",
     "prebuild": "node -e \"for (const p of ['dist','tsconfig.build.tsbuildinfo']) require('fs').rmSync(p,{recursive:true,force:true})\"",
     "build": "nest build",
     "start:dev": "nest start --watch --env-file .env",
     "start:worker:dev": "nest start --watch --entryFile worker --env-file .env",
+    "start:connector:dev": "nest start --watch --entryFile whatsapp-connector --env-file .env",
     "start:prod": "node dist/main.js",
     "start:worker": "node dist/worker.js",
+    "start:connector": "node dist/whatsapp-connector.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -49,10 +51,15 @@
     "@nestjs/core": "^12.1.0",
     "@nestjs/jwt": "^12.0.2",
     "@nestjs/platform-fastify": "^12.1.0",
+    "@nestjs/platform-socket.io": "^12.1.0",
     "@nestjs/throttler": "^6.7.1",
+    "@nestjs/websockets": "^12.1.0",
     "@node-rs/argon2": "^2.2.1",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "@socket.io/redis-emitter": "^5.1.0",
+    "baileys": "7.0.0-rc14",
     "bullmq": "^6.3.9",
     "ioredis": "^6.0.0",
     "nestjs-cls": "^7.0.1",
@@ -61,6 +68,7 @@
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "socket.io": "4.8.3",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -89,6 +97,8 @@
     "@prisma/engines": false,
     "@parcel/watcher": false,
     "unrs-resolver": false,
-    "msgpackr-extract": false
+    "msgpackr-extract": false,
+    "baileys": false,
+    "protobufjs": false
   }
 }

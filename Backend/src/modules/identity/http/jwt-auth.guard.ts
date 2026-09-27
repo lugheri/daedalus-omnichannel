@@ -26,7 +26,7 @@ export class JwtAuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const actor = await this.authenticate.execute(bearerToken(request.headers.authorization));
+    const { actor } = await this.authenticate.execute(bearerToken(request.headers.authorization));
     this.actors.authenticate(actor);
     return true;
   }

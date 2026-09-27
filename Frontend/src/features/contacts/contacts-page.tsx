@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { usePermissions } from '@/features/auth/session-context'
+import { formatPhone } from '@/lib/phone'
 import { useContacts } from './api'
 import { ContactFormDialog } from './contact-form-dialog'
 
@@ -65,7 +66,7 @@ export function ContactsPage() {
                 <TableCell className="font-medium">
                   {contact.name ?? <span className="text-muted-foreground">Sem nome</span>}
                 </TableCell>
-                <TableCell>{contact.phone ?? '—'}</TableCell>
+                <TableCell>{contact.phone ? formatPhone(contact.phone) : '—'}</TableCell>
                 <TableCell>{contact.email ?? '—'}</TableCell>
               </TableRow>
             ))}

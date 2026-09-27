@@ -29,6 +29,11 @@ export function setAccessToken(token: string | null): void {
   accessToken = token
 }
 
+/** O token atual, para conexões fora do fetch (WebSocket). Nunca persistir. */
+export function getAccessToken(): string | null {
+  return accessToken
+}
+
 /** Chamado quando a sessão não pode mais ser renovada (a app volta ao login). */
 export function setSessionExpiredHandler(handler: () => void): void {
   onSessionExpired = handler
@@ -76,8 +81,9 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   }
 
   if (!response.ok) throw await ApiError.fromResponse(response)
-  if (response.status === 204) return undefined as T
-  return (await response.json()) as T
+  // Respostas sem corpo (204, ou 202 de comandos enfileirados, como /connect).
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
 
 async function send(path: string, { method = 'GET', body, query }: RequestOptions) {

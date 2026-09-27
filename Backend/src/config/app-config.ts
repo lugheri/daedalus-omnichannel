@@ -47,6 +47,14 @@ export class AppConfig {
     return this.env.LOG_LEVEL;
   }
 
+  get connectorHealthPort() {
+    return this.env.CONNECTOR_HEALTH_PORT;
+  }
+
+  get encryptionKey() {
+    return this.env.ENCRYPTION_KEY;
+  }
+
   get workerHealthPort() {
     return this.env.WORKER_HEALTH_PORT;
   }

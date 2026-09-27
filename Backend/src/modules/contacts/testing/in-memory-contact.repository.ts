@@ -35,6 +35,10 @@ export class InMemoryContactRepository implements ContactRepository {
     return Promise.resolve(this.ofTenant().find((c) => c.id === id) ?? null);
   }
 
+  findByIds(ids: string[]): Promise<Contact[]> {
+    return Promise.resolve(this.ofTenant().filter((c) => ids.includes(c.id)));
+  }
+
   findByPhone(phone: Phone): Promise<Contact | null> {
     return Promise.resolve(this.ofTenant().find((c) => c.phone?.equals(phone)) ?? null);
   }

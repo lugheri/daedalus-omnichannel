@@ -21,7 +21,9 @@ const CLAIMS: AccessTokenClaims = {
 /** Aceita só o token 'valid-token'. */
 class FakeVerifier implements AccessTokenVerifier {
   verify(token: string) {
-    return Promise.resolve(token === 'valid-token' ? CLAIMS : null);
+    return Promise.resolve(
+      token === 'valid-token' ? { ...CLAIMS, expiresAt: new Date(Date.now() + 60_000) } : null,
+    );
   }
 }
 

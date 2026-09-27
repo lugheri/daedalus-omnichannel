@@ -63,11 +63,19 @@ const MESSAGES: Record<string, string> = {
   ROLE_NAME_TAKEN: 'Já existe um cargo com este nome.',
   ROLE_SYSTEM_IMMUTABLE: 'O cargo Owner não pode ser alterado nem excluído.',
   ROLE_INVALID: 'Cargo inválido.',
-  CONTACT_INVALID_PHONE: 'Telefone inválido. Use o formato internacional, ex.: +55 11 98765-4321.',
+  CONTACT_INVALID_PHONE: 'Telefone inválido. Informe com DDD, ex.: (11) 98765-4321.',
   CONTACT_INVALID_EMAIL: 'E-mail inválido.',
   CONTACT_WITHOUT_IDENTIFIER: 'Informe ao menos um telefone ou e-mail.',
   CONTACT_ALREADY_EXISTS: 'Já existe um contato com este telefone ou e-mail.',
   CONTACT_NOT_FOUND: 'Contato não encontrado.',
+  CHANNEL_NOT_FOUND: 'Canal não encontrado.',
+  CHANNEL_INVALID_NAME: 'O nome do canal precisa ter entre 1 e 60 caracteres.',
+  CHANNEL_NOT_CONNECTED: 'O canal não está conectado.',
+  CONVERSATION_NOT_FOUND: 'Conversa não encontrada.',
+  CONVERSATION_CONTACT_WITHOUT_PHONE: 'O contato desta conversa não tem telefone para responder.',
+  MESSAGE_INVALID_TEXT: 'A mensagem precisa ter entre 1 e 4096 caracteres.',
+  CHANNEL_STILL_ACTIVE: 'Desconecte o canal antes de removê-lo.',
+  CHANNEL_INVALID_RECIPIENT: 'Número inválido. Informe com DDD, ex.: (11) 98765-4321.',
 }
 
 export function errorMessage(error: unknown): string {

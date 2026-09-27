@@ -11,6 +11,8 @@ import tseslint from 'typescript-eslint';
  * - domain não importa nenhum pacote externo
  * - um módulo só enxerga outro pelo index.ts dele
  * - pastas testing/ só podem ser importadas por arquivos .spec.ts
+ * - conectores (src/connectors) só falam com o sistema pelos contratos
+ *   (src/contracts); nunca importam módulos de negócio, nem são importados por eles
  *
  * Elementos classificam PASTAS (o primeiro padrão que casar vence, por isso
  * as camadas vêm antes de `module` e `app`); categorias classificam ARQUIVOS.
@@ -49,6 +51,8 @@ export default defineConfig(
         { type: 'shared-infra', pattern: 'src/shared/infra' },
         { type: 'shared-http', pattern: 'src/shared/http' },
         { type: 'shared-testing', pattern: 'src/shared/testing' },
+        { type: 'contracts', pattern: 'src/contracts' },
+        { type: 'connector', pattern: 'src/connectors/*', capture: ['connector'] },
         { type: 'domain', pattern: 'src/modules/*/domain', capture: ['module'] },
         { type: 'application', pattern: 'src/modules/*/application', capture: ['module'] },
         { type: 'infra', pattern: 'src/modules/*/infra', capture: ['module'] },
@@ -94,6 +98,34 @@ export default defineConfig(
               allow: { to: shared('shared-testing', 'shared-application', 'shared-domain') },
             },
 
+            // Contratos entre processos (filas): só definições de jobs
+            {
+              from: { element: { type: 'contracts' } },
+              allow: { to: shared('contracts', 'shared-application') },
+            },
+            // Conectores: processos próprios, sem acesso aos módulos de negócio
+            {
+              from: { element: { type: 'connector' } },
+              allow: {
+                to: [
+                  {
+                    element: {
+                      type: 'connector',
+                      captured: { connector: '{{from.element.captured.connector}}' },
+                    },
+                  },
+                  ...shared(
+                    'contracts',
+                    'shared-infra',
+                    'shared-application',
+                    'shared-domain',
+                    'config',
+                    'health',
+                  ),
+                ],
+              },
+            },
+
             // Raiz da aplicação
             { from: { element: { type: 'config' } }, allow: { to: shared('config') } },
             {
@@ -105,7 +137,7 @@ export default defineConfig(
               allow: {
                 to: [
                   { file: { categories: 'app-root' } },
-                  ...shared('config', 'health', 'shared-infra', 'shared-http'),
+                  ...shared('config', 'health', 'shared-infra', 'shared-http', 'connector'),
                   anyModulePublicApi,
                 ],
               },
@@ -122,7 +154,7 @@ export default defineConfig(
                 to: [
                   own('application'),
                   own('domain'),
-                  ...shared('shared-application', 'shared-domain'),
+                  ...shared('shared-application', 'shared-domain', 'contracts'),
                   anyModulePublicApi,
                 ],
               },
@@ -134,7 +166,7 @@ export default defineConfig(
                   own('infra'),
                   own('application'),
                   own('domain'),
-                  ...shared('shared-infra', 'shared-application', 'shared-domain'),
+                  ...shared('shared-infra', 'shared-application', 'shared-domain', 'contracts'),
                   // adapters de gateway sobre a facade de outro módulo
                   anyModulePublicApi,
                 ],
@@ -164,7 +196,7 @@ export default defineConfig(
                   own('http'),
                   anyModulePublicApi,
                   // a montagem do módulo lê a configuração (ex.: segredo do JWT)
-                  ...shared('config'),
+                  ...shared('config', 'contracts'),
                 ],
               },
             },

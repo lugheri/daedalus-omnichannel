@@ -1,6 +1,8 @@
 import type { Actor, ActorContext } from '../application/actor-context';
 import type { EventBus } from '../application/event-bus';
 import type { IdGenerator } from '../application/id-generator';
+import type { EnqueueOptions, JobDefinition, JobQueue } from '../application/job-queue';
+import type { RealtimeNotifier } from '../application/realtime';
 import { TenantNotResolvedError, type TenantContext } from '../application/tenant-context';
 import type { UnitOfWork } from '../application/unit-of-work';
 import type { DomainEvent } from '../domain/domain-event';
@@ -16,6 +18,23 @@ export class SequentialIdGenerator implements IdGenerator {
 
   generate(): string {
     return `id-${this.next++}`;
+  }
+}
+
+/** Guarda os jobs enfileirados para o teste inspecionar. */
+export class RecordingJobQueue implements JobQueue {
+  readonly jobs: { queue: string; name: string; payload: unknown; options?: EnqueueOptions }[] = [];
+
+  add<T>(job: JobDefinition<T>, payload: T, options?: EnqueueOptions): Promise<void> {
+    this.jobs.push({ queue: job.queue, name: job.name, payload, options });
+    return Promise.resolve();
+  }
+
+  /** Payloads enfileirados de um tipo de job. */
+  of<T>(job: JobDefinition<T>): T[] {
+    return this.jobs
+      .filter((j) => j.queue === job.queue && j.name === job.name)
+      .map((j) => j.payload as T);
   }
 }
 
@@ -68,5 +87,15 @@ export class FakeTenantContext implements TenantContext {
 
   switchTo(tenantId: string | null): void {
     this.current = tenantId;
+  }
+}
+
+/** Guarda os avisos em tempo real emitidos, com as salas de destino. */
+export class RecordingRealtimeNotifier implements RealtimeNotifier {
+  readonly emitted: { rooms: string[]; event: string; data: Record<string, unknown> }[] = [];
+
+  emit(rooms: readonly string[], event: string, data: Record<string, unknown>): Promise<void> {
+    this.emitted.push({ rooms: [...rooms].sort(), event, data });
+    return Promise.resolve();
   }
 }

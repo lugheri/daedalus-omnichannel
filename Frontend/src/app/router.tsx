@@ -1,7 +1,8 @@
 import { createBrowserRouter } from 'react-router'
 import { RedirectIfAuthenticated, RequireAuth, RequirePermission } from '@/features/auth/guards'
 import { LoginPage } from '@/features/auth/pages/login-page'
-import { AppLayout } from './layouts/app-layout'
+import { AppLayout, type RouteHandle } from './layouts/app-layout'
+import { CONVERSATION_SCOPES } from './navigation'
 import { AuthLayout } from './layouts/auth-layout'
 import { NotFoundPage } from './not-found-page'
 
@@ -42,11 +43,31 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', ...page(() => import('@/features/home/home-page'), 'HomePage') },
           {
+            element: <RequirePermission anyOf={CONVERSATION_SCOPES} />,
+            children: [
+              {
+                // Segmento opcional: selecionar uma conversa não remonta a página.
+                path: '/conversations/:id?',
+                handle: { fullBleed: true } satisfies RouteHandle,
+                ...page(() => import('@/features/conversations/inbox-page'), 'InboxPage'),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['contacts:view']} />,
             children: [
               {
                 path: '/contacts',
                 ...page(() => import('@/features/contacts/contacts-page'), 'ContactsPage'),
+              },
+            ],
+          },
+          {
+            element: <RequirePermission anyOf={['channels:manage']} />,
+            children: [
+              {
+                path: '/settings/channels',
+                ...page(() => import('@/features/channels/channels-page'), 'ChannelsPage'),
               },
             ],
           },

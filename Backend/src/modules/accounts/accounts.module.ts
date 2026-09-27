@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AppConfig } from '../../config/app-config';
 import { IdentityModule } from '../identity';
+import { AccountsFacade } from './application/accounts.facade';
 import { CurrentAccess } from './application/current-access';
 import { ACCESS_CACHE } from './application/ports/access-cache';
 import { ACCOUNTS_SETTINGS, type AccountsSettings } from './application/ports/accounts-settings';
@@ -77,6 +78,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     ResolveAccessUseCase,
     GetMeUseCase,
     CurrentAccess,
+    AccountsFacade,
     { provide: APP_GUARD, useClass: AccessGuard },
     // Membros
     ListMembersUseCase,
@@ -107,5 +109,6 @@ import { RedisAccessCache } from './infra/redis-access-cache';
       useFactory: (config: AppConfig): AccountsSettings => ({ appUrl: config.appUrl }),
     },
   ],
+  exports: [AccountsFacade],
 })
 export class AccountsModule {}

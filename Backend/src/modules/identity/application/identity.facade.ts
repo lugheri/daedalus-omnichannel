@@ -2,6 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Email } from '../domain/email.vo';
 import type { AuthTokens } from './auth-tokens';
 import { USER_REPOSITORY, type UserRepository } from './ports/user.repository';
+import {
+  AuthenticateAccessTokenUseCase,
+  type AuthenticatedAccess,
+} from './use-cases/authenticate-access-token/authenticate-access-token.use-case';
 import { RevokeMembershipSessionsUseCase } from './use-cases/revoke-membership-sessions/revoke-membership-sessions.use-case';
 import {
   RegisterUserUseCase,
@@ -33,6 +37,7 @@ export class IdentityFacade {
     private readonly verifyCredentialsUseCase: VerifyCredentialsUseCase,
     private readonly startSessionUseCase: StartSessionUseCase,
     private readonly revokeMembershipSessionsUseCase: RevokeMembershipSessionsUseCase,
+    private readonly authenticateAccessTokenUseCase: AuthenticateAccessTokenUseCase,
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
   ) {}
 
@@ -56,6 +61,14 @@ export class IdentityFacade {
   async findUsers(ids: string[]): Promise<UserSummary[]> {
     const users = await Promise.all(ids.map((id) => this.users.findById(id)));
     return users.flatMap((user) => (user ? [toSummary(user)] : []));
+  }
+
+  /**
+   * Valida um access token fora do HTTP (ex.: conexão WebSocket): assinatura,
+   * validade e sessão não revogada. Lança `InvalidAccessTokenError` (401).
+   */
+  authenticateAccessToken(token: string | undefined): Promise<AuthenticatedAccess> {
+    return this.authenticateAccessTokenUseCase.execute(token);
   }
 
   /** Derruba as sessões de um vínculo desativado (refresh e access tokens). */

@@ -1,4 +1,4 @@
-import { Contact, Home, KeyRound, Users, type LucideIcon } from 'lucide-react'
+import { Contact, Home, Inbox, KeyRound, MessageCircle, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -8,9 +8,18 @@ export interface NavItem {
   anyOf: string[]
 }
 
+/** Qualquer escopo de conversa dá acesso à caixa de entrada (a API filtra o que cada um vê). */
+export const CONVERSATION_SCOPES = [
+  'conversations:view:own',
+  'conversations:view:team',
+  'conversations:view:all',
+]
+
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Início', icon: Home, anyOf: [] },
+  { to: '/conversations', label: 'Conversas', icon: Inbox, anyOf: CONVERSATION_SCOPES },
   { to: '/contacts', label: 'Contatos', icon: Contact, anyOf: ['contacts:view'] },
+  { to: '/settings/channels', label: 'Canais', icon: MessageCircle, anyOf: ['channels:manage'] },
   { to: '/settings/members', label: 'Membros', icon: Users, anyOf: ['members:manage'] },
   {
     to: '/settings/roles',

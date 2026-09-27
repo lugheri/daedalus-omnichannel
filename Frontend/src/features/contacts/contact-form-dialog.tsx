@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { FieldGroup } from '@/components/ui/field'
+import { formatPhoneInput } from '@/lib/phone'
 import { contactsApi, contactsQueryKey } from './api'
 
 /**
@@ -73,9 +74,7 @@ export function ContactFormDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Novo contato</DialogTitle>
-          <DialogDescription>
-            Telefone no formato internacional: +55 11 98765-4321.
-          </DialogDescription>
+          <DialogDescription>Informe ao menos um telefone ou e-mail.</DialogDescription>
         </DialogHeader>
         <form id="contact-form" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
           <FieldGroup>
@@ -86,7 +85,10 @@ export function ContactFormDialog({
               name="phone"
               label="Telefone"
               type="tel"
-              placeholder="+55 11 98765-4321"
+              inputMode="tel"
+              placeholder="(11) 98765-4321"
+              description="Com DDD, ex.: (11) 98765-4321. Outros países: comece com + e o código do país."
+              mask={formatPhoneInput}
             />
             <TextField form={form} name="email" label="E-mail" type="email" />
           </FieldGroup>

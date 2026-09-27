@@ -12,6 +12,7 @@ import { ACTOR_CONTEXT } from '../application/actor-context';
 import { EVENT_BUS } from '../application/event-bus';
 import { ID_GENERATOR } from '../application/id-generator';
 import { JOB_QUEUE } from '../application/job-queue';
+import { REALTIME_NOTIFIER } from '../application/realtime';
 import { TENANT_CONTEXT } from '../application/tenant-context';
 import { UNIT_OF_WORK } from '../application/unit-of-work';
 import { ClsActorContext } from './context/cls-actor-context';
@@ -25,6 +26,7 @@ import { PrismaService } from './prisma/prisma.service';
 import { PrismaUnitOfWork } from './prisma/prisma-unit-of-work';
 import { bullConnectionFrom } from './queue/bull-connection';
 import { BullJobQueue } from './queue/bull-job-queue';
+import { RedisRealtimeNotifier } from './realtime/redis-realtime.notifier';
 import { AppThrottlerGuard } from './rate-limit/app-throttler.guard';
 import { RedisThrottlerStorage } from './rate-limit/redis-throttler.storage';
 import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
@@ -82,10 +84,19 @@ import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
     { provide: ACTOR_CONTEXT, useClass: ClsActorContext },
     { provide: TENANT_CONTEXT, useClass: ClsTenantContext },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
+    { provide: REALTIME_NOTIFIER, useClass: RedisRealtimeNotifier },
     // Registrado antes do guard de autenticação: rejeita excesso de
     // requisições sem gastar verificação de token.
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
   ],
-  exports: [ID_GENERATOR, EVENT_BUS, JOB_QUEUE, ACTOR_CONTEXT, TENANT_CONTEXT, UNIT_OF_WORK],
+  exports: [
+    ID_GENERATOR,
+    EVENT_BUS,
+    JOB_QUEUE,
+    ACTOR_CONTEXT,
+    TENANT_CONTEXT,
+    UNIT_OF_WORK,
+    REALTIME_NOTIFIER,
+  ],
 })
 export class SharedInfraModule {}

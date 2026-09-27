@@ -3,7 +3,9 @@ import { AppConfigModule } from './config/app-config.module';
 import { HealthModule } from './health/health.module';
 import { WorkerHealthServer } from './health/worker-health.server';
 import { AccountsModule } from './modules/accounts';
+import { ChannelsWorkerModule } from './modules/channels';
 import { ContactsModule } from './modules/contacts';
+import { ConversationsModule } from './modules/conversations';
 import { IdentityModule } from './modules/identity';
 import { OutboxWorkerModule } from './shared/infra/events/outbox-worker.module';
 import { PrismaModule } from './shared/infra/prisma/prisma.module';
@@ -29,7 +31,9 @@ import { SharedInfraModule } from './shared/infra/shared-infra.module';
     IdentityModule,
     AccountsModule,
     ContactsModule,
-    // Processors por módulo (<modulo>.worker.module.ts) entram aqui.
+    ConversationsModule,
+    // Processors por módulo (<modulo>.worker.module.ts)
+    ChannelsWorkerModule,
   ],
   providers: [WorkerHealthServer],
 })

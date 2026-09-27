@@ -52,6 +52,13 @@ export class PrismaContactRepository implements ContactRepository {
     return row ? ContactMapper.toDomain(row) : null;
   }
 
+  async findByIds(ids: string[]): Promise<Contact[]> {
+    const rows = await this.db.contact.findMany({
+      where: { id: { in: ids }, tenantId: this.tenant.tenantId },
+    });
+    return rows.map((row) => ContactMapper.toDomain(row));
+  }
+
   async findByPhone(phone: Phone): Promise<Contact | null> {
     const row = await this.db.contact.findFirst({
       where: { phone: phone.value, tenantId: this.tenant.tenantId },

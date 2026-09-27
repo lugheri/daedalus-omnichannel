@@ -12,6 +12,7 @@ export interface ContactRepository {
   /** Lança `ContactAlreadyExistsError` se violar a unicidade de telefone/e-mail. */
   save(contact: Contact): Promise<void>;
   findById(id: string): Promise<Contact | null>;
+  findByIds(ids: string[]): Promise<Contact[]>;
   findByPhone(phone: Phone): Promise<Contact | null>;
   findByEmail(email: Email): Promise<Contact | null>;
   /** Mais recentes primeiro. */

@@ -1,0 +1,25 @@
+import { z } from 'zod';
+import { CONVERSATION_STATUSES } from '../../domain/conversation.entity';
+
+const status = z.enum(CONVERSATION_STATUSES as [string, ...string[]]);
+
+export const listConversationsQuerySchema = z.object({
+  status: status.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+  /** Opaco: repasse o `nextCursor` da página anterior. */
+  cursor: z.string().max(200).optional(),
+});
+export type ListConversationsQuery = z.infer<typeof listConversationsQuerySchema>;
+
+export const listMessagesQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().max(200).optional(),
+});
+export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>;
+
+/** Só o formato; tamanho e texto vazio são regra do domínio. */
+export const sendMessageSchema = z.object({ text: z.string().max(10_000) });
+export type SendMessageDto = z.infer<typeof sendMessageSchema>;
+
+export const changeStatusSchema = z.object({ status });
+export type ChangeStatusDto = z.infer<typeof changeStatusSchema>;

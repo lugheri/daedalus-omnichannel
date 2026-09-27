@@ -33,6 +33,15 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   // O worker não expõe a API; só um servidor mínimo de health check nesta porta.
   WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+  // Porta do health check do processo whatsapp-connector.
+  CONNECTOR_HEALTH_PORT: z.coerce.number().int().min(1).max(65535).default(3002),
+  // Chave de criptografia dos segredos guardados no banco (sessões do WhatsApp,
+  // tokens de provedores). 32 bytes em base64. Gere com:
+  // node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+  // Trocar a chave torna ilegível o que foi cifrado com a anterior.
+  ENCRYPTION_KEY: z.base64().refine((v) => Buffer.from(v, 'base64').length === 32, {
+    message: 'ENCRYPTION_KEY precisa ser o base64 de 32 bytes',
+  }),
   // Segredo de assinatura do access token. Gere com:
   // node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
   JWT_SECRET: z.string().min(32, 'JWT_SECRET precisa de pelo menos 32 caracteres'),

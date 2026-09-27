@@ -1,4 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { EVENT_BUS, type EventBus } from '../../../shared/application/event-bus';
+import { ID_GENERATOR, type IdGenerator } from '../../../shared/application/id-generator';
+import { TENANT_CONTEXT, type TenantContext } from '../../../shared/application/tenant-context';
+import { UNIT_OF_WORK, type UnitOfWork } from '../../../shared/application/unit-of-work';
+import { Contact } from '../domain/contact.entity';
+import { Phone } from '../domain/phone.vo';
 import { CONTACT_REPOSITORY, type ContactRepository } from './ports/contact.repository';
 
 /**
@@ -19,17 +25,54 @@ export interface ContactSummary {
  */
 @Injectable()
 export class ContactsFacade {
-  constructor(@Inject(CONTACT_REPOSITORY) private readonly contacts: ContactRepository) {}
+  constructor(
+    @Inject(CONTACT_REPOSITORY) private readonly contacts: ContactRepository,
+    @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
+    @Inject(EVENT_BUS) private readonly events: EventBus,
+    @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
+  ) {}
 
   async findById(id: string): Promise<ContactSummary | null> {
     const contact = await this.contacts.findById(id);
-    if (!contact) return null;
-
-    return {
-      id: contact.id,
-      name: contact.name,
-      phone: contact.phone?.value ?? null,
-      email: contact.email?.value ?? null,
-    };
+    return contact ? summarize(contact) : null;
   }
+
+  async findByIds(ids: string[]): Promise<ContactSummary[]> {
+    if (ids.length === 0) return [];
+    return (await this.contacts.findByIds([...new Set(ids)])).map(summarize);
+  }
+
+  /**
+   * O contato com este telefone; se não existir, cria (ex.: primeira
+   * mensagem de um cliente). Lança `InvalidPhoneError` para telefone inválido.
+   * Participa da transação em andamento, se houver.
+   */
+  async findOrCreateByPhone(input: {
+    phone: string;
+    name: string | null;
+  }): Promise<ContactSummary> {
+    const existing = await this.contacts.findByPhone(Phone.create(input.phone));
+    if (existing) return summarize(existing);
+
+    const contact = Contact.create(this.ids.generate(), {
+      tenantId: this.tenant.tenantId,
+      name: input.name,
+      phone: input.phone,
+    });
+    await this.unitOfWork.run(async () => {
+      await this.contacts.save(contact);
+      await this.events.publish(contact.pullEvents());
+    });
+    return summarize(contact);
+  }
+}
+
+function summarize(contact: Contact): ContactSummary {
+  return {
+    id: contact.id,
+    name: contact.name,
+    phone: contact.phone?.value ?? null,
+    email: contact.email?.value ?? null,
+  };
 }

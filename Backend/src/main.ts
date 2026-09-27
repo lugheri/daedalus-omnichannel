@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { AppConfig } from './config/app-config';
 import { validateEnv } from './config/env.schema';
 import { requestIdFor, type WithHeaders } from './shared/infra/context/request-id';
+import { RedisIoAdapter } from './shared/infra/realtime/redis-io.adapter';
 
 /** Ponto de entrada do processo `api` (`node dist/main.js`). */
 async function bootstrap() {
@@ -37,8 +38,12 @@ async function bootstrap() {
   app.enableCors({
     origin: [...config.corsOrigins],
     credentials: true,
+    // O @fastify/cors libera só GET/HEAD/POST por padrão.
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
     exposedHeaders: ['x-request-id'],
   });
+  // WebSocket (Socket.IO) no mesmo servidor HTTP, com adapter Redis entre réplicas.
+  app.useWebSocketAdapter(new RedisIoAdapter(app));
   app.enableShutdownHooks();
 
   await app.listen(config.port, config.host);

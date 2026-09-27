@@ -1,0 +1,18 @@
+// Módulo channels. Um canal = uma conexão de atendimento de um tenant
+// (hoje: um número de WhatsApp via Baileys).
+
+model Channel {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  provider     String
+  name         String
+  status       String
+  phoneNumber  String?  @map("phone_number")
+  statusReason String?  @map("status_reason")
+  createdAt    DateTime @map("created_at") @db.Timestamptz(3)
+  statusAt     DateTime @map("status_at") @db.Timestamptz(3)
+
+  @@index([tenantId, id(sort: Desc)])
+  @@map("channels")
+  @@schema("channels")
+}
