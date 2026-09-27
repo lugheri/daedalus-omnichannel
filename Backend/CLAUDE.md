@@ -150,7 +150,7 @@ Módulos iniciais:
 - Senhas: Argon2id (`@node-rs/argon2`), atrás do port `PasswordHasher`. A senha em texto puro só existe no value object `Password` (que não se serializa).
 - `JwtAuthGuard` (identity, `APP_GUARD`) valida o `Authorization: Bearer` e grava o ator no `ActorContext` (CLS); `TenantContext` lê o tenant dele. Rotas abertas usam `@Public()` (`shared/http`): hoje só `/health/*` e `/v1/auth/*`.
 - Refresh token em cookie (ADR 0005), via `RefreshTokenCookie` (exportado pelo identity): `HttpOnly`, `SameSite=Strict`, `Path=/v1/auth`, `Secure` fora de dev. Rotas autenticadas por cookie usam `@UseGuards(TrustedOriginGuard)` (CSRF: `Origin` precisa estar em `CORS_ORIGINS`).
-- Rate limit (`@nestjs/throttler`, storage próprio no Redis): padrão 300 req/min por IP em toda a API; rotas sensíveis apertam com `@Throttle` (login 10/min com bloqueio de 15 min; cadastro 5/h; refresh 30/min). Sondas de health usam `@SkipThrottle()`. Se o Redis cair, o limite **falha aberto** (log de aviso) em vez de derrubar a API.
+- Rate limit (`@nestjs/throttler` + `AppThrottlerGuard`, storage próprio no Redis): padrão 300 req/min por IP **e por rota**; excesso responde 429 `RATE_LIMITED` com `Retry-After`; rotas sensíveis apertam com `@Throttle` (login 10/min com bloqueio de 15 min; cadastro 5/h; refresh 30/min). Sondas de health usam `@SkipThrottle()`. Se o Redis cair, o limite **falha aberto** (log de aviso) em vez de derrubar a API.
 - `TRUST_PROXY=true` só atrás do Traefik — senão o cliente forja o IP usado no rate limit.
 - Pendente (entrega 3): `@RequirePermissions` e checagem por requisição de que o vínculo segue ativo (hoje um access token vale até expirar, mesmo após logout).
 

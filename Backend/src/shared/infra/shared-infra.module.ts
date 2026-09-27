@@ -3,7 +3,7 @@ import { TransactionalAdapterPrisma } from '@nestjs-cls/transactional-adapter-pr
 import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import type { Redis } from 'ioredis';
 import { ClsModule } from 'nestjs-cls';
 import { ACTOR_CONTEXT } from '../application/actor-context';
@@ -18,6 +18,7 @@ import { UuidV7IdGenerator } from './id/uuid-v7.id-generator';
 import { PrismaModule } from './prisma/prisma.module';
 import { PrismaService } from './prisma/prisma.service';
 import { PrismaUnitOfWork } from './prisma/prisma-unit-of-work';
+import { AppThrottlerGuard } from './rate-limit/app-throttler.guard';
 import { RedisThrottlerStorage } from './rate-limit/redis-throttler.storage';
 import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
 
@@ -61,7 +62,7 @@ import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
     // Registrado antes do guard de autenticação: rejeita excesso de
     // requisições sem gastar verificação de token.
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
   ],
   exports: [ID_GENERATOR, EVENT_BUS, ACTOR_CONTEXT, TENANT_CONTEXT, UNIT_OF_WORK],
 })
