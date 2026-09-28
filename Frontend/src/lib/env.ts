@@ -1,8 +1,17 @@
 import { z } from 'zod'
 
+declare global {
+  interface Window {
+    /** Configuração de runtime, escrita no /config.js pelo container (ver Dockerfile). */
+    __APP_CONFIG__?: { apiUrl?: string }
+  }
+}
+
 /**
- * Variáveis de ambiente do front (precisam do prefixo VITE_ e são embutidas no
- * build — nunca coloque segredos aqui). Validadas no carregamento, como no backend.
+ * Configuração do front. Em produção vem do `/config.js`, gerado quando o
+ * container sobe (a mesma imagem serve qualquer ambiente); em dev, das
+ * variáveis VITE_* do Vite. Nunca coloque segredos aqui: tudo vai para o
+ * navegador.
  */
 const envSchema = z.object({
   VITE_API_URL: z
@@ -11,4 +20,9 @@ const envSchema = z.object({
     .transform((url) => url.replace(/\/+$/, '')),
 })
 
-export const env = envSchema.parse(import.meta.env)
+const runtime = typeof window !== 'undefined' ? window.__APP_CONFIG__ : undefined
+
+export const env = envSchema.parse({
+  ...import.meta.env,
+  ...(runtime?.apiUrl && { VITE_API_URL: runtime.apiUrl }),
+})

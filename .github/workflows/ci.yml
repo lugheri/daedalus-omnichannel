@@ -1,0 +1,84 @@
+# Verificação a cada push e pull request: o mesmo que rodamos localmente.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
+    # Postgres, Redis e armazenamento S3 reais para os testes e2e.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: omnichannel
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: omnichannel
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U omnichannel" --health-interval 5s --health-retries 20
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 20
+      minio:
+        image: bitnamilegacy/minio:latest
+        env:
+          MINIO_ROOT_USER: omnichannel
+          MINIO_ROOT_PASSWORD: ci-minio-password
+          MINIO_DEFAULT_BUCKETS: omnichannel
+        ports: ['9000:9000']
+        options: >-
+          --health-cmd "curl -fs http://localhost:9000/minio/health/live" --health-interval 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://omnichannel:ci@127.0.0.1:5432/omnichannel
+      REDIS_URL: redis://127.0.0.1:6379
+      JWT_SECRET: ci-only-secret-with-at-least-32-characters!!
+      # base64 de 32 bytes, só para CI.
+      ENCRYPTION_KEY: Y2ktb25seS1lbmNyeXB0aW9uLWtleS0zMmJ5dGVzISE=
+      S3_ENDPOINT: http://127.0.0.1:9000
+      S3_BUCKET: omnichannel
+      S3_ACCESS_KEY: omnichannel
+      S3_SECRET_KEY: ci-minio-password
+      S3_FORCE_PATH_STYLE: 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run test:e2e
+      - run: npm run build
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build

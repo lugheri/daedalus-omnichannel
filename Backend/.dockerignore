@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+test
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+src/shared/infra/prisma/generated
+**/*.spec.ts
+**/testing
+Dockerfile
+.dockerignore

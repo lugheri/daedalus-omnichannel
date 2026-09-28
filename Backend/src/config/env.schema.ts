@@ -1,4 +1,28 @@
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
+
+/**
+ * Convenção `VAR_FILE` (Docker secrets, Kubernetes): em vez do valor, a
+ * variável aponta o arquivo que o contém — `JWT_SECRET_FILE=/run/secrets/jwt_secret`.
+ * Assim nenhum segredo aparece em `docker inspect` nem no env do processo.
+ * Se as duas formas vierem, vale a direta.
+ */
+export function withSecretFiles(
+  raw: Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  const resolved = { ...raw };
+  for (const [name, path] of Object.entries(raw)) {
+    if (!name.endsWith('_FILE') || !path) continue;
+    const target = name.slice(0, -'_FILE'.length);
+    if (resolved[target] !== undefined) continue;
+    try {
+      resolved[target] = readFileSync(path, 'utf8').trim();
+    } catch {
+      throw new Error(`${name} aponta para ${path}, que não pôde ser lido`);
+    }
+  }
+  return resolved;
+}
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -63,7 +87,7 @@ export const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 export function validateEnv(raw: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(raw);
+  const result = envSchema.safeParse(withSecretFiles(raw));
   if (!result.success) {
     throw new Error(`Variáveis de ambiente inválidas:\n${z.prettifyError(result.error)}`);
   }

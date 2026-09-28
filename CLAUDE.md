@@ -39,16 +39,20 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
   - `whatsapp-connector` (`node dist/whatsapp-connector.js`) — conexões persistentes do Baileys (com estado; cada número pertence a uma instância). Tratado como serviço à parte: só fala com o resto por filas/eventos no Redis e tem tabelas próprias ([ADR 0006](docs/adr/0006-canais-whatsapp.md)).
 - **WhatsApp:** API oficial (Cloud API, empresa como Tech Provider da Meta) e não oficial (Baileys), atrás da mesma abstração no módulo `channels`. O Baileys é o canal inicial do MVP (clientes cientes).
 - **Arquivos:** S3 em produção, MinIO em desenvolvimento — mesmo adapter (API S3), muda só a configuração.
-- Configuração 100% por variáveis de ambiente (12-factor). Segredos via Docker secrets em produção; `.env` só em desenvolvimento e nunca versionado — manter `.env.example` atualizado.
+- Configuração 100% por variáveis de ambiente (12-factor). Segredos via Docker secrets em produção, lidos pela convenção **`VAR_FILE`** (ex.: `JWT_SECRET_FILE=/run/secrets/jwt_secret`); `.env` só em desenvolvimento e nunca versionado — manter os `.env.example` atualizados, **só com valores de exemplo** (nunca uma senha usada de verdade, nem de dev: o GitHub alerta).
 - Todo serviço expõe health checks (`/health/live`, `/health/ready`) e faz graceful shutdown (SIGTERM).
 - Nada de código específico de Swarm na aplicação: ela deve rodar igual em Kubernetes, para quando precisarmos de autoscaling (HPA/KEDA).
+- **Deploy** ([ADR 0007](docs/adr/0007-deploy-swarm.md), passo a passo em [docs/deploy.md](docs/deploy.md)):
+  - Imagens: `Backend/Dockerfile` (alvos `runtime` e `migrate`) e `Frontend/Dockerfile` (nginx; URL da API em runtime via `API_URL` → `/config.js`). Publicadas no GHCR pelo `.github/workflows/release.yml` a cada tag `v*`; o `ci.yml` roda lint, tipos, testes (inclusive e2e com Postgres/Redis/MinIO) e build a cada push.
+  - `Docker/stack.prod.yaml` (Swarm) + `Docker/deploy.sh` (migrations num job único, depois a stack). `Docker/data/compose.yaml`: VM de dados (Postgres, Redis com `noeviction`, backup diário para S3).
+  - **Toda migration precisa ser compatível com a versão anterior do código**: o rolling update roda as duas versões juntas por instantes, e rollback não desfaz migration.
 
 ## Ambiente de desenvolvimento
 
 - Windows + Docker Engine **dentro do WSL** (Ubuntu 22.04), sem Docker Desktop. Comandos `docker` rodam num terminal WSL.
 - O WSL desliga quando não há sessão aberta, derrubando os containers: manter um terminal WSL aberto enquanto desenvolve.
 - A API roda no Windows (`npm run start:dev`, porta 3000) e o front também (`npm run dev`, porta **5180** — a 5173 é usada por outro projeto da máquina).
-- Infra local em `Docker/compose.dev.yaml`: Postgres (5432), Redis (6379) e MinIO (API 9000, console 9001 — `omnichannel` / `omnichannel-dev`; bucket `omnichannel` criado na subida).
+- Infra local em `Docker/compose.dev.yaml`: Postgres (5432), Redis (6379) e MinIO (API 9000, console 9001 — usuário `omnichannel`; bucket `omnichannel` criado na subida). As senhas vêm do `Docker/.env` (fora do git; modelo em `Docker/.env.example`) e precisam bater com o `Backend/.env`.
   - A MinIO deixou de publicar imagens públicas (Docker Hub e Quay pedem login). Usamos a cópia congelada `bitnamilegacy/minio` — ok para dev. O código fala só a API S3: trocar por outro compatível (SeaweedFS, RustFS) é só mexer no compose.
 - O WSL usa `networkingMode=mirrored` (em `%USERPROFILE%\.wslconfig`): no modo NAT padrão, as conexões TCP de saída do WSL eram bloqueadas nesta máquina (o Docker não baixava imagens). Se voltar a acontecer: `wsl --shutdown` no PowerShell e abrir o terminal WSL de novo.
 - Nesse modo, **só o IPv4 de loopback chega aos containers**: use `127.0.0.1` (não `localhost`, que pode resolver para `::1` e dar timeout — o CLI do Prisma cai nisso). O `.env` já usa `127.0.0.1`.

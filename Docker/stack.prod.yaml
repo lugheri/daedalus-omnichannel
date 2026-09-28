@@ -1,0 +1,193 @@
+# Stack de produção (Docker Swarm). Deploy pelo Docker/deploy.sh — ele roda as
+# migrations antes e passa as variáveis abaixo (do Docker/.env.prod, fora do git):
+#   APP_DOMAIN, API_DOMAIN, ACME_EMAIL, IMAGE_REGISTRY, IMAGE_TAG,
+#   S3_ENDPOINT, S3_REGION, S3_BUCKET
+#
+# Postgres e Redis ficam FORA do Swarm (VM de dados: Docker/data/compose.yaml).
+# Segredos são Docker secrets (criados uma vez: ver docs/deploy.md) e chegam à
+# aplicação como arquivos, via VAR_FILE — nunca em variável de ambiente visível.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+# Configuração comum aos três processos do backend (mesma imagem).
+x-backend-env: &backend-env
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  APP_URL: https://${APP_DOMAIN}
+  CORS_ORIGINS: https://${APP_DOMAIN}
+  LOG_LEVEL: info
+  DATABASE_URL_FILE: /run/secrets/database_url
+  REDIS_URL_FILE: /run/secrets/redis_url
+  JWT_SECRET_FILE: /run/secrets/jwt_secret
+  ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
+  S3_ENDPOINT: ${S3_ENDPOINT}
+  S3_REGION: ${S3_REGION}
+  S3_BUCKET: ${S3_BUCKET}
+  S3_ACCESS_KEY_FILE: /run/secrets/s3_access_key
+  S3_SECRET_KEY_FILE: /run/secrets/s3_secret_key
+  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+
+x-backend-secrets: &backend-secrets
+  - database_url
+  - redis_url
+  - jwt_secret
+  - encryption_key
+  - s3_access_key
+  - s3_secret_key
+
+services:
+  # ─── Borda: HTTPS (Let's Encrypt) e roteamento por domínio ────────────────
+  traefik:
+    image: traefik:v3.5
+    command:
+      - --providers.swarm=true
+      - --providers.swarm.exposedByDefault=false
+      - --providers.swarm.network=omnichannel_edge
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --accesslog=true
+      - --log.level=INFO
+    ports:
+      # mode host: o Traefik vê o IP real do cliente (rate limit por IP).
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks: [edge]
+    logging: *logging
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  # ─── Painel (SPA) ─────────────────────────────────────────────────────────
+  web:
+    image: ${IMAGE_REGISTRY}/omnichannel-web:${IMAGE_TAG}
+    environment:
+      API_URL: https://${API_DOMAIN}
+    networks: [edge]
+    logging: *logging
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/health']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy:
+      replicas: 2
+      update_config: { order: start-first, failure_action: rollback }
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.web.rule=Host(`${APP_DOMAIN}`)
+        - traefik.http.routers.web.entrypoints=websecure
+        - traefik.http.routers.web.tls.certresolver=le
+        - traefik.http.services.web.loadbalancer.server.port=8080
+        # Pelo VIP do Swarm: réplica saindo deixa de receber na hora (deploy sem erro).
+        - traefik.swarm.lbswarm=true
+
+  # ─── API (HTTP + WebSocket) ───────────────────────────────────────────────
+  api:
+    image: ${IMAGE_REGISTRY}/omnichannel-backend:${IMAGE_TAG}
+    command: ['node', 'dist/main.js']
+    environment:
+      <<: *backend-env
+      PORT: '3000'
+      # Atrás do Traefik: o IP do cliente vem do X-Forwarded-For.
+      TRUST_PROXY: 'true'
+    secrets: *backend-secrets
+    networks: [edge]
+    logging: *logging
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health/ready']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    stop_grace_period: 30s
+    deploy:
+      replicas: 2
+      update_config: { order: start-first, failure_action: rollback, delay: 10s }
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.api.rule=Host(`${API_DOMAIN}`)
+        - traefik.http.routers.api.entrypoints=websecure
+        - traefik.http.routers.api.tls.certresolver=le
+        - traefik.http.services.api.loadbalancer.server.port=3000
+        # Pelo VIP do Swarm (e não direto no IP de cada réplica): a réplica que
+        # está saindo sai do balanceamento na hora, sem esperar o Traefik
+        # perceber — é o que torna o rolling update sem erros para o cliente.
+        - traefik.swarm.lbswarm=true
+
+  # ─── Worker (filas, outbox, eventos) ──────────────────────────────────────
+  worker:
+    image: ${IMAGE_REGISTRY}/omnichannel-backend:${IMAGE_TAG}
+    command: ['node', 'dist/worker.js']
+    environment:
+      <<: *backend-env
+      WORKER_HEALTH_PORT: '3001'
+    secrets: *backend-secrets
+    networks: [edge]
+    logging: *logging
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3001/health/ready']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    # Termina os jobs em andamento antes de sair.
+    stop_grace_period: 60s
+    deploy:
+      replicas: 1
+      update_config: { order: start-first, failure_action: rollback }
+
+  # ─── Conector do WhatsApp (Baileys) ───────────────────────────────────────
+  whatsapp-connector:
+    image: ${IMAGE_REGISTRY}/omnichannel-backend:${IMAGE_TAG}
+    command: ['node', 'dist/whatsapp-connector.js']
+    environment:
+      <<: *backend-env
+      CONNECTOR_HEALTH_PORT: '3002'
+    secrets: *backend-secrets
+    networks: [edge]
+    logging: *logging
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3002/health/ready']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    stop_grace_period: 30s
+    deploy:
+      replicas: 1
+      # stop-first: a instância antiga encerra as sessões (sem logout) e libera
+      # os leases; a nova assume na hora, sem esperar os leases expirarem.
+      update_config: { order: stop-first, failure_action: rollback }
+
+networks:
+  edge:
+    name: omnichannel_edge
+    driver: overlay
+    attachable: true
+
+volumes:
+  letsencrypt:
+
+secrets:
+  database_url: { external: true }
+  redis_url: { external: true }
+  jwt_secret: { external: true }
+  encryption_key: { external: true }
+  s3_access_key: { external: true }
+  s3_secret_key: { external: true }

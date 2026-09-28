@@ -1,3 +1,4 @@
+# Senhas vêm do Docker/.env (fora do git; modelo em .env.example).
 name: omnichannel-dev
 
 services:
@@ -6,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: omnichannel
-      POSTGRES_PASSWORD: omnichannel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no Docker/.env}
       POSTGRES_DB: omnichannel
     ports:
       - '5432:5432'
@@ -36,13 +37,13 @@ services:
   # A MinIO deixou de publicar imagens públicas (Docker Hub e Quay); esta é a
   # cópia congelada da Bitnami — ok para dev. Como o código usa só a API S3,
   # trocar por outro compatível (SeaweedFS, RustFS) é só mexer aqui.
-  # Console web: http://127.0.0.1:9001 (omnichannel / omnichannel-dev)
+  # Console web: http://127.0.0.1:9001 (usuário omnichannel; senha no Docker/.env)
   minio:
     image: bitnamilegacy/minio:latest
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: omnichannel
-      MINIO_ROOT_PASSWORD: omnichannel-dev
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Defina MINIO_ROOT_PASSWORD no Docker/.env}
       # Bucket criado na inicialização (privado).
       MINIO_DEFAULT_BUCKETS: omnichannel
     ports:

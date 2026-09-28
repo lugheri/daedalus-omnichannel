@@ -1,0 +1,86 @@
+# VM de dados (fora do Swarm): Postgres, Redis e backup diário do banco.
+# Roda com `docker compose up -d` na VM de dados. Ver docs/deploy.md.
+#
+# Senhas: arquivos em ./secrets/ (fora do git; o deploy.md mostra como gerar).
+# Portas publicadas SÓ no IP privado (PRIVATE_IP, do .env): o banco nunca fica
+# exposto na internet. Libere no firewall apenas os nós do Swarm.
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: omnichannel
+      POSTGRES_DB: omnichannel
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    ports:
+      - '${PRIVATE_IP:?Defina PRIVATE_IP no .env}:5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql
+    shm_size: 256mb
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U omnichannel']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: &logging
+      driver: json-file
+      options: { max-size: '10m', max-file: '5' }
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    secrets: [redis_password]
+    # AOF: filas (BullMQ) e sessões sobrevivem a um restart.
+    # noeviction: OBRIGATÓRIO para o BullMQ — com memória cheia o Redis recusa
+    # escritas em vez de apagar jobs em silêncio.
+    command:
+      - sh
+      - -c
+      - >-
+        exec redis-server --appendonly yes --appendfsync everysec
+        --maxmemory-policy noeviction
+        --requirepass "$$(cat /run/secrets/redis_password)"
+    ports:
+      - '${PRIVATE_IP:?Defina PRIVATE_IP no .env}:6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$(cat /run/secrets/redis_password)" --no-auth-warning ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  # pg_dump diário para o S3 (retenção configurável).
+  backup:
+    build: ./backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: omnichannel
+      PGDATABASE: omnichannel
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:?Defina BACKUP_S3_ENDPOINT no .env}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-us-east-1}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:?Defina BACKUP_S3_BUCKET no .env}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_CRON: ${BACKUP_CRON:-0 3 * * *}
+      AWS_ACCESS_KEY_ID_FILE: /run/secrets/backup_s3_access_key
+      AWS_SECRET_ACCESS_KEY_FILE: /run/secrets/backup_s3_secret_key
+    secrets: [postgres_password, backup_s3_access_key, backup_s3_secret_key]
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password }
+  redis_password: { file: ./secrets/redis_password }
+  backup_s3_access_key: { file: ./secrets/backup_s3_access_key }
+  backup_s3_secret_key: { file: ./secrets/backup_s3_secret_key }
