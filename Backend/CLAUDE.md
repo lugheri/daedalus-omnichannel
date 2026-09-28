@@ -153,6 +153,14 @@ Processo próprio (`whatsapp-connector.ts`, ADR 0006), mesma imagem. Regras:
 - Grupos, status, canais (newsletter), reações e mensagens de protocolo são ignorados na normalização (`message-normalizer.ts`).
 - Health check em `CONNECTOR_HEALTH_PORT` (padrão 3002).
 
+## Arquivos e mídia
+
+- Port `FileStorage` (`FILE_STORAGE`, shared kernel) sobre a API S3 (`S3FileStorage`, `@aws-sdk/client-s3`): S3 em produção, MinIO em dev — só muda o env (`S3_*`). **Bucket privado; nunca gerar link público nem URL assinada para o navegador**: arquivo sai só pela API, que confere o escopo a cada download.
+- Filas e eventos carregam só a **referência** (`StoredMedia`: chave, tipo, tamanho, nome) — o arquivo nunca passa pela fila.
+- Chaves: `tenants/<tenant>/channels/<canal>/inbound/<externalId>` (recebidas, gravadas pelo conector) e `tenants/<tenant>/conversations/<conversa>/outbound/<messageId>` (enviadas, gravadas pela API).
+- **Recebida:** o conector baixa (`downloadMediaMessage`), respeita `MEDIA_MAX_MB` (pelo tamanho declarado e pelo baixado) e grava; falha ou arquivo grande → a mensagem entra só com o tipo (`media: null`). **Enviada:** `POST /v1/conversations/:id/attachments` (multipart, `caption` antes de `file`, limite aplicado durante o upload → 413 `ATTACHMENT_TOO_LARGE`); o conector lê do armazenamento e envia (`SendWhatsAppMedia`).
+- **Servir com segurança** (`shared/domain/media-type.ts`): só imagem/vídeo/áudio de tipos conhecidos vão `inline` com o próprio tipo; **todo o resto (inclusive SVG e HTML) vai como `application/octet-stream` + `attachment`**. Sempre com `X-Content-Type-Options: nosniff` e `Content-Security-Policy: default-src 'none'; sandbox`. Tipo novo exibível = entrada nos dois espelhos (back e front).
+
 ## Tempo real (Socket.IO)
 
 - Gateway no processo `api` (módulo `realtime`, caminho `/socket.io`, **só transporte WebSocket**), com `RedisIoAdapter` (`@socket.io/redis-adapter`) entre réplicas. O `socket.io` fica fixado na versão que o `@nestjs/platform-socket.io` usa (hoje 4.8.3) — versões diferentes duplicam o pacote e quebram os tipos.

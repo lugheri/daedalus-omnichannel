@@ -1,11 +1,14 @@
 import {
   FakeTenantContext,
+  InMemoryFileStorage,
   ImmediateUnitOfWork,
   RecordingEventBus,
   SequentialIdGenerator,
 } from '../../../../shared/testing/fakes';
 import { ConversationNotFoundError } from '../../domain/errors/conversation-not-found.error';
 import { ContactWithoutPhoneError } from '../../domain/errors/contact-without-phone.error';
+import { EmptyAttachmentError } from '../../domain/errors/empty-attachment.error';
+import { MediaNotFoundError } from '../../domain/errors/media-not-found.error';
 import { InvalidAssigneeError } from '../../domain/errors/invalid-assignee.error';
 import { InvalidTeamError } from '../../domain/errors/invalid-team.error';
 import {
@@ -32,6 +35,11 @@ import {
   RecordChannelMessageUseCase,
   type ChannelMessageInput,
 } from './record-channel-message/record-channel-message.use-case';
+import { GetMessageMediaUseCase } from './get-message-media/get-message-media.use-case';
+import {
+  SendAttachmentUseCase,
+  type SendAttachmentInput,
+} from './send-attachment/send-attachment.use-case';
 import { SendMessageUseCase } from './send-message/send-message.use-case';
 import {
   ChangeConversationStatusUseCase,
@@ -85,6 +93,7 @@ describe('Conversations', () => {
       kind: 'text',
       text: 'Oi, preciso de ajuda',
       sentAt: '2030-01-01T10:00:00Z',
+      media: null,
       ...overrides,
     });
   const send = (conversationId: string, text = 'Olá! Como posso ajudar?') =>
@@ -353,6 +362,96 @@ describe('Conversations', () => {
 
       expect((await list({ assignee: 'me' })).items).toHaveLength(1);
       expect((await list({ assignee: 'none' })).items).toHaveLength(1);
+    });
+  });
+  describe('media', () => {
+    let storage: InMemoryFileStorage;
+    beforeEach(() => (storage = new InMemoryFileStorage()));
+
+    const attach = (conversationId: string, overrides: Partial<SendAttachmentInput> = {}) =>
+      new SendAttachmentUseCase(
+        conversations,
+        messages,
+        contacts,
+        channels,
+        storage,
+        ids,
+        events,
+        uow,
+        visible,
+      ).execute({
+        conversationId,
+        content: Buffer.from('fake-jpeg'),
+        mimeType: 'image/jpeg',
+        fileName: 'foto.jpg',
+        caption: '  segue a foto  ',
+        ...overrides,
+      });
+    const download = (conversationId: string, messageId: string) =>
+      new GetMessageMediaUseCase(messages, storage, visible).execute({ conversationId, messageId });
+
+    it('records an inbound message with its media reference', async () => {
+      const media = { key: 'k/1', mimeType: 'image/jpeg', size: 9, fileName: null };
+      await record({ kind: 'image', text: null, media });
+
+      expect(messages.items[0].media).toEqual(media);
+      expect((await onlyConversation()).lastMessagePreview).toBe('📷 Imagem');
+    });
+
+    it('stores the attachment, records it pending and asks the channel to send', async () => {
+      await record();
+      const conversation = await onlyConversation();
+
+      const message = await attach(conversation.id);
+
+      expect(message).toMatchObject({ kind: 'image', text: 'segue a foto', status: 'pending' });
+      expect(storage.files.get(message.media!.key)?.body.toString()).toBe('fake-jpeg');
+      expect(channels.sentMedia).toEqual([
+        {
+          channelId: 'channel-1',
+          messageId: message.id,
+          to: '+5511987654321',
+          media: message.media,
+          caption: 'segue a foto',
+        },
+      ]);
+    });
+
+    it('anything that is not image/audio/video is sent as a document', async () => {
+      await record();
+      const message = await attach((await onlyConversation()).id, {
+        mimeType: 'text/html',
+        fileName: 'pagina.html',
+      });
+      expect(message.kind).toBe('document');
+    });
+
+    it('refuses an empty file', async () => {
+      await record();
+      await expect(
+        attach((await onlyConversation()).id, { content: Buffer.alloc(0) }),
+      ).rejects.toThrow(EmptyAttachmentError);
+    });
+
+    it('downloads only through a conversation the member can see', async () => {
+      await record();
+      const conversation = await onlyConversation();
+      const message = await attach(conversation.id);
+
+      const file = await download(conversation.id, message.id);
+      expect(file).toMatchObject({ mimeType: 'image/jpeg', fileName: 'foto.jpg' });
+
+      // Outra conversa (visível) não serve de "porta" para a mídia desta.
+      await record({ externalId: 'WA-2', contactPhone: '+5511900000002' });
+      const other = (await list()).items.find((v) => v.conversation.id !== conversation.id)!;
+      await expect(download(other.conversation.id, message.id)).rejects.toThrow(MediaNotFoundError);
+
+      // Fora do escopo: a conversa nem existe para este membro.
+      conversation.assign('agent-2');
+      await conversations.save(conversation);
+      await expect(download(conversation.id, message.id)).rejects.toThrow(
+        ConversationNotFoundError,
+      );
     });
   });
 });

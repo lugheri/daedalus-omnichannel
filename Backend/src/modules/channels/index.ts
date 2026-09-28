@@ -7,6 +7,7 @@ export { ChannelsWorkerModule } from './channels.worker.module';
 export type { ChannelStatus } from './domain/channel.entity';
 export {
   ChannelMessageReceivedEvent,
+  type ChannelMedia,
   ChannelMessageSendResultEvent,
   ChannelRemovedEvent,
   ChannelStatusChangedEvent,

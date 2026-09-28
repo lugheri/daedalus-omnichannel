@@ -10,6 +10,7 @@ import type { IncomingMessage } from 'node:http';
 import { AppConfig } from '../../config/app-config';
 import { ACTOR_CONTEXT } from '../application/actor-context';
 import { EVENT_BUS } from '../application/event-bus';
+import { FILE_STORAGE } from '../application/file-storage';
 import { ID_GENERATOR } from '../application/id-generator';
 import { JOB_QUEUE } from '../application/job-queue';
 import { REALTIME_NOTIFIER } from '../application/realtime';
@@ -27,6 +28,7 @@ import { PrismaUnitOfWork } from './prisma/prisma-unit-of-work';
 import { bullConnectionFrom } from './queue/bull-connection';
 import { BullJobQueue } from './queue/bull-job-queue';
 import { RedisRealtimeNotifier } from './realtime/redis-realtime.notifier';
+import { S3FileStorage } from './storage/s3-file-storage';
 import { AppThrottlerGuard } from './rate-limit/app-throttler.guard';
 import { RedisThrottlerStorage } from './rate-limit/redis-throttler.storage';
 import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
@@ -85,6 +87,7 @@ import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
     { provide: TENANT_CONTEXT, useClass: ClsTenantContext },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
     { provide: REALTIME_NOTIFIER, useClass: RedisRealtimeNotifier },
+    { provide: FILE_STORAGE, useClass: S3FileStorage },
     // Registrado antes do guard de autenticação: rejeita excesso de
     // requisições sem gastar verificação de token.
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
@@ -97,6 +100,7 @@ import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
     TENANT_CONTEXT,
     UNIT_OF_WORK,
     REALTIME_NOTIFIER,
+    FILE_STORAGE,
   ],
 })
 export class SharedInfraModule {}

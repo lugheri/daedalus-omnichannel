@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useRealtimeLive } from '@/features/realtime/realtime-context'
-import { api } from '@/lib/api/client'
+import { api, apiBlob } from '@/lib/api/client'
 
 export type ConversationStatus = 'open' | 'pending' | 'resolved'
 
@@ -34,6 +34,8 @@ export interface Message {
   error: string | null
   senderMembershipId: string | null
   sentAt: string
+  /** Anexo (o arquivo sai por GET .../messages/:id/media). */
+  media: { mimeType: string; size: number; fileName: string | null } | null
 }
 
 interface Page<T> {
@@ -53,6 +55,15 @@ export const conversationsApi = {
     api<Message>(`/v1/conversations/${id}/messages`, { method: 'POST', body: { text } }),
   changeStatus: (id: string, status: ConversationStatus) =>
     api<void>(`/v1/conversations/${id}/status`, { method: 'POST', body: { status } }),
+  /** Anexo: legenda ANTES do arquivo (o backend lê os campos que vêm antes do file). */
+  sendAttachment: (id: string, file: File, caption: string) => {
+    const form = new FormData()
+    if (caption.trim()) form.append('caption', caption.trim())
+    form.append('file', file)
+    return api<Message>(`/v1/conversations/${id}/attachments`, { method: 'POST', body: form })
+  },
+  media: (conversationId: string, messageId: string) =>
+    apiBlob(`/v1/conversations/${conversationId}/messages/${messageId}/media`),
   claim: (id: string) => api<void>(`/v1/conversations/${id}/claim`, { method: 'POST' }),
   /** Campo ausente = não muda; null = fila geral / sem responsável. */
   transfer: (id: string, input: { teamId?: string | null; assigneeId?: string | null }) =>
@@ -93,6 +104,20 @@ export function useConversation(id: string) {
     queryKey: conversationKeys.detail(id),
     queryFn: () => conversationsApi.get(id),
     refetchInterval: live ? false : CHAT_REFRESH_MS,
+  })
+}
+
+/**
+ * Arquivo de uma mensagem, baixado com o token (um <img src> não mandaria o
+ * Authorization). Fica no cache: reabrir a conversa não baixa de novo.
+ */
+export function useMessageMedia(conversationId: string, messageId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['conversations', 'media', messageId],
+    queryFn: () => conversationsApi.media(conversationId, messageId),
+    enabled,
+    staleTime: Infinity,
+    gcTime: 10 * 60_000,
   })
 }
 

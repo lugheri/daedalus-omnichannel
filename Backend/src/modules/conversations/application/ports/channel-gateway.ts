@@ -1,3 +1,5 @@
+import type { MessageMedia } from '../../domain/message.entity';
+
 /**
  * O que conversations precisa do módulo channels, nos termos de conversations.
  * Adapter em infra/ sobre a ChannelsFacade.
@@ -19,6 +21,14 @@ export interface ChannelGateway {
     messageId: string;
     to: string;
     text: string;
+  }): Promise<void>;
+  /** Anexo já gravado no armazenamento; o resultado chega por evento, como no texto. */
+  sendMedia(input: {
+    channelId: string;
+    messageId: string;
+    to: string;
+    media: MessageMedia;
+    caption: string | null;
   }): Promise<void>;
 }
 

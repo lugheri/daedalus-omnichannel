@@ -11,7 +11,7 @@ import { UNIT_OF_WORK, type UnitOfWork } from '../../../../shared/application/un
 import { Channel } from '../../domain/channel.entity';
 import { ChannelNotFoundError } from '../../domain/errors/channel-not-found.error';
 import { ChannelTeamNotFoundError } from '../../domain/errors/channel-team-not-found.error';
-import { ChannelTextSender } from '../channel-text-sender';
+import { ChannelSender } from '../channel-sender';
 import { TEAM_GATEWAY, type TeamGateway } from '../ports/team-gateway';
 import { CHANNEL_REPOSITORY, type ChannelRepository } from '../ports/channel.repository';
 import { QR_CODE_READER, type QrCodeReader } from '../ports/qr-code-reader';
@@ -161,7 +161,7 @@ export class SendTestMessageUseCase {
   constructor(
     @Inject(CHANNEL_REPOSITORY) private readonly channels: ChannelRepository,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
-    private readonly sender: ChannelTextSender,
+    private readonly sender: ChannelSender,
   ) {}
 
   async execute(input: { channelId: string; to: string; text: string }): Promise<string> {

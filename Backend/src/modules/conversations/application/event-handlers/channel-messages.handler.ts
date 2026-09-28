@@ -30,6 +30,7 @@ export class ChannelMessagesHandler {
       kind: message.kind,
       text: message.text,
       sentAt: message.sentAt,
+      media: message.media,
     });
   }
 

@@ -24,6 +24,7 @@ describe('normalizeMessage', () => {
       kind: 'text',
       text: 'Oi!',
       sentAt: new Date(1_900_000_000 * 1000).toISOString(),
+      attachment: null,
     });
   });
 
@@ -39,6 +40,26 @@ describe('normalizeMessage', () => {
       message({ message: { imageMessage: { caption: 'comprovante' } } }),
     );
     expect(result).toMatchObject({ kind: 'image', text: 'comprovante' });
+  });
+
+  it('describes the attached file (type, name, declared size) without downloading it', () => {
+    const result = normalizeMessage(
+      message({
+        message: {
+          documentMessage: {
+            mimetype: 'application/pdf',
+            fileName: 'orcamento.pdf',
+            fileLength: 20480,
+            caption: 'segue',
+          },
+        },
+      }),
+    );
+    expect(result).toMatchObject({
+      kind: 'document',
+      text: 'segue',
+      attachment: { mimeType: 'application/pdf', fileName: 'orcamento.pdf', declaredSize: 20480 },
+    });
   });
 
   it('unwraps disappearing (ephemeral) messages', () => {

@@ -47,6 +47,17 @@ export const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET precisa de pelo menos 32 caracteres'),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  // Armazenamento de arquivos (API S3). Produção: S3 (sem S3_ENDPOINT, com a
+  // região do bucket). Dev: MinIO (S3_ENDPOINT + S3_FORCE_PATH_STYLE=true).
+  // O bucket é PRIVADO: arquivos só saem pela API, que confere o acesso.
+  S3_ENDPOINT: z.url().optional(),
+  S3_REGION: z.string().default('us-east-1'),
+  S3_BUCKET: z.string().min(3),
+  S3_ACCESS_KEY: z.string().min(1),
+  S3_SECRET_KEY: z.string().min(1),
+  S3_FORCE_PATH_STYLE: z.stringbool().default(false),
+  // Tamanho máximo de mídia (recebida ou enviada), em MB.
+  MEDIA_MAX_MB: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -30,6 +30,14 @@ export const MessagePresenter = {
     text: message.text,
     status: message.status,
     error: message.error,
+    // Sem a chave do armazenamento: o arquivo sai por GET .../messages/:id/media.
+    media: message.media
+      ? {
+          mimeType: message.media.mimeType,
+          size: message.media.size,
+          fileName: message.media.fileName,
+        }
+      : null,
     senderMembershipId: message.senderMembershipId,
     sentAt: message.sentAt.toISOString(),
   }),

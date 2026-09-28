@@ -7,7 +7,7 @@ import {
 } from '../../../../../shared/application/tenant-context';
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../../shared/application/unit-of-work';
 import { Conversation } from '../../../domain/conversation.entity';
-import { Message, type MessageKind } from '../../../domain/message.entity';
+import { Message, type MessageKind, type MessageMedia } from '../../../domain/message.entity';
 import { CHANNEL_GATEWAY, type ChannelGateway } from '../../ports/channel-gateway';
 import { CONTACT_DIRECTORY, type ContactDirectory } from '../../ports/contact-directory';
 import {
@@ -25,6 +25,7 @@ export interface ChannelMessageInput {
   kind: MessageKind;
   text: string | null;
   sentAt: string;
+  media: MessageMedia | null;
 }
 
 export type RecordResult = 'recorded' | 'duplicate' | 'skipped';
@@ -82,6 +83,7 @@ export class RecordChannelMessageUseCase {
         externalId: input.externalId,
         kind: input.kind,
         text: input.text,
+        media: input.media,
         sentAt: new Date(input.sentAt),
       };
       const message = input.fromMe

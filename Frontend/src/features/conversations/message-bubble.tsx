@@ -2,6 +2,7 @@ import { AlertCircle, Check, Clock, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Message } from './api'
 import { kindLabel, messageTime, sendErrorLabel } from './format'
+import { MessageMedia } from './message-media'
 
 /** Uma mensagem: do cliente à esquerda, nossa à direita (com o status do envio). */
 export function MessageBubble({
@@ -28,7 +29,11 @@ export function MessageBubble({
         {outbound && senderName && (
           <p className="mb-0.5 text-[11px] font-medium opacity-80">{senderName}</p>
         )}
-        {label && <p className="italic opacity-80">{label}</p>}
+        {message.media ? (
+          <MessageMedia message={message} outbound={outbound} />
+        ) : (
+          label && <p className="italic opacity-80">{label}</p>
+        )}
         {message.text && <p className="break-words whitespace-pre-wrap">{message.text}</p>}
 
         <div
@@ -44,10 +49,15 @@ export function MessageBubble({
           )}
           <span>{messageTime(message.sentAt)}</span>
           {outbound && message.status === 'pending' && (
-            <Clock className="size-3" aria-label="Enviando" />
+            // Ícones do Lucide são aria-hidden: o rótulo fica no span.
+            <span role="img" aria-label="Enviando" title="Enviando">
+              <Clock className="size-3" />
+            </span>
           )}
           {outbound && message.status === 'sent' && (
-            <Check className="size-3" aria-label="Enviada" />
+            <span role="img" aria-label="Enviada" title="Enviada">
+              <Check className="size-3" />
+            </span>
           )}
         </div>
 

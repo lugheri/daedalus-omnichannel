@@ -48,7 +48,8 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 - Windows + Docker Engine **dentro do WSL** (Ubuntu 22.04), sem Docker Desktop. Comandos `docker` rodam num terminal WSL.
 - O WSL desliga quando não há sessão aberta, derrubando os containers: manter um terminal WSL aberto enquanto desenvolve.
 - A API roda no Windows (`npm run start:dev`, porta 3000) e o front também (`npm run dev`, porta **5180** — a 5173 é usada por outro projeto da máquina).
-- Infra local em `Docker/compose.dev.yaml`: Postgres (5432) e Redis (6379).
+- Infra local em `Docker/compose.dev.yaml`: Postgres (5432), Redis (6379) e MinIO (API 9000, console 9001 — `omnichannel` / `omnichannel-dev`; bucket `omnichannel` criado na subida).
+  - A MinIO deixou de publicar imagens públicas (Docker Hub e Quay pedem login). Usamos a cópia congelada `bitnamilegacy/minio` — ok para dev. O código fala só a API S3: trocar por outro compatível (SeaweedFS, RustFS) é só mexer no compose.
 - O WSL usa `networkingMode=mirrored` (em `%USERPROFILE%\.wslconfig`): no modo NAT padrão, as conexões TCP de saída do WSL eram bloqueadas nesta máquina (o Docker não baixava imagens). Se voltar a acontecer: `wsl --shutdown` no PowerShell e abrir o terminal WSL de novo.
 - Nesse modo, **só o IPv4 de loopback chega aos containers**: use `127.0.0.1` (não `localhost`, que pode resolver para `::1` e dar timeout — o CLI do Prisma cai nisso). O `.env` já usa `127.0.0.1`.
 

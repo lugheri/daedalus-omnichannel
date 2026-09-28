@@ -1,4 +1,5 @@
 import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
@@ -34,6 +35,10 @@ async function bootstrap() {
   const config = app.get(AppConfig);
 
   await app.register(fastifyCookie);
+  // Anexos: um arquivo por requisição, limitado durante o upload (nada acima vai para a memória).
+  await app.register(fastifyMultipart, {
+    limits: { files: 1, fields: 5, fileSize: config.mediaMaxBytes },
+  });
   // Só o frontend conhecido pode chamar a API pelo navegador, com cookies.
   app.enableCors({
     origin: [...config.corsOrigins],

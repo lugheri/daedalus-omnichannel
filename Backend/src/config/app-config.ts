@@ -70,4 +70,19 @@ export class AppConfig {
   get refreshTokenTtlDays() {
     return this.env.REFRESH_TOKEN_TTL_DAYS;
   }
+
+  get storage() {
+    return {
+      endpoint: this.env.S3_ENDPOINT,
+      region: this.env.S3_REGION,
+      bucket: this.env.S3_BUCKET,
+      accessKeyId: this.env.S3_ACCESS_KEY,
+      secretAccessKey: this.env.S3_SECRET_KEY,
+      forcePathStyle: this.env.S3_FORCE_PATH_STYLE,
+    };
+  }
+
+  get mediaMaxBytes() {
+    return this.env.MEDIA_MAX_MB * 1024 * 1024;
+  }
 }

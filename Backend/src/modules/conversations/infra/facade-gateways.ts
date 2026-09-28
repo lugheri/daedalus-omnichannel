@@ -7,6 +7,7 @@ import type { ChannelGateway, ChannelInfo } from '../application/ports/channel-g
 import type { ContactDirectory, ContactInfo } from '../application/ports/contact-directory';
 import type { CurrentMember, MemberAccess } from '../application/ports/member-access';
 import type { TeamDirectory, TeamInfo } from '../application/ports/team-directory';
+import type { MessageMedia } from '../domain/message.entity';
 
 /** Adapters dos ports de conversations sobre as APIs públicas dos outros módulos. */
 
@@ -41,6 +42,16 @@ export class ChannelsFacadeGateway implements ChannelGateway {
 
   sendText(input: { channelId: string; messageId: string; to: string; text: string }) {
     return this.channels.sendText(input);
+  }
+
+  sendMedia(input: {
+    channelId: string;
+    messageId: string;
+    to: string;
+    media: MessageMedia;
+    caption: string | null;
+  }) {
+    return this.channels.sendMedia(input);
   }
 }
 

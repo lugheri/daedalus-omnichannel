@@ -69,9 +69,21 @@ interface RequestOptions {
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await request(path, options)
+  // Respostas sem corpo (204, ou 202 de comandos enfileirados, como /connect).
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T
+}
+
+/** Arquivo binário (ex.: mídia de uma mensagem), com a mesma sessão/renovação do `api()`. */
+export async function apiBlob(path: string): Promise<Blob> {
+  return (await request(path)).blob()
+}
+
+/** Requisição autenticada; num 401 de token expirado, renova e tenta de novo, uma vez. */
+async function request(path: string, options: RequestOptions = {}): Promise<Response> {
   let response = await send(path, options)
 
-  // Access token expirado/ausente: renova e tenta de novo, uma única vez.
   if (response.status === 401 && (await isExpiredAccessToken(response))) {
     if (await refreshSession()) {
       response = await send(path, options)
@@ -81,9 +93,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   }
 
   if (!response.ok) throw await ApiError.fromResponse(response)
-  // Respostas sem corpo (204, ou 202 de comandos enfileirados, como /connect).
-  const text = await response.text()
-  return (text ? JSON.parse(text) : undefined) as T
+  return response
 }
 
 async function send(path: string, { method = 'GET', body, query }: RequestOptions) {
@@ -92,15 +102,17 @@ async function send(path: string, { method = 'GET', body, query }: RequestOption
     if (value !== undefined) url.searchParams.set(key, String(value))
   }
 
+  // FormData (upload): o navegador monta o content-type multipart com o boundary.
+  const isForm = body instanceof FormData
   const headers: Record<string, string> = {}
-  if (body !== undefined) headers['content-type'] = 'application/json'
+  if (body !== undefined && !isForm) headers['content-type'] = 'application/json'
   if (accessToken) headers.authorization = `Bearer ${accessToken}`
 
   try {
     return await fetch(url, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       // Necessário para o cookie de sessão ir/voltar nas rotas /v1/auth.
       credentials: 'include',
     })

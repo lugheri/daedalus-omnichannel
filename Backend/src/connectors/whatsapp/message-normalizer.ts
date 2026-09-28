@@ -19,6 +19,15 @@ export interface NormalizedMessage {
   kind: WhatsAppMessageKind;
   text: string | null;
   sentAt: string;
+  /** O que a mensagem declara do arquivo anexo (o download é do WhatsAppSession). */
+  attachment: Attachment | null;
+}
+
+export interface Attachment {
+  mimeType: string;
+  fileName: string | null;
+  /** Tamanho informado pelo WhatsApp (bytes), para recusar arquivos grandes antes de baixar. */
+  declaredSize: number | null;
 }
 
 /**
@@ -44,6 +53,7 @@ export function normalizeMessage(message: WAMessage): NormalizedMessage | null {
     fromMe,
     kind: content.kind,
     text: content.text,
+    attachment: content.attachment ?? null,
     sentAt: new Date(toNumber(message.messageTimestamp) * 1000 || Date.now()).toISOString(),
   };
 }
@@ -65,24 +75,55 @@ export function jidOf(phone: string): string {
 
 type Content = NonNullable<WAMessage['message']>;
 
-function describe(
-  content: Content | undefined,
-): { kind: WhatsAppMessageKind; text: string | null } | null {
+interface Described {
+  kind: WhatsAppMessageKind;
+  text: string | null;
+  attachment?: Attachment;
+}
+
+function attachmentOf(media: {
+  mimetype?: string | null;
+  fileLength?: Parameters<typeof toNumber>[0] | null;
+  fileName?: string | null;
+}): Attachment {
+  return {
+    mimeType: media.mimetype ?? 'application/octet-stream',
+    fileName: media.fileName ?? null,
+    declaredSize: media.fileLength == null ? null : toNumber(media.fileLength),
+  };
+}
+
+function describe(content: Content | undefined): Described | null {
   if (!content) return null;
   if (content.conversation) return { kind: 'text', text: content.conversation };
   if (content.extendedTextMessage) {
     return { kind: 'text', text: content.extendedTextMessage.text ?? null };
   }
-  if (content.imageMessage) return { kind: 'image', text: content.imageMessage.caption ?? null };
-  if (content.videoMessage) return { kind: 'video', text: content.videoMessage.caption ?? null };
-  if (content.audioMessage) return { kind: 'audio', text: null };
-  if (content.documentMessage) {
+  const { imageMessage, videoMessage, audioMessage, documentMessage, stickerMessage } = content;
+  if (imageMessage) {
     return {
-      kind: 'document',
-      text: content.documentMessage.caption ?? content.documentMessage.fileName ?? null,
+      kind: 'image',
+      text: imageMessage.caption ?? null,
+      attachment: attachmentOf(imageMessage),
     };
   }
-  if (content.stickerMessage) return { kind: 'sticker', text: null };
+  if (videoMessage) {
+    return {
+      kind: 'video',
+      text: videoMessage.caption ?? null,
+      attachment: attachmentOf(videoMessage),
+    };
+  }
+  if (audioMessage) return { kind: 'audio', text: null, attachment: attachmentOf(audioMessage) };
+  if (documentMessage) {
+    return {
+      kind: 'document',
+      text: documentMessage.caption ?? null,
+      attachment: attachmentOf(documentMessage),
+    };
+  }
+  if (stickerMessage)
+    return { kind: 'sticker', text: null, attachment: attachmentOf(stickerMessage) };
   if (content.locationMessage || content.liveLocationMessage)
     return { kind: 'location', text: null };
   if (content.contactMessage || content.contactsArrayMessage)

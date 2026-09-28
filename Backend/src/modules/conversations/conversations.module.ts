@@ -27,6 +27,8 @@ import {
   MarkConversationReadUseCase,
 } from './application/use-cases/update-conversation/update-conversation.use-cases';
 import { VisibleConversations } from './application/visible-conversations';
+import { GetMessageMediaUseCase } from './application/use-cases/get-message-media/get-message-media.use-case';
+import { SendAttachmentUseCase } from './application/use-cases/send-attachment/send-attachment.use-case';
 import { ConversationsController } from './http/conversations.controller';
 import {
   ChannelsFacadeGateway,
@@ -56,6 +58,8 @@ import { PrismaMessageRepository } from './infra/prisma-message.repository';
     MarkConversationReadUseCase,
     ClaimConversationUseCase,
     TransferConversationUseCase,
+    SendAttachmentUseCase,
+    GetMessageMediaUseCase,
     // Canais (worker)
     RecordChannelMessageUseCase,
     ApplySendResultUseCase,

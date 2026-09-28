@@ -1,17 +1,28 @@
 import {
   Browsers,
   DisconnectReason,
+  downloadMediaMessage,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
   makeWASocket,
+  type AnyMessageContent,
   type ConnectionState,
   type WAMessage,
   type WASocket,
 } from 'baileys';
 import type { ILogger } from 'baileys/lib/Utils/logger';
-import type { WhatsAppConnectionStatus } from '../../contracts/whatsapp-connector.contract';
+import type {
+  StoredMedia,
+  WhatsAppConnectionStatus,
+} from '../../contracts/whatsapp-connector.contract';
 import type { StoredAuthState } from './auth-state.store';
-import { jidOf, normalizeMessage, phoneOf, type NormalizedMessage } from './message-normalizer';
+import {
+  jidOf,
+  normalizeMessage,
+  phoneOf,
+  type Attachment,
+  type NormalizedMessage,
+} from './message-normalizer';
 
 /** O que a sessão precisa do mundo externo (injetado pelo SessionManager). */
 export interface SessionHooks {
@@ -22,7 +33,12 @@ export interface SessionHooks {
     details?: { phoneNumber?: string | null; reason?: string | null },
   ): Promise<void>;
   onQrCode(qr: string | null): Promise<void>;
-  onMessage(message: NormalizedMessage): Promise<void>;
+  /** Mensagem recebida, com a mídia já gravada no armazenamento (ou null). */
+  onMessage(message: NormalizedMessage, media: StoredMedia | null): Promise<void>;
+  /** Grava a mídia baixada e devolve a referência (chave no armazenamento). */
+  storeMedia(externalId: string, content: Buffer, attachment: Attachment): Promise<StoredMedia>;
+  /** Mídia maior que isto é ignorada (a mensagem entra só com o tipo). */
+  maxMediaBytes: number;
   /** A sessão desistiu sozinha (logout pelo celular, QR não escaneado): não reconectar. */
   onGaveUp(): Promise<void>;
   logger: ILogger;
@@ -84,7 +100,41 @@ export class WhatsAppSession {
     }
   }
 
-  async sendText(to: string, text: string): Promise<string> {
+  sendText(to: string, text: string): Promise<string> {
+    return this.send(to, { text });
+  }
+
+  /** Imagem, vídeo e áudio aparecem inline no WhatsApp; o resto vai como documento. */
+  sendMedia(
+    to: string,
+    input: {
+      kind: 'image' | 'video' | 'audio' | 'document';
+      content: Buffer;
+      mimeType: string;
+      fileName: string | null;
+      caption: string | null;
+    },
+  ): Promise<string> {
+    const { content, mimeType: mimetype } = input;
+    const caption = input.caption ?? undefined;
+    switch (input.kind) {
+      case 'image':
+        return this.send(to, { image: content, mimetype, caption });
+      case 'video':
+        return this.send(to, { video: content, mimetype, caption });
+      case 'audio':
+        return this.send(to, { audio: content, mimetype });
+      default:
+        return this.send(to, {
+          document: content,
+          mimetype,
+          fileName: input.fileName ?? 'arquivo',
+          caption,
+        });
+    }
+  }
+
+  private async send(to: string, content: AnyMessageContent): Promise<string> {
     const socket = this.socket;
     if (!socket || !this.connected) throw new Error('Session is not connected');
 
@@ -92,7 +142,7 @@ export class WhatsAppSession {
     const [check] = (await socket.onWhatsApp(jid)) ?? [];
     if (!check?.exists) throw new Error('not_on_whatsapp');
 
-    const sent = await socket.sendMessage(check.jid, { text });
+    const sent = await socket.sendMessage(check.jid, content);
     const id = sent?.key.id;
     if (!id) throw new Error('send_failed');
     this.rememberSent(id);
@@ -195,7 +245,43 @@ export class WhatsAppSession {
     for (const raw of messages) {
       if (raw.key.id && this.sentByUs.delete(raw.key.id)) continue;
       const message = normalizeMessage(raw);
-      if (message) await this.hooks.onMessage(message);
+      if (!message) continue;
+      const media = message.attachment ? await this.downloadMedia(raw, message) : null;
+      await this.hooks.onMessage(message, media);
+    }
+  }
+
+  /**
+   * Baixa e grava a mídia. Grande demais ou falha no download: devolve null e
+   * a mensagem entra mesmo assim (só com o tipo) — perder o arquivo é melhor
+   * que perder a mensagem.
+   */
+  private async downloadMedia(
+    raw: WAMessage,
+    message: NormalizedMessage,
+  ): Promise<StoredMedia | null> {
+    const attachment = message.attachment!;
+    const tooBig = (size: number) => size > this.hooks.maxMediaBytes;
+    if (attachment.declaredSize !== null && tooBig(attachment.declaredSize)) return null;
+    try {
+      const socket = this.socket;
+      const content = await downloadMediaMessage(
+        raw,
+        'buffer',
+        {},
+        // Mídia antiga some do servidor do WhatsApp; com isto o Baileys pede reenvio.
+        socket
+          ? { logger: this.hooks.logger, reuploadRequest: socket.updateMediaMessage }
+          : undefined,
+      );
+      if (tooBig(content.length)) return null;
+      return await this.hooks.storeMedia(message.externalId, content, attachment);
+    } catch (error) {
+      this.hooks.logger.warn(
+        { err: String(error), externalId: message.externalId },
+        'Falha ao baixar mídia',
+      );
+      return null;
     }
   }
 

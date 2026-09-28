@@ -9,11 +9,13 @@ import {
   ArrowRightLeft,
   CheckCheck,
   Hand,
+  Paperclip,
   RotateCcw,
   SendHorizontal,
   Timer,
+  X,
 } from 'lucide-react'
-import { Fragment, useEffect, useState, type KeyboardEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -34,6 +36,7 @@ import {
   type Message,
 } from './api'
 import { contactInitials, contactLabel, dayLabel, isSameDay } from './format'
+import { MAX_ATTACHMENT_BYTES, fileSizeLabel } from './media-kind'
 import { MessageBubble } from './message-bubble'
 import { TransferDialog } from './transfer-dialog'
 
@@ -51,6 +54,8 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
   const conversation = useConversation(id)
   const messages = useMessages(id)
   const [draft, setDraft] = useState('')
+  const [attachment, setAttachment] = useState<File | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
   const [transferring, setTransferring] = useState(false)
   const me = useMe()
   const { can } = usePermissions()
@@ -92,8 +97,32 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
     onError: (error) => toast.error(errorMessage(error)),
   })
 
+  const sendFile = useMutation({
+    mutationFn: ({ file, caption }: { file: File; caption: string }) =>
+      conversationsApi.sendAttachment(id, file, caption),
+    onError: (error) => toast.error(errorMessage(error)),
+    onSettled: () => void refresh(),
+  })
+
+  const pickFile = (file: File | undefined) => {
+    if (!file) return
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error('Arquivo grande demais (máximo 25 MB).')
+      return
+    }
+    setAttachment(file)
+  }
+
   const submit = () => {
     const text = draft.trim()
+    if (attachment) {
+      if (sendFile.isPending) return
+      // O texto digitado vai como legenda do anexo.
+      sendFile.mutate({ file: attachment, caption: text })
+      setAttachment(null)
+      setDraft('')
+      return
+    }
     if (!text || send.isPending) return
     send.mutate(text)
     setDraft('')
@@ -261,6 +290,23 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
         <TransferDialog conversation={data} open onOpenChange={setTransferring} />
       )}
 
+      {attachment && (
+        <div className="flex items-center gap-2 border-t px-3 pt-2 text-sm">
+          <Paperclip className="text-muted-foreground size-4" />
+          <span className="min-w-0 flex-1 truncate">
+            {attachment.name}{' '}
+            <span className="text-muted-foreground">({fileSizeLabel(attachment.size)})</span>
+          </span>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Remover anexo"
+            onClick={() => setAttachment(null)}
+          >
+            <X />
+          </Button>
+        </div>
+      )}
       <form
         className="flex items-end gap-2 border-t p-3"
         onSubmit={(event) => {
@@ -268,12 +314,34 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
           submit()
         }}
       >
+        <input
+          ref={fileInput}
+          type="file"
+          className="hidden"
+          aria-label="Arquivo para anexar"
+          onChange={(event) => {
+            pickFile(event.target.files?.[0])
+            event.target.value = ''
+          }}
+        />
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          aria-label="Anexar arquivo"
+          disabled={channelRemoved}
+          onClick={() => fileInput.current?.click()}
+        >
+          <Paperclip />
+        </Button>
         <Textarea
           aria-label="Mensagem"
           placeholder={
             channelRemoved
               ? 'O canal desta conversa foi removido.'
-              : 'Escreva uma mensagem… (Enter envia, Shift+Enter quebra linha)'
+              : attachment
+                ? 'Legenda (opcional)… Enter envia o anexo'
+                : 'Escreva uma mensagem… (Enter envia, Shift+Enter quebra linha)'
           }
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -287,7 +355,7 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
           type="submit"
           size="icon"
           aria-label="Enviar"
-          disabled={!draft.trim() || channelRemoved}
+          disabled={(!draft.trim() && !attachment) || channelRemoved || sendFile.isPending}
         >
           <SendHorizontal />
         </Button>
@@ -308,6 +376,7 @@ function addOptimistic(queryClient: QueryClient, conversationId: string, text: s
     error: null,
     senderMembershipId: 'me',
     sentAt: new Date().toISOString(),
+    media: null,
   }
   queryClient.setQueryData<MessagePages>(conversationKeys.messages(conversationId), (data) =>
     data

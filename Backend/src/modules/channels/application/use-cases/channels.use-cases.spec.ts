@@ -19,7 +19,7 @@ import {
   ChannelStatusChangedEvent,
 } from '../../domain/events/channel-events';
 import { FakeQrCodeReader, InMemoryChannelRepository } from '../../testing/fakes';
-import { ChannelTextSender } from '../channel-text-sender';
+import { ChannelSender } from '../channel-sender';
 import {
   ApplyConnectionReportUseCase,
   RecordInboundMessageUseCase,
@@ -101,7 +101,7 @@ describe('Channels', () => {
 
   describe('sending', () => {
     const send = () =>
-      new SendTestMessageUseCase(channels, ids, new ChannelTextSender(jobs)).execute({
+      new SendTestMessageUseCase(channels, ids, new ChannelSender(jobs)).execute({
         channelId: 'id-1',
         to: '+55 11 91234-5678',
         text: 'Olá!',

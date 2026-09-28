@@ -17,6 +17,14 @@ export type MessageKind =
   | 'contact'
   | 'unsupported';
 
+/** Arquivo anexo, já gravado no armazenamento (bucket privado): só a referência. */
+export interface ChannelMedia {
+  key: string;
+  mimeType: string;
+  size: number;
+  fileName: string | null;
+}
+
 /** Mensagem de conversa 1:1 que passou pelo canal (recebida ou enviada pelo celular). */
 export class ChannelMessageReceivedEvent extends DomainEvent {
   static readonly eventName = 'channel.message.received.v1';
@@ -36,6 +44,8 @@ export class ChannelMessageReceivedEvent extends DomainEvent {
       kind: MessageKind;
       text: string | null;
       sentAt: string;
+      /** null: sem anexo, grande demais ou falha no download. */
+      media: ChannelMedia | null;
     },
   ) {
     super(channelId);

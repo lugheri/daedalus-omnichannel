@@ -81,6 +81,7 @@ const SEND_ERRORS: Record<string, string> = {
   not_connected: 'Não enviada: o canal está desconectado.',
   not_on_whatsapp: 'Não enviada: o número não tem WhatsApp.',
   enqueue_failed: 'Não enviada: falha ao falar com o servidor.',
+  media_not_found: 'Não enviada: o arquivo não foi encontrado.',
 }
 
 export function sendErrorLabel(error: string | null): string {

@@ -179,7 +179,8 @@ export default defineConfig(
                   own('http'),
                   own('application'),
                   own('domain'),
-                  ...shared('shared-http', 'shared-application'),
+                  // shared-domain: regras puras usadas na borda (ex.: tipo de mídia servido)
+                  ...shared('shared-http', 'shared-application', 'shared-domain'),
                   // presenters públicos de outro módulo (ex.: AuthTokensPresenter)
                   anyModulePublicApi,
                 ],

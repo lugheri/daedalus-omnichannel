@@ -83,6 +83,15 @@ function toDomain(row: MessageModel): Message {
     externalId: row.externalId,
     status: row.status as MessageStatus,
     senderMembershipId: row.senderMembershipId,
+    media:
+      row.mediaKey && row.mediaMimeType
+        ? {
+            key: row.mediaKey,
+            mimeType: row.mediaMimeType,
+            size: row.mediaSize ?? 0,
+            fileName: row.mediaFileName,
+          }
+        : null,
     error: row.error,
     sentAt: row.sentAt,
     createdAt: row.createdAt,
@@ -101,6 +110,10 @@ function toPersistence(message: Message): MessageModel {
     externalId: message.externalId,
     status: message.status,
     senderMembershipId: message.senderMembershipId,
+    mediaKey: message.media?.key ?? null,
+    mediaMimeType: message.media?.mimeType ?? null,
+    mediaSize: message.media?.size ?? null,
+    mediaFileName: message.media?.fileName ?? null,
     error: message.error,
     sentAt: message.sentAt,
     createdAt: message.createdAt,

@@ -82,6 +82,10 @@ const MESSAGES: Record<string, string> = {
   CONVERSATION_ALREADY_ASSIGNED: 'Outra pessoa já assumiu esta conversa.',
   CONVERSATION_INVALID_ASSIGNEE: 'O responsável escolhido não está ativo na conta.',
   CONVERSATION_INVALID_TEAM: 'Equipe não encontrada.',
+  ATTACHMENT_TOO_LARGE: 'Arquivo grande demais (máximo 25 MB).',
+  ATTACHMENT_MISSING: 'Escolha um arquivo para enviar.',
+  ATTACHMENT_EMPTY: 'O arquivo está vazio.',
+  MEDIA_NOT_FOUND: 'Arquivo não encontrado.',
   CHANNEL_STILL_ACTIVE: 'Desconecte o canal antes de removê-lo.',
   CHANNEL_INVALID_RECIPIENT: 'Número inválido. Informe com DDD, ex.: (11) 98765-4321.',
 }

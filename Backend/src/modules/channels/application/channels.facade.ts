@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { StoredMedia } from '../../../contracts/whatsapp-connector.contract';
 import type { Channel, ChannelProvider, ChannelStatus } from '../domain/channel.entity';
 import { ChannelNotFoundError } from '../domain/errors/channel-not-found.error';
-import { ChannelTextSender } from './channel-text-sender';
+import { ChannelSender } from './channel-sender';
 import { CHANNEL_REPOSITORY, type ChannelRepository } from './ports/channel.repository';
 
 /** Dados de canal expostos a outros módulos (objeto simples, nunca a entidade). */
@@ -22,7 +23,7 @@ export interface ChannelSummary {
 export class ChannelsFacade {
   constructor(
     @Inject(CHANNEL_REPOSITORY) private readonly channels: ChannelRepository,
-    private readonly sender: ChannelTextSender,
+    private readonly sender: ChannelSender,
   ) {}
 
   async findByIds(ids: string[]): Promise<ChannelSummary[]> {
@@ -41,6 +42,17 @@ export class ChannelsFacade {
    */
   async sendText(input: { channelId: string; messageId: string; to: string; text: string }) {
     await this.sender.send(await this.load(input.channelId), input);
+  }
+
+  /** Mídia já gravada no armazenamento. Resultado por evento, como no texto. */
+  async sendMedia(input: {
+    channelId: string;
+    messageId: string;
+    to: string;
+    media: StoredMedia;
+    caption: string | null;
+  }) {
+    await this.sender.sendMedia(await this.load(input.channelId), input);
   }
 
   private async load(id: string): Promise<Channel> {

@@ -4,6 +4,7 @@ import {
   WhatsAppConnectionChanged,
   WhatsAppMessageReceived,
   WhatsAppMessageSendResult,
+  type StoredMedia,
   type WhatsAppConnectionStatus,
 } from '../../contracts/whatsapp-connector.contract';
 import {
@@ -41,14 +42,28 @@ export class ConnectorReporter {
     });
   }
 
-  message(session: { channelId: string; tenantId: string }, message: NormalizedMessage) {
+  message(
+    session: { channelId: string; tenantId: string },
+    message: NormalizedMessage,
+    media: StoredMedia | null,
+  ) {
+    // Só os campos do contrato (o "attachment" é detalhe interno do conector).
+    const payload = {
+      ...session,
+      externalId: message.externalId,
+      contactJid: message.contactJid,
+      contactPhone: message.contactPhone,
+      contactName: message.contactName,
+      fromMe: message.fromMe,
+      kind: message.kind,
+      text: message.text,
+      sentAt: message.sentAt,
+      media,
+    };
     // Dedup: o mesmo id do WhatsApp nunca vira dois jobs.
-    return this.send(
-      session.tenantId,
-      WhatsAppMessageReceived,
-      { ...session, ...message },
-      { jobId: `wa-msg:${session.channelId}:${message.externalId}` },
-    );
+    return this.send(session.tenantId, WhatsAppMessageReceived, payload, {
+      jobId: `wa-msg:${session.channelId}:${message.externalId}`,
+    });
   }
 
   sendResult(

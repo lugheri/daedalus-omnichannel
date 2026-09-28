@@ -75,6 +75,7 @@ export class RecordInboundMessageUseCase {
           kind: message.kind,
           text: message.text,
           sentAt: message.sentAt,
+          media: message.media ?? null,
         }),
       ]);
     });

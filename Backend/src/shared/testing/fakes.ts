@@ -1,5 +1,7 @@
 import type { Actor, ActorContext } from '../application/actor-context';
+import { Readable } from 'node:stream';
 import type { EventBus } from '../application/event-bus';
+import type { FileStorage } from '../application/file-storage';
 import type { IdGenerator } from '../application/id-generator';
 import type { EnqueueOptions, JobDefinition, JobQueue } from '../application/job-queue';
 import type { RealtimeNotifier } from '../application/realtime';
@@ -96,6 +98,32 @@ export class RecordingRealtimeNotifier implements RealtimeNotifier {
 
   emit(rooms: readonly string[], event: string, data: Record<string, unknown>): Promise<void> {
     this.emitted.push({ rooms: [...rooms].sort(), event, data });
+    return Promise.resolve();
+  }
+}
+
+/** Armazenamento em memória (mesmo contrato do S3: chave ausente = null). */
+export class InMemoryFileStorage implements FileStorage {
+  readonly files = new Map<string, { body: Buffer; contentType: string }>();
+
+  put(key: string, body: Buffer, contentType: string): Promise<void> {
+    this.files.set(key, { body, contentType });
+    return Promise.resolve();
+  }
+
+  read(key: string): Promise<Buffer | null> {
+    return Promise.resolve(this.files.get(key)?.body ?? null);
+  }
+
+  open(key: string) {
+    const file = this.files.get(key);
+    return Promise.resolve(
+      file ? { stream: Readable.from([file.body]), size: file.body.length } : null,
+    );
+  }
+
+  delete(key: string): Promise<void> {
+    this.files.delete(key);
     return Promise.resolve();
   }
 }

@@ -43,6 +43,30 @@ export const SendWhatsAppText = defineJob<{
   text: string;
 }>(WHATSAPP_CONNECTOR_QUEUE, 'send-text');
 
+/**
+ * Arquivo no armazenamento (bucket privado, FileStorage). O conector e o
+ * sistema trocam só a CHAVE — o arquivo em si nunca passa pela fila.
+ */
+export interface StoredMedia {
+  key: string;
+  mimeType: string;
+  size: number;
+  fileName: string | null;
+}
+
+/** Enviar mídia já gravada no armazenamento. O resultado volta como WhatsAppMessageSendResult. */
+export const SendWhatsAppMedia = defineJob<{
+  channelId: string;
+  tenantId: string;
+  messageId: string;
+  /** Número em E.164 (+5511...). */
+  to: string;
+  /** Como o WhatsApp exibe (imagem, vídeo e áudio inline; o resto como documento). */
+  kind: 'image' | 'video' | 'audio' | 'document';
+  media: StoredMedia;
+  caption: string | null;
+}>(WHATSAPP_CONNECTOR_QUEUE, 'send-media');
+
 // ─── Relatos (conector → sistema) ───────────────────────────────────────────
 
 export type WhatsAppConnectionStatus =
@@ -89,6 +113,12 @@ export const WhatsAppMessageReceived = defineJob<{
   kind: WhatsAppMessageKind;
   text: string | null;
   sentAt: string;
+  /**
+   * Mídia já baixada e gravada pelo conector. Ausente/null: sem mídia, grande
+   * demais ou o download falhou (a mensagem entra só com o tipo).
+   * Campo opcional (acrescentado depois): jobs antigos não o têm.
+   */
+  media?: StoredMedia | null;
 }>(WHATSAPP_EVENTS_QUEUE, 'message-received');
 
 /** Resultado de um SendWhatsAppText. */

@@ -1,4 +1,22 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  PayloadTooLargeException,
+  Post,
+  Query,
+  Req,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { mediaKindOf, servedMimeType } from '../../../shared/domain/media-type';
+import { GetMessageMediaUseCase } from '../application/use-cases/get-message-media/get-message-media.use-case';
+import { SendAttachmentUseCase } from '../application/use-cases/send-attachment/send-attachment.use-case';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe';
 import { RequireAnyPermission, RequirePermissions } from '../../accounts';
@@ -47,6 +65,8 @@ export class ConversationsController {
     private readonly markRead: MarkConversationReadUseCase,
     private readonly claimConversation: ClaimConversationUseCase,
     private readonly transferConversation: TransferConversationUseCase,
+    private readonly sendAttachment: SendAttachmentUseCase,
+    private readonly getMessageMedia: GetMessageMediaUseCase,
   ) {}
 
   @Get()
@@ -84,6 +104,69 @@ export class ConversationsController {
     return MessagePresenter.toHttp(
       await this.sendMessage.execute({ conversationId: id, text: body.text }),
     );
+  }
+
+  /**
+   * Anexo (multipart: campo `caption` opcional ANTES do campo `file`). O
+   * limite de tamanho é aplicado durante o upload (MEDIA_MAX_MB).
+   */
+  @Post(':id/attachments')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async attach(@Param('id', idParam) id: string, @Req() request: FastifyRequest) {
+    const file = await request.file();
+    if (!file) {
+      throw new BadRequestException({ code: 'ATTACHMENT_MISSING', message: 'No file sent' });
+    }
+    let content: Buffer;
+    try {
+      content = await file.toBuffer();
+    } catch (error) {
+      if (error instanceof request.server.multipartErrors.RequestFileTooLargeError) {
+        throw new PayloadTooLargeException({
+          code: 'ATTACHMENT_TOO_LARGE',
+          message: 'File exceeds the size limit',
+        });
+      }
+      throw error;
+    }
+    const caption = file.fields.caption;
+    const message = await this.sendAttachment.execute({
+      conversationId: id,
+      content,
+      mimeType: file.mimetype,
+      fileName: file.filename || null,
+      caption:
+        caption && !Array.isArray(caption) && caption.type === 'field'
+          ? String(caption.value)
+          : null,
+    });
+    return MessagePresenter.toHttp(message);
+  }
+
+  /**
+   * Arquivo de uma mensagem. Só imagem/áudio/vídeo conhecidos vão como o
+   * próprio tipo; o resto vai como binário para download — nunca como algo
+   * que o navegador execute (HTML, SVG).
+   */
+  @Get(':id/messages/:messageId/media')
+  async media(
+    @Param('id', idParam) conversationId: string,
+    @Param('messageId', idParam) messageId: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const file = await this.getMessageMedia.execute({ conversationId, messageId });
+    const type = servedMimeType(file.mimeType);
+    const inline = mediaKindOf(file.mimeType) !== 'document';
+    const name = encodeURIComponent(file.fileName ?? 'arquivo');
+    void reply
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Content-Security-Policy', "default-src 'none'; sandbox")
+      .header('Cache-Control', 'private, max-age=300');
+    return new StreamableFile(file.stream, {
+      type,
+      disposition: `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${name}`,
+      ...(file.size !== null && { length: file.size }),
+    });
   }
 
   @Post(':id/status')

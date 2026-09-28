@@ -14,6 +14,8 @@ import {
 import { AppConfig } from '../../config/app-config';
 import { PrismaService } from '../../shared/infra/prisma/prisma.service';
 import { REDIS_CLIENT } from '../../shared/infra/redis/redis.module';
+import { FILE_STORAGE, type FileStorage } from '../../shared/application/file-storage';
+import { baseMimeType } from '../../shared/domain/media-type';
 import { AuthStateStore } from './auth-state.store';
 import { ConnectorReporter } from './connector-reporter';
 import { SessionLeases } from './session-leases';
@@ -60,7 +62,8 @@ export class SessionManager implements OnApplicationBootstrap, OnApplicationShut
     private readonly authState: AuthStateStore,
     private readonly reporter: ConnectorReporter,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
-    config: AppConfig,
+    @Inject(FILE_STORAGE) private readonly storage: FileStorage,
+    private readonly config: AppConfig,
   ) {
     // O Baileys loga muito (e com dados de protocolo): só avisos e erros.
     this.baileysLogger = pino({ level: config.logLevel === 'debug' ? 'info' : 'warn' });
@@ -185,7 +188,14 @@ export class SessionManager implements OnApplicationBootstrap, OnApplicationShut
       clearAuthState: () => this.authState.clear(channelId),
       onStatus: (status, details) => this.reporter.connection(ref, status, details),
       onQrCode: (qr) => this.publishQrCode(channelId, qr),
-      onMessage: (message) => this.reporter.message(ref, message),
+      onMessage: (message, media) => this.reporter.message(ref, message, media),
+      maxMediaBytes: this.config.mediaMaxBytes,
+      storeMedia: async (externalId, content, attachment) => {
+        const key = `tenants/${tenantId}/channels/${channelId}/inbound/${externalId}`;
+        const mimeType = baseMimeType(attachment.mimeType);
+        await this.storage.put(key, content, mimeType);
+        return { key, mimeType, size: content.length, fileName: attachment.fileName };
+      },
       // Logout pelo celular ou QR não escaneado: não tentar de novo até
       // alguém pedir para conectar (novo StartWhatsAppSession).
       onGaveUp: () =>

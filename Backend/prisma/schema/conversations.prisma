@@ -41,6 +41,11 @@ model Message {
   externalId         String?      @map("external_id")
   status             String
   senderMembershipId String?      @map("sender_membership_id") @db.Uuid
+  // Anexo no armazenamento (bucket privado): só a referência; o arquivo sai pela API.
+  mediaKey           String?      @map("media_key")
+  mediaMimeType      String?      @map("media_mime_type")
+  mediaSize          Int?         @map("media_size")
+  mediaFileName      String?      @map("media_file_name")
   error              String?
   sentAt             DateTime     @map("sent_at") @db.Timestamptz(3)
   createdAt          DateTime     @map("created_at") @db.Timestamptz(3)

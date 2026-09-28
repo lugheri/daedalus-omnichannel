@@ -141,6 +141,14 @@ export class FakeChannelGateway implements ChannelGateway {
     return Promise.resolve();
   }
 
+  readonly sentMedia: Parameters<ChannelGateway['sendMedia']>[0][] = [];
+
+  sendMedia(input: Parameters<ChannelGateway['sendMedia']>[0]) {
+    if (this.failEnqueue) return Promise.reject(new Error('queue down'));
+    this.sentMedia.push(input);
+    return Promise.resolve();
+  }
+
   sendText(input: { channelId: string; messageId: string; to: string; text: string }) {
     if (this.failEnqueue) return Promise.reject(new Error('queue down'));
     this.sent.push(input);

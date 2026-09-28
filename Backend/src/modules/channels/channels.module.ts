@@ -1,7 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { WHATSAPP_CONNECTOR_QUEUE } from '../../contracts/whatsapp-connector.contract';
-import { ChannelTextSender } from './application/channel-text-sender';
+import { ChannelSender } from './application/channel-sender';
 import { ChannelsFacade } from './application/channels.facade';
 import { CHANNEL_REPOSITORY } from './application/ports/channel.repository';
 import { ChannelsTeamCleanupHandler } from './application/event-handlers/channels-team-cleanup.handler';
@@ -51,7 +51,7 @@ import { TeamsModule } from '../teams';
     RecordSendResultUseCase,
     PurgeConnectorSessionHandler,
     ChannelsTeamCleanupHandler,
-    ChannelTextSender,
+    ChannelSender,
     ChannelsFacade,
     { provide: CHANNEL_REPOSITORY, useClass: PrismaChannelRepository },
     { provide: QR_CODE_READER, useClass: RedisQrCodeReader },
