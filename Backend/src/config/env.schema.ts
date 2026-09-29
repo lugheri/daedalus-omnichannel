@@ -82,6 +82,16 @@ export const envSchema = z.object({
   S3_FORCE_PATH_STYLE: z.stringbool().default(false),
   // Tamanho máximo de mídia (recebida ou enviada), em MB.
   MEDIA_MAX_MB: z.coerce.number().int().min(1).max(100).default(25),
+  // APIs dos provedores de e-mail/SMS (cada conta usa as próprias credenciais,
+  // cadastradas na tela). Só se muda para apontar a um servidor falso em testes.
+  SENDGRID_API_URL: z
+    .url()
+    .default('https://api.sendgrid.com')
+    .transform((url) => url.replace(/\/+$/, '')),
+  TWILIO_API_URL: z
+    .url()
+    .default('https://api.twilio.com')
+    .transform((url) => url.replace(/\/+$/, '')),
 });
 
 export type Env = z.infer<typeof envSchema>;

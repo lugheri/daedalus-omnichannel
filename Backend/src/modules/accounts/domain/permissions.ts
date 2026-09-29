@@ -13,6 +13,7 @@ export const PERMISSIONS = [
   'teams:manage', //            equipes e filas
   'channels:manage', //         conectar e configurar canais (WhatsApp etc.)
   'integrations:manage', //     chaves de API (formulário do site e outras integrações)
+  'messaging:manage', //        provedores de e-mail e SMS (credenciais da conta)
   'dispositions:manage', //     tabulações dos atendimentos
   'boards:manage', //           quadros kanban: criar, colunas, entrada automática
   'reports:view',

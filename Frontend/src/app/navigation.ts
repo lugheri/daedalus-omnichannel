@@ -2,6 +2,7 @@ import {
   Contact,
   Home,
   Inbox,
+  Mail,
   KeyRound,
   MessageCircle,
   Network,
@@ -47,6 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: KeyRound,
     anyOf: ['roles:manage', 'members:manage'],
   },
+  { to: '/settings/messaging', label: 'E-mail e SMS', icon: Mail, anyOf: ['messaging:manage'] },
   {
     to: '/settings/integrations',
     label: 'Integrações',

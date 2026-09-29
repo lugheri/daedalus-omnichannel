@@ -23,6 +23,14 @@ export class AppConfig {
     return this.env.DATABASE_URL;
   }
 
+  get sendgridApiUrl() {
+    return this.env.SENDGRID_API_URL;
+  }
+
+  get twilioApiUrl() {
+    return this.env.TWILIO_API_URL;
+  }
+
   get appUrl() {
     return this.env.APP_URL;
   }

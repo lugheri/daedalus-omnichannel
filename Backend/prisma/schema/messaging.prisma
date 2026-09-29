@@ -1,0 +1,23 @@
+// Módulo messaging: envio de e-mail e SMS pelas contas dos próprios clientes.
+
+// Provedor de um canal ("email" | "sms") da conta — no máximo um por canal.
+// `settings` sem segredos (remetente, Account SID...); o segredo (API key /
+// Auth Token) fica cifrado em `secret` (AES-256-GCM, ENCRYPTION_KEY).
+model MessagingProvider {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  channel       String
+  settings      Json
+  secret        String
+  secretHint    String    @map("secret_hint")
+  // unverified | verified | failing (resultado do último envio de teste)
+  status        String
+  lastCheckedAt DateTime? @map("last_checked_at") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  createdAt     DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, channel])
+  @@map("providers")
+  @@schema("messaging")
+}

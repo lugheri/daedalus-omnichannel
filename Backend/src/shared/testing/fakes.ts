@@ -1,3 +1,4 @@
+import type { SecretCipher } from '../application/secret-cipher';
 import type { Actor, ActorContext } from '../application/actor-context';
 import { Readable } from 'node:stream';
 import type { EventBus } from '../application/event-bus';
@@ -129,5 +130,18 @@ export class InMemoryFileStorage implements FileStorage {
   delete(key: string): Promise<void> {
     this.files.delete(key);
     return Promise.resolve();
+  }
+}
+
+/** "Cifra" reversível e visível nos testes: dá para conferir que o segredo não vai em claro. */
+export class FakeSecretCipher implements SecretCipher {
+  seal(plaintext: string): string {
+    return `sealed(${Buffer.from(plaintext).toString('base64')})`;
+  }
+
+  open(sealed: string): string {
+    const match = /^sealed\((.*)\)$/.exec(sealed);
+    if (!match) throw new Error('not sealed by FakeSecretCipher');
+    return Buffer.from(match[1], 'base64').toString();
   }
 }

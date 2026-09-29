@@ -7,6 +7,7 @@ import { ContactsModule } from './modules/contacts';
 import { ConversationsModule } from './modules/conversations';
 import { IdentityModule } from './modules/identity';
 import { KanbanModule } from './modules/kanban';
+import { MessagingModule } from './modules/messaging';
 import { TeamsModule } from './modules/teams';
 import { RealtimeModule } from './modules/realtime';
 import { SharedHttpModule } from './shared/http/shared-http.module';
@@ -28,6 +29,7 @@ import { SharedInfraModule } from './shared/infra/shared-infra.module';
     TeamsModule,
     ConversationsModule,
     KanbanModule,
+    MessagingModule,
     ChannelsModule,
     RealtimeModule,
   ],

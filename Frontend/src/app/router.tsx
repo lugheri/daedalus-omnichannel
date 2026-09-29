@@ -97,6 +97,15 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['messaging:manage']} />,
+            children: [
+              {
+                path: '/settings/messaging',
+                ...page(() => import('@/features/messaging/messaging-page'), 'MessagingPage'),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['integrations:manage']} />,
             children: [
               {

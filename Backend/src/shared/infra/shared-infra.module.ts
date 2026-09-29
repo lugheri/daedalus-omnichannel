@@ -14,11 +14,13 @@ import { FILE_STORAGE } from '../application/file-storage';
 import { ID_GENERATOR } from '../application/id-generator';
 import { JOB_QUEUE } from '../application/job-queue';
 import { REALTIME_NOTIFIER } from '../application/realtime';
+import { SECRET_CIPHER } from '../application/secret-cipher';
 import { TENANT_CONTEXT } from '../application/tenant-context';
 import { UNIT_OF_WORK } from '../application/unit-of-work';
 import { ClsActorContext } from './context/cls-actor-context';
 import { ClsTenantContext } from './context/cls-tenant-context';
 import { requestIdFor } from './context/request-id';
+import { SecretBoxCipher } from './crypto/secret-box-cipher';
 import { OutboxEventBus } from './events/outbox-event-bus';
 import { UuidV7IdGenerator } from './id/uuid-v7.id-generator';
 import { AppLoggerModule } from './logger/logger.module';
@@ -88,6 +90,7 @@ import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },
     { provide: REALTIME_NOTIFIER, useClass: RedisRealtimeNotifier },
     { provide: FILE_STORAGE, useClass: S3FileStorage },
+    { provide: SECRET_CIPHER, useClass: SecretBoxCipher },
     // Registrado antes do guard de autenticação: rejeita excesso de
     // requisições sem gastar verificação de token.
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
@@ -101,6 +104,7 @@ import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
     UNIT_OF_WORK,
     REALTIME_NOTIFIER,
     FILE_STORAGE,
+    SECRET_CIPHER,
   ],
 })
 export class SharedInfraModule {}

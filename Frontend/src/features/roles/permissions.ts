@@ -14,6 +14,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: string; lab
         { key: 'channels:manage', label: 'Conectar e configurar canais' },
         { key: 'dispositions:manage', label: 'Criar e editar tabulações' },
         { key: 'boards:manage', label: 'Criar e configurar quadros (kanban)' },
+        { key: 'messaging:manage', label: 'Configurar provedores de e-mail e SMS' },
         { key: 'integrations:manage', label: 'Chaves de API (formulário do site e integrações)' },
         { key: 'reports:view', label: 'Ver relatórios' },
       ],

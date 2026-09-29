@@ -250,6 +250,13 @@ Processo próprio (`whatsapp-connector.ts`, ADR 0006), mesma imagem. Regras:
 - Ações nas conversas passam por métodos `…AsSystem` da `ConversationsFacade` (sem membro: só o tenant limita; nunca chamar de uma requisição HTTP). Mensagem automática: `Message.automated` (`automated: true`, sem remetente), aparece como "Automação" no chat; texto com `{{nome}}`/`{{nome_completo}}` (`renderTemplate` arruma a pontuação sem nome). Atribuir usa as mesmas regras da transferência (`applyTransfer`).
 - Excluir coluna apaga as regras dela (FK) e as que movem cards para ela; os cards movidos em massa não disparam automações.
 
+## E-mail e SMS (módulo messaging)
+
+- **Cada conta usa as próprias credenciais** (`messaging:manage`, Admin por padrão; `/v1/messaging/providers`): e-mail pelo **SendGrid** (API key com "Mail Send" + remetente verificado) e SMS pela **Twilio** (Account SID + Auth Token + número OU Messaging Service). Um provedor por canal por conta.
+- Segredos cifrados com o port compartilhado `SecretCipher` (`SecretBoxCipher`: AES-256-GCM, `ENCRYPTION_KEY`); a API nunca devolve o segredo, só os 4 últimos caracteres. Atualizar sem mandar o segredo mantém o salvo; mudar a configuração volta o status para `unverified`.
+- Clientes HTTP (`SendGridClient`, `TwilioSmsClient`) com tempo limite de 10 s e erro classificado: 4xx → `ProviderRejectedError` (não repetir; guarda a mensagem do provedor), 429/5xx/rede → `ProviderUnavailableError` (vale repetir). URLs em `SENDGRID_API_URL`/`TWILIO_API_URL` (padrão: as reais) — só mudam em testes, para um servidor falso. Provedor novo de SMS: cliente que implementa `SmsProviderClient` + entrada no `ProviderClientsRegistry` + tipo em `SmsSettings`.
+- **Envio de teste é síncrono** (exceção consciente ao "externo vai para fila": quem configura precisa da resposta na tela); guarda o resultado (`verified`/`failing` + mensagem do provedor). Destino inválido não muda o status. Limitado a 10/min.
+
 ## Testes em execução (API + worker de teste)
 
 - Com o worker de dev rodando, uma API/worker de teste no **mesmo banco** disputa os eventos do outbox com ele. Para testes de ponta a ponta com o worker, suba a API/worker de teste apontando para o ambiente de e2e (banco `<nome>_e2e`, Redis db 1, `QUEUE_PREFIX=omni-e2e`) — e pare-os antes do `npm run test:e2e`, que usa as mesmas filas.
