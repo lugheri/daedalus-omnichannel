@@ -39,13 +39,14 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
       'contacts:edit',
       'conversations:view:team',
       'conversations:assign',
+      'messaging:send',
     ],
     isSystem: false,
   },
   {
     key: 'agent',
     name: 'Agent',
-    permissions: ['contacts:view', 'contacts:edit', 'conversations:view:own'],
+    permissions: ['contacts:view', 'contacts:edit', 'conversations:view:own', 'messaging:send'],
     isSystem: false,
   },
 ];

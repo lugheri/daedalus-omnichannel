@@ -12,6 +12,11 @@ export interface EmailSettings {
   fromEmail: string;
   fromName: string;
   replyTo: string | null;
+  /**
+   * Chave pública do Signed Event Webhook do SendGrid (não é segredo). Sem
+   * ela, os avisos de entrega são recusados (não dá para confirmar a origem).
+   */
+  eventWebhookKey: string | null;
 }
 
 /** SMS pela Twilio: sai de um número OU de um Messaging Service. */
@@ -49,6 +54,8 @@ export interface MessagingProviderProps {
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ACCOUNT_SID = /^AC[0-9a-f]{32}$/i;
 const MESSAGING_SERVICE_SID = /^MG[0-9a-f]{32}$/i;
+/** Chave pública EC em base64 (DER), como o SendGrid mostra. */
+const WEBHOOK_KEY = /^[A-Za-z0-9+/]{80,600}={0,2}$/;
 
 /**
  * Provedor de envio de um canal (e-mail ou SMS) de uma conta — no máximo um
@@ -150,7 +157,11 @@ function validSettings(settings: ProviderSettings): ProviderSettings {
       replyTo = normalizeEmail(settings.replyTo);
       if (!replyTo) throw new InvalidMessagingSettingsError('MESSAGING_INVALID_REPLY_TO');
     }
-    return { provider: 'sendgrid', fromEmail, fromName, replyTo };
+    const eventWebhookKey = settings.eventWebhookKey?.replace(/\s+/g, '') || null;
+    if (eventWebhookKey && !WEBHOOK_KEY.test(eventWebhookKey)) {
+      throw new InvalidMessagingSettingsError('MESSAGING_INVALID_WEBHOOK_KEY');
+    }
+    return { provider: 'sendgrid', fromEmail, fromName, replyTo, eventWebhookKey };
   }
   if (settings.provider === 'twilio') {
     const accountSid = settings.accountSid.trim();

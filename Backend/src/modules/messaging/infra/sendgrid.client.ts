@@ -32,6 +32,9 @@ export class SendGridClient implements EmailProviderClient {
             { type: 'text/plain', value: message.text },
             ...(message.html ? [{ type: 'text/html', value: message.html }] : []),
           ],
+          ...(message.headers && { headers: message.headers }),
+          // Voltam em cada evento do Event Webhook: é assim que achamos a mensagem.
+          ...(message.customArgs && { custom_args: message.customArgs }),
         }),
       },
       describeSendGridError,

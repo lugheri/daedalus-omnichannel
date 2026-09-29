@@ -32,6 +32,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: string; lab
         { key: 'conversations:view:own', label: 'Ver as próprias conversas' },
         { key: 'conversations:view:team', label: 'Ver as conversas das suas equipes' },
         { key: 'conversations:view:all', label: 'Ver todas as conversas' },
+        { key: 'messaging:send', label: 'Enviar e-mail/SMS a contatos (pela ficha)' },
         { key: 'conversations:assign', label: 'Atribuir e transferir conversas' },
       ],
     },

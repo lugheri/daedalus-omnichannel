@@ -107,6 +107,12 @@ const MESSAGES: Record<string, string> = {
   AUTOMATION_INVALID_ASSIGNEE: 'A pessoa escolhida não está ativa na conta.',
   AUTOMATION_INVALID_DISPOSITION: 'Tabulação não encontrada.',
   AUTOMATION_TOO_MANY: 'Uma coluna pode ter no máximo 10 automações.',
+  MESSAGING_OPTED_OUT: 'O contato pediu para não receber mensagens por este canal.',
+  MESSAGING_CONTACT_WITHOUT_ADDRESS: 'O contato não tem endereço para este canal.',
+  MESSAGING_CONTACT_NOT_FOUND: 'Contato não encontrado.',
+  MESSAGING_INVALID_SUBJECT: 'O assunto precisa ter entre 1 e 200 caracteres.',
+  MESSAGING_INVALID_BODY: 'Escreva a mensagem (SMS: até 1600 caracteres).',
+  MESSAGING_INVALID_WEBHOOK_KEY: 'Chave de verificação inválida (copie do SendGrid, em base64).',
   MESSAGING_NOT_CONFIGURED: 'Configure o provedor deste canal em Configurações → E-mail e SMS.',
   MESSAGING_PROVIDER_REJECTED:
     'O provedor recusou o envio. Confira a mensagem de erro no cartão do provedor.',

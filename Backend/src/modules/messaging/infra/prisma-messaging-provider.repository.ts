@@ -13,6 +13,8 @@ import {
   type ProviderStatus,
 } from '../domain/messaging-provider.entity';
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class PrismaMessagingProviderRepository implements MessagingProviderRepository {
   constructor(
@@ -60,6 +62,13 @@ export class PrismaMessagingProviderRepository implements MessagingProviderRepos
       orderBy: { channel: 'asc' },
     });
     return rows.map(toDomain);
+  }
+
+  /** Sem filtro de tenant, de propósito: webhooks descobrem a conta pelo provedor. */
+  async findByIdAsSystem(id: string): Promise<MessagingProvider | null> {
+    if (!UUID.test(id)) return null;
+    const row = await this.db.messagingProvider.findUnique({ where: { id } });
+    return row ? toDomain(row) : null;
   }
 
   async delete(provider: MessagingProvider): Promise<void> {

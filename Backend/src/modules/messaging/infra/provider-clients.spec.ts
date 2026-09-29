@@ -50,6 +50,7 @@ describe('Provider HTTP clients (contract)', () => {
       fromEmail: 'vendas@loja.com',
       fromName: 'Loja',
       replyTo: 'atendimento@loja.com',
+      eventWebhookKey: null,
     };
     const send = () =>
       new SendGridClient(endpoints()).send(settings, 'SG.key', {

@@ -35,6 +35,14 @@ export const envSchema = z.object({
     .url()
     .default('http://localhost:5180')
     .transform((url) => url.replace(/\/+$/, '')),
+  // Endereço público da API (ex.: https://api.dominio.com): base dos links de
+  // descadastro nos e-mails e dos webhooks dos provedores (SendGrid/Twilio).
+  // Provedores só chamam endereços públicos: com http/localhost, os avisos de
+  // entrega não chegam (o envio funciona do mesmo jeito).
+  PUBLIC_API_URL: z
+    .url()
+    .default('http://localhost:3000')
+    .transform((url) => url.replace(/\/+$/, '')),
   // Origens do frontend autorizadas (CORS e checagem de Origin), separadas por vírgula.
   CORS_ORIGINS: z
     .string()

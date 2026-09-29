@@ -11,6 +11,10 @@ export interface EmailMessage {
   subject: string;
   text: string;
   html?: string;
+  /** Cabeçalhos extras (ex.: List-Unsubscribe). */
+  headers?: Record<string, string>;
+  /** Voltam em cada aviso de entrega (ex.: nosso id da mensagem). */
+  customArgs?: Record<string, string>;
 }
 
 /**
@@ -23,11 +27,14 @@ export interface EmailProviderClient {
 }
 
 export interface SmsProviderClient {
-  send(
-    settings: SmsSettings,
-    secret: string,
-    message: { to: string; body: string },
-  ): Promise<ProviderReceipt>;
+  send(settings: SmsSettings, secret: string, message: SmsMessage): Promise<ProviderReceipt>;
+}
+
+export interface SmsMessage {
+  to: string;
+  body: string;
+  /** Onde o provedor avisa as mudanças de status (só com URL pública). */
+  statusCallbackUrl?: string;
 }
 
 /** Um cliente por provedor; o provedor de SMS futuro entra aqui como mais um. */

@@ -38,16 +38,10 @@ export abstract class TenantAwareProcessor extends WorkerHost {
     const handler = this.handlers.get(job.name);
     if (!handler) throw new Error(`No handler for job "${job.name}" on queue "${job.queueName}"`);
 
-    const { payload, meta } = job.data;
-    const cls = ClsServiceManager.getClsService<AppClsStore>();
-
-    return cls.run(async () => {
-      cls.set(CLS_ID, meta.correlationId ?? `job:${job.queueName}:${job.id}`);
-      if (meta.tenantId) cls.set('tenantId', meta.tenantId);
-
+    return this.inJobContext(job, async () => {
       const startedAt = Date.now();
       try {
-        const result = await handler(payload as never);
+        const result = await handler(job.data.payload as never);
         this.logger.log(
           `${job.queueName}/${job.name} #${job.id} ok em ${Date.now() - startedAt}ms`,
         );
@@ -58,6 +52,21 @@ export abstract class TenantAwareProcessor extends WorkerHost {
         );
         throw error;
       }
+    });
+  }
+
+  /**
+   * Roda `work` no contexto de quem enfileirou o job (tenant e correlation
+   * id). Também para os ganchos de evento do worker (ex.: `failed`), que o
+   * BullMQ chama fora do `process`.
+   */
+  protected inJobContext<T>(job: Job<JobEnvelope>, work: () => Promise<T>): Promise<T> {
+    const { meta } = job.data;
+    const cls = ClsServiceManager.getClsService<AppClsStore>();
+    return cls.run(() => {
+      cls.set(CLS_ID, meta.correlationId ?? `job:${job.queueName}:${job.id}`);
+      if (meta.tenantId) cls.set('tenantId', meta.tenantId);
+      return work();
     });
   }
 }

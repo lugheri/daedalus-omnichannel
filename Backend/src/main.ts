@@ -21,8 +21,11 @@ async function bootstrap() {
     new FastifyAdapter({
       trustProxy: TRUST_PROXY,
       genReqId: (req: WithHeaders) => requestIdFor(req),
+      // O padrão (100) recusa o token do link de descadastro (conta + e-mail + assinatura).
+      maxParamLength: 1000,
     }),
-    { bufferLogs: true },
+    // rawBody: webhooks assinados (SendGrid) conferem a assinatura sobre os bytes exatos.
+    { bufferLogs: true, rawBody: true },
   );
   app.useLogger(app.get(Logger));
   app

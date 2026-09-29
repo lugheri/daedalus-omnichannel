@@ -22,6 +22,7 @@ const email = (over: Partial<Extract<ProviderSettings, { provider: 'sendgrid' }>
   fromEmail: ' Vendas@Loja.com.br ',
   fromName: '  Loja   Exemplo ',
   replyTo: null,
+  eventWebhookKey: null,
   ...over,
 });
 const sms = (over: Partial<Extract<ProviderSettings, { provider: 'twilio' }>> = {}) => ({
@@ -66,6 +67,7 @@ describe('Messaging providers (setup)', () => {
       fromEmail: 'vendas@loja.com.br',
       fromName: 'Loja Exemplo',
       replyTo: null,
+      eventWebhookKey: null,
     });
     expect(provider.secret.hint).toBe('1234');
     expect(provider.secret.sealed).not.toContain('chave-super-secreta');

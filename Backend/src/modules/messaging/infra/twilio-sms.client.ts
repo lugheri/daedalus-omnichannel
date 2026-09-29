@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ProviderReceipt, SmsProviderClient } from '../application/ports/provider-clients';
+import type {
+  ProviderReceipt,
+  SmsMessage,
+  SmsProviderClient,
+} from '../application/ports/provider-clients';
 import type { SmsSettings } from '../domain/messaging-provider.entity';
 import { PROVIDER_ENDPOINTS, type ProviderEndpoints } from './provider-endpoints';
 import { callProvider } from './provider-http';
@@ -12,11 +16,12 @@ export class TwilioSmsClient implements SmsProviderClient {
   async send(
     settings: SmsSettings,
     authToken: string,
-    message: { to: string; body: string },
+    message: SmsMessage,
   ): Promise<ProviderReceipt> {
     const form = new URLSearchParams({ To: message.to, Body: message.body });
     if (settings.messagingServiceSid) form.set('MessagingServiceSid', settings.messagingServiceSid);
     else if (settings.from) form.set('From', settings.from);
+    if (message.statusCallbackUrl) form.set('StatusCallback', message.statusCallbackUrl);
 
     const credentials = Buffer.from(`${settings.accountSid}:${authToken}`).toString('base64');
     const response = await callProvider(

@@ -21,3 +21,47 @@ model MessagingProvider {
   @@map("providers")
   @@schema("messaging")
 }
+
+// E-mail/SMS enviado a um contato (individual; campanhas também, com campaignId).
+// Status só avança: queued → sent → delivered; failed/bounced são finais.
+model OutboundMessage {
+  id                 String    @id @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  channel            String
+  contactId          String    @map("contact_id") @db.Uuid
+  // Endereço usado no envio (e-mail ou telefone E.164), guardado como foi.
+  to                 String
+  subject            String?
+  body               String
+  status             String
+  // Motivo da falha (mensagem do provedor) ou da última tentativa sem sucesso.
+  error              String?
+  providerMessageId  String?   @map("provider_message_id")
+  // Quem enviou (membership); null = campanha/sistema.
+  sentByMembershipId String?   @map("sent_by_membership_id") @db.Uuid
+  campaignId         String?   @map("campaign_id") @db.Uuid
+  createdAt          DateTime  @map("created_at") @db.Timestamptz(3)
+  sentAt             DateTime? @map("sent_at") @db.Timestamptz(3)
+  deliveredAt        DateTime? @map("delivered_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  @@index([tenantId, contactId, createdAt(sort: Desc)])
+  @@index([tenantId, campaignId])
+  @@map("outbound_messages")
+  @@schema("messaging")
+}
+
+// Descadastro por canal e endereço: nada mais é enviado para ele (até um
+// gestor reativar a pedido do próprio contato).
+model OptOut {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  channel   String
+  address   String
+  // unsubscribe_link | sms_reply | provider | manual
+  source    String
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@id([tenantId, channel, address])
+  @@map("opt_outs")
+  @@schema("messaging")
+}

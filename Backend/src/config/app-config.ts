@@ -23,6 +23,10 @@ export class AppConfig {
     return this.env.DATABASE_URL;
   }
 
+  get publicApiUrl() {
+    return this.env.PUBLIC_API_URL;
+  }
+
   get sendgridApiUrl() {
     return this.env.SENDGRID_API_URL;
   }

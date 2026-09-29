@@ -9,7 +9,8 @@ export type InvalidMessagingSettingsCode =
   | 'MESSAGING_INVALID_SENDER'
   | 'MESSAGING_INVALID_SECRET'
   | 'MESSAGING_SECRET_REQUIRED'
-  | 'MESSAGING_INVALID_RECIPIENT';
+  | 'MESSAGING_INVALID_RECIPIENT'
+  | 'MESSAGING_INVALID_WEBHOOK_KEY';
 
 /** Configuração de provedor inválida (422). */
 export class InvalidMessagingSettingsError extends DomainError {

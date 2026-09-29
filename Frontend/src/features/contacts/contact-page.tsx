@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePermissions } from '@/features/auth/session-context'
 import { errorMessage } from '@/lib/api/api-error'
 import { formatPhone } from '@/lib/phone'
+import { ContactMessages, ContactSendButtons } from '@/features/messaging/contact-messaging'
 import { useContact } from './api'
 import { ContactEditDialog } from './contact-edit-dialog'
 import { ContactHistory } from './contact-history'
@@ -64,12 +65,15 @@ export function ContactPage() {
               </span>
             </div>
           </div>
-          {can('contacts:edit') && (
-            <Button variant="outline" onClick={() => setEditing(true)}>
-              <Pencil />
-              Editar
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <ContactSendButtons contactId={data.id} email={data.email} phone={data.phone} />
+            {can('contacts:edit') && (
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                <Pencil />
+                Editar
+              </Button>
+            )}
+          </div>
         </header>
       ) : (
         <Skeleton className="h-20" />
@@ -78,6 +82,7 @@ export function ContactPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <ContactHistory contactId={id} />
         <ContactNotes contactId={id} />
+        <ContactMessages contactId={id} />
       </div>
 
       {data && <ContactEditDialog contact={data} open={editing} onOpenChange={setEditing} />}
