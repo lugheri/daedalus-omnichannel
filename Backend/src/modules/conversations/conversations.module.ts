@@ -27,6 +27,7 @@ import {
   MarkConversationReadUseCase,
 } from './application/use-cases/update-conversation/update-conversation.use-cases';
 import { VisibleConversations } from './application/visible-conversations';
+import { ConversationsFacade } from './application/conversations.facade';
 import { ConversationTabulator } from './application/conversation-tabulator';
 import { CONVERSATION_DISPOSITION_REPOSITORY } from './application/ports/conversation-disposition.repository';
 import { DISPOSITION_REPOSITORY } from './application/ports/disposition.repository';
@@ -67,6 +68,7 @@ import { PrismaMessageRepository } from './infra/prisma-message.repository';
   controllers: [ConversationsController, DispositionsController],
   providers: [
     VisibleConversations,
+    ConversationsFacade,
     ConversationTabulator,
     // Membro (HTTP)
     ListConversationsUseCase,
@@ -105,5 +107,6 @@ import { PrismaMessageRepository } from './infra/prisma-message.repository';
     { provide: MEMBER_ACCESS, useClass: FacadesMemberAccess },
     { provide: TEAM_DIRECTORY, useClass: TeamsFacadeDirectory },
   ],
+  exports: [ConversationsFacade],
 })
 export class ConversationsModule {}

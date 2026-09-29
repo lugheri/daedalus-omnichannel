@@ -51,6 +51,15 @@ export const router = createBrowserRouter([
                 handle: { fullBleed: true } satisfies RouteHandle,
                 ...page(() => import('@/features/conversations/inbox-page'), 'InboxPage'),
               },
+              {
+                path: '/boards',
+                ...page(() => import('@/features/boards/boards-page'), 'BoardsPage'),
+              },
+              {
+                path: '/boards/:id',
+                handle: { fullBleed: true } satisfies RouteHandle,
+                ...page(() => import('@/features/boards/board-page'), 'BoardPage'),
+              },
             ],
           },
           {

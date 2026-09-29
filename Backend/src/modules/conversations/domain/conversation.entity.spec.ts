@@ -2,6 +2,7 @@ import { Conversation } from './conversation.entity';
 import {
   ConversationAssignedEvent,
   ConversationMessageAddedEvent,
+  ConversationStartedEvent,
   ConversationStatusChangedEvent,
   ConversationTeamChangedEvent,
 } from './events/conversation-events';
@@ -15,13 +16,31 @@ const inbound = (text: string, sentAt = new Date('2030-01-01T10:00:00Z'), id = '
   Message.inbound(id, { ...base, externalId: `wa-${id}`, kind: 'text', text, sentAt });
 
 describe('Conversation', () => {
-  const start = () =>
+  const create = () =>
     Conversation.start('conv-1', {
       tenantId: 't-1',
       channelId: 'ch-1',
       contactId: 'c-1',
       teamId: 'team-sales',
     });
+  /** Conversa já existente (o evento de início já foi publicado). */
+  const start = () => {
+    const conversation = create();
+    conversation.pullEvents();
+    return conversation;
+  };
+
+  it('announces a new conversation, with the team it entered', () => {
+    expect(create().pullEvents()).toEqual([
+      expect.objectContaining({
+        eventName: ConversationStartedEvent.eventName,
+        aggregateId: 'conv-1',
+        channelId: 'ch-1',
+        contactId: 'c-1',
+        teamId: 'team-sales',
+      }),
+    ]);
+  });
 
   it('counts customer messages as unread and shows the last one in the inbox', () => {
     const conversation = start();
@@ -146,13 +165,16 @@ describe('Message', () => {
 });
 
 describe('assigning', () => {
-  const start = () =>
-    Conversation.start('conv-1', {
+  const start = () => {
+    const conversation = Conversation.start('conv-1', {
       tenantId: 't-1',
       channelId: 'ch-1',
       contactId: 'c-1',
       teamId: null,
     });
+    conversation.pullEvents();
+    return conversation;
+  };
 
   it('a member claims an unassigned conversation', () => {
     const conversation = start();

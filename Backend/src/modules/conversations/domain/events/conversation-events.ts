@@ -101,3 +101,20 @@ export class ConversationDispositionSetEvent extends DomainEvent {
     super(conversationId);
   }
 }
+
+/** Conversa nova (primeira mensagem de um contato num canal). */
+export class ConversationStartedEvent extends DomainEvent {
+  static readonly eventName = 'conversation.started.v1';
+  readonly eventName = ConversationStartedEvent.eventName;
+
+  constructor(
+    conversationId: string,
+    readonly tenantId: string,
+    readonly channelId: string,
+    readonly contactId: string,
+    /** Equipe em que ela entrou (a do canal); null = fila geral. */
+    readonly teamId: string | null,
+  ) {
+    super(conversationId);
+  }
+}

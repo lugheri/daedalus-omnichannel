@@ -26,6 +26,7 @@ import {
   InMemoryMessageRepository,
 } from '../../testing/fakes';
 import { ConversationTabulator } from '../conversation-tabulator';
+import { ConversationsFacade } from '../conversations.facade';
 import { VisibleConversations } from '../visible-conversations';
 import {
   ClaimConversationUseCase,
@@ -285,6 +286,22 @@ describe('Conversations', () => {
 
     expect(await onlyConversation()).toMatchObject({ status: 'resolved', unreadCount: 0 });
   });
+  it('the facade gives other modules only what the member sees, in the order asked', async () => {
+    await record();
+    await record({ externalId: 'WA-2', contactPhone: '+5511911112222', contactName: 'Bia' });
+    const views = (await list()).items;
+    const byName = (name: string) => views.find((v) => v.contact?.name === name)!.conversation;
+    const [first, second] = [byName('Cliente'), byName('Bia')];
+    first.assign('agent-2'); // de outra pessoa: o agente não vê
+    await conversations.save(first);
+    const facade = new ConversationsFacade(conversations, contacts, channels, teams, visible);
+
+    const summaries = await facade.visibleSummaries([first.id, 'nope', second.id]);
+    expect(summaries.map((s) => [s.id, s.contact.name])).toEqual([[second.id, 'Bia']]);
+    expect(await facade.isVisible(first.id)).toBe(false);
+    expect(await facade.isVisible(second.id)).toBe(true);
+  });
+
   describe('teams and assignment', () => {
     const claim = (id: string) =>
       new ClaimConversationUseCase(conversations, events, uow, visible).execute(id);

@@ -43,6 +43,15 @@ export class PrismaConversationRepository implements ConversationRepository {
     return row ? toDomain(row) : null;
   }
 
+  async findByIds(ids: string[]): Promise<Conversation[]> {
+    const valid = [...new Set(ids.filter(isUuid))];
+    if (valid.length === 0) return [];
+    const rows = await this.db.conversation.findMany({
+      where: { id: { in: valid }, tenantId: this.tenant.tenantId },
+    });
+    return rows.map(toDomain);
+  }
+
   async findByChannelAndContact(
     channelId: string,
     contactId: string,

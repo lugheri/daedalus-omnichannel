@@ -3,6 +3,7 @@ import {
   ConversationAssignedEvent,
   ConversationDispositionSetEvent,
   ConversationMessageAddedEvent,
+  ConversationStartedEvent,
   ConversationStatusChangedEvent,
   ConversationTeamChangedEvent,
 } from './events/conversation-events';
@@ -46,7 +47,7 @@ export class Conversation extends AggregateRoot<ConversationProps> {
     input: { tenantId: string; channelId: string; contactId: string; teamId: string | null },
   ): Conversation {
     const now = new Date();
-    return new Conversation(id, {
+    const conversation = new Conversation(id, {
       ...input,
       status: 'open',
       assigneeId: null,
@@ -56,6 +57,16 @@ export class Conversation extends AggregateRoot<ConversationProps> {
       unreadCount: 0,
       createdAt: now,
     });
+    conversation.addEvent(
+      new ConversationStartedEvent(
+        id,
+        input.tenantId,
+        input.channelId,
+        input.contactId,
+        input.teamId,
+      ),
+    );
+    return conversation;
   }
 
   static restore(id: string, props: ConversationProps): Conversation {

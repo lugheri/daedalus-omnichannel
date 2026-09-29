@@ -4,6 +4,7 @@ import { io } from 'socket.io-client'
 import { getAccessToken, refreshSession } from '@/lib/api/client'
 import { env } from '@/lib/env'
 import { conversationKeys } from '@/features/conversations/api'
+import { boardKeys } from '@/features/boards/api'
 import { RealtimeContext, type RealtimeStatus } from './realtime-context'
 
 interface ConversationChanged {
@@ -50,6 +51,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       setStatus('connected')
       // Pode ter perdido avisos enquanto esteve fora: atualiza o que está na tela.
       void queryClient.invalidateQueries({ queryKey: conversationKeys.all })
+      void queryClient.invalidateQueries({ queryKey: boardKeys.all })
     })
 
     socket.on('disconnect', (reason) => {
@@ -64,7 +66,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       if (error.message === 'unauthorized') renewAndReconnect()
     })
 
+    // Quadro mudou (cards movidos, colunas): recarrega o que estiver na tela.
+    socket.on('board.changed', ({ boardId }: { boardId: string }) => {
+      void queryClient.invalidateQueries({ queryKey: boardKeys.detail(boardId) })
+      void queryClient.invalidateQueries({ queryKey: boardKeys.cards(boardId) })
+      void queryClient.invalidateQueries({ queryKey: boardKeys.list })
+      void queryClient.invalidateQueries({ queryKey: ['boards', 'placements'] })
+    })
+
     socket.on('conversation.changed', ({ conversationId, reason }: ConversationChanged) => {
+      // Os cards mostram dados da conversa (responsável, tabulação, prévia).
+      void queryClient.invalidateQueries({ queryKey: boardKeys.allCards })
       void queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] })
       void queryClient.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) })
       if (reason === 'message' || reason === 'message-status') {

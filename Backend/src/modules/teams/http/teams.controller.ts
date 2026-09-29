@@ -47,8 +47,11 @@ export class TeamsController {
     private readonly deleteTeam: DeleteTeamUseCase,
   ) {}
 
-  /** Também para quem transfere conversas (escolher a equipe de destino). */
-  @RequireAnyPermission('teams:manage', 'conversations:assign')
+  /**
+   * Também para quem transfere conversas (equipe de destino) e quem configura
+   * quadros (entrada automática por equipe).
+   */
+  @RequireAnyPermission('teams:manage', 'conversations:assign', 'boards:manage')
   @Get()
   async list() {
     return (await this.listTeams.execute()).map(present);

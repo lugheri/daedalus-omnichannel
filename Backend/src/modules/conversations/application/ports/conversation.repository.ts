@@ -20,6 +20,8 @@ export interface ConversationListQuery {
 export interface ConversationRepository {
   save(conversation: Conversation): Promise<void>;
   findById(id: string): Promise<Conversation | null>;
+  /** As que existem entre os ids (em qualquer ordem). */
+  findByIds(ids: string[]): Promise<Conversation[]>;
   findByChannelAndContact(channelId: string, contactId: string): Promise<Conversation | null>;
   /** Mais recentes (última mensagem) primeiro, dentro do escopo. */
   list(query: ConversationListQuery): Promise<CursorPage<Conversation>>;

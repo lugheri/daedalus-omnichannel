@@ -1,0 +1,59 @@
+// Módulo kanban. Conversa e equipe são de outros módulos: só ids.
+
+// Quadro da conta. Entrada automática: novas conversas entram na primeira
+// coluna — todas ("all"), só as de uma equipe ("team") ou nenhuma ("none").
+model Board {
+  id            String        @id @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  name          String
+  autoAddMode   String        @default("none") @map("auto_add_mode")
+  autoAddTeamId String?       @map("auto_add_team_id") @db.Uuid
+  createdAt     DateTime      @map("created_at") @db.Timestamptz(3)
+  columns       BoardColumn[]
+  cards         BoardCard[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, autoAddMode])
+  @@map("boards")
+  @@schema("kanban")
+}
+
+model BoardColumn {
+  id       String      @id @db.Uuid
+  tenantId String      @map("tenant_id") @db.Uuid
+  boardId  String      @map("board_id") @db.Uuid
+  board    Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name     String
+  // Ordem da coluna no quadro (0, 1, 2...).
+  position Int
+  cards    BoardCard[]
+
+  @@index([tenantId, boardId, position])
+  @@map("board_columns")
+  @@schema("kanban")
+}
+
+// Card = uma conversa (atendimento) num quadro — no máximo uma vez por quadro.
+model BoardCard {
+  id              String      @id @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  boardId         String      @map("board_id") @db.Uuid
+  board           Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  // NoAction (checado no fim do comando): apagar o quadro leva colunas e cards
+  // juntos; apagar só a coluna com cards dentro falha.
+  columnId        String      @map("column_id") @db.Uuid
+  column          BoardColumn @relation(fields: [columnId], references: [id], onDelete: NoAction)
+  conversationId  String      @map("conversation_id") @db.Uuid
+  // Ordem dentro da coluna (menor = mais acima). Fracionária: mover um card
+  // entre dois outros não renumera a coluna.
+  position        Float
+  // Quando entrou na coluna atual ("parado há X" nas automações).
+  enteredColumnAt DateTime    @map("entered_column_at") @db.Timestamptz(3)
+  createdAt       DateTime    @map("created_at") @db.Timestamptz(3)
+
+  @@unique([boardId, conversationId])
+  @@index([tenantId, columnId, position])
+  @@index([tenantId, conversationId])
+  @@map("board_cards")
+  @@schema("kanban")
+}

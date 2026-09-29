@@ -8,5 +8,5 @@ generator client {
 // tabelas, adicione o schema dele nesta lista.
 datasource db {
   provider = "postgresql"
-  schemas  = ["public", "platform", "contacts", "identity", "accounts", "channels", "whatsapp_connector", "conversations", "teams"]
+  schemas  = ["public", "platform", "contacts", "identity", "accounts", "channels", "whatsapp_connector", "conversations", "teams", "kanban"]
 }

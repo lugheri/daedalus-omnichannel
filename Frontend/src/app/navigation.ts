@@ -6,6 +6,7 @@ import {
   MessageCircle,
   Network,
   Plug,
+  SquareKanban,
   Tags,
   Users,
   type LucideIcon,
@@ -29,6 +30,7 @@ export const CONVERSATION_SCOPES = [
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Início', icon: Home, anyOf: [] },
   { to: '/conversations', label: 'Conversas', icon: Inbox, anyOf: CONVERSATION_SCOPES },
+  { to: '/boards', label: 'Quadros', icon: SquareKanban, anyOf: CONVERSATION_SCOPES },
   { to: '/contacts', label: 'Contatos', icon: Contact, anyOf: ['contacts:view'] },
   { to: '/settings/channels', label: 'Canais', icon: MessageCircle, anyOf: ['channels:manage'] },
   {

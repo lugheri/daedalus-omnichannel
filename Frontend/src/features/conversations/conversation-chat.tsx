@@ -12,6 +12,7 @@ import {
   Paperclip,
   RotateCcw,
   SendHorizontal,
+  SquareKanban,
   Tag,
   Timer,
   X,
@@ -26,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useMe, usePermissions } from '@/features/auth/session-context'
 import { useMemberNames } from '@/features/members/api'
+import { AddToBoardDialog, PlacementLinks } from '@/features/boards/conversation-boards'
 import { useDispositionLookup, useDispositions } from '@/features/dispositions/api'
 import { DispositionBadge } from '@/features/dispositions/disposition-badge'
 import { ApiError, errorMessage } from '@/lib/api/api-error'
@@ -61,6 +63,7 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
   const [attachment, setAttachment] = useState<File | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [transferring, setTransferring] = useState(false)
+  const [addingToBoard, setAddingToBoard] = useState(false)
   const [tabulating, setTabulating] = useState<'tabulate' | 'resolve' | null>(null)
   const dispositions = useDispositions()
   const dispositionOf = useDispositionLookup()
@@ -211,6 +214,7 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
                   className="mt-0.5"
                 />
               )}
+              <PlacementLinks conversationId={data.id} />
             </div>
             {!data.assigneeId && (
               <Button
@@ -234,6 +238,15 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
                 <ArrowRightLeft />
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Adicionar ao quadro"
+              title="Adicionar ao quadro"
+              onClick={() => setAddingToBoard(true)}
+            >
+              <SquareKanban />
+            </Button>
             {hasDispositions && (
               <Button
                 variant="ghost"
@@ -337,6 +350,9 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
 
       {data && transferring && (
         <TransferDialog conversation={data} open onOpenChange={setTransferring} />
+      )}
+      {addingToBoard && (
+        <AddToBoardDialog conversationId={id} open onOpenChange={setAddingToBoard} />
       )}
       <TabulateDialog
         conversationId={id}

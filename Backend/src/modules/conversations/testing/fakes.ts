@@ -36,6 +36,10 @@ export class InMemoryConversationRepository implements ConversationRepository {
     return Promise.resolve(this.ofTenant().find((c) => c.id === id) ?? null);
   }
 
+  findByIds(ids: string[]): Promise<Conversation[]> {
+    return Promise.resolve(this.ofTenant().filter((c) => ids.includes(c.id)));
+  }
+
   findByChannelAndContact(channelId: string, contactId: string): Promise<Conversation | null> {
     return Promise.resolve(
       this.ofTenant().find((c) => c.channelId === channelId && c.contactId === contactId) ?? null,

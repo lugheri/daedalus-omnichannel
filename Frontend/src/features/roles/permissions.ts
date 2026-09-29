@@ -13,6 +13,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: string; lab
         { key: 'teams:manage', label: 'Gerenciar equipes e filas' },
         { key: 'channels:manage', label: 'Conectar e configurar canais' },
         { key: 'dispositions:manage', label: 'Criar e editar tabulações' },
+        { key: 'boards:manage', label: 'Criar e configurar quadros (kanban)' },
         { key: 'integrations:manage', label: 'Chaves de API (formulário do site e integrações)' },
         { key: 'reports:view', label: 'Ver relatórios' },
       ],

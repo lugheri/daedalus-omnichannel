@@ -229,6 +229,21 @@ Processo próprio (`whatsapp-connector.ts`, ADR 0006), mesma imagem. Regras:
 - **Resolver exige tabulação** quando a conta tem alguma ativa e o atendimento ainda não foi tabulado (`CONVERSATION_DISPOSITION_REQUIRED`, 422). `POST .../status` aceita `disposition` para tabular e resolver na mesma transação. As regras ficam no `ConversationTabulator` (usado pelos dois use cases).
 - Nest resolve dependências pelo metadata do TypeScript: parâmetro de construtor precisa do **tipo da classe escrito ali** (não um `type` alias nem `import type`), senão a API nem sobe — e os testes unitários não pegam.
 
+## Kanban (módulo kanban)
+
+- **Card = uma conversa (atendimento)**, no máximo uma vez por quadro; a mesma conversa pode estar em vários quadros. O módulo guarda só o `conversationId` e lê as conversas pela `ConversationsFacade` (`visibleSummaries`/`isVisible`), **sempre no escopo do membro**: o agente só vê (e só move) cards de conversas que vê na caixa de entrada. Card de conversa invisível responde 404.
+- `Board` é o agregado com as colunas (até 20, nomes únicos sem diferenciar maiúsculas, mínimo de uma); `BoardCard` é agregado à parte. Estrutura do quadro exige `boards:manage` (Admin e Supervisor por padrão); ver e mover cards, qualquer escopo de conversas.
+- Ordem na coluna: `position` fracionária (`positionBetween`): mover entre dois cards não renumera a coluna; quando os vizinhos ficam colados demais, o use case chama `renumber` (SQL em massa) e recalcula. A API de mover recebe `afterCardId` (o card logo acima no destino; null = topo) — nunca um índice, porque cada membro vê um subconjunto dos cards.
+- Listagem por coluna com cursor `(position, id)`; como cards invisíveis são filtrados depois de buscar, o use case busca em lotes (até 5) para completar a página.
+- `kanban.card.entered-column.v1` a cada entrada numa coluna (adicionado, movido de outra coluna, entrada automática) com `movedBy` (null = sistema) — gatilho das automações. Reordenar na mesma coluna só gera `repositioned` (tempo real). `enteredColumnAt` reinicia a cada entrada ("parado há X").
+- **Entrada automática** por quadro (`none`/`all`/`team`): o `KanbanAutoAddHandler` (worker) reage a `conversation.started.v1` e põe o card no topo da primeira coluna, idempotente. Equipe excluída desliga a entrada por equipe.
+- Excluir coluna com cards exige `moveTo`: os cards vão em massa para o fim da outra coluna **sem** disparar automações. Excluir o quadro leva colunas e cards (FK do card para a coluna é `NoAction`: checada no fim do comando, então a cascata do quadro passa, mas apagar só a coluna com cards falha).
+- Tempo real: `board.changed { boardId }` para as salas de escopo de conversas do tenant; o front também recarrega os cards a cada `conversation.changed` (o card mostra dados da conversa).
+
+## Testes em execução (API + worker de teste)
+
+- Com o worker de dev rodando, uma API/worker de teste no **mesmo banco** disputa os eventos do outbox com ele. Para testes de ponta a ponta com o worker, suba a API/worker de teste apontando para o ambiente de e2e (banco `<nome>_e2e`, Redis db 1, `QUEUE_PREFIX=omni-e2e`) — e pare-os antes do `npm run test:e2e`, que usa as mesmas filas.
+
 ## Convenções de nomes
 
 - Arquivos em kebab-case com sufixo do papel: `.entity.ts`, `.vo.ts`, `.event.ts`, `.error.ts`, `.use-case.ts`, `.input.ts`, `.facade.ts`, `.repository.ts` (port), `prisma-*.repository.ts` / `in-memory-*.repository.ts` (adapters), `.mapper.ts`, `.controller.ts`, `.presenter.ts`, `.gateway.ts`, `.dto.ts`, `.query.ts`, `.processor.ts`, `.handler.ts`, `.spec.ts`.
