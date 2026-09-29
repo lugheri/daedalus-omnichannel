@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   'roles:manage', //            criar e editar cargos
   'teams:manage', //            equipes e filas
   'channels:manage', //         conectar e configurar canais (WhatsApp etc.)
+  'integrations:manage', //     chaves de API (formulário do site e outras integrações)
   'reports:view',
   'contacts:view',
   'contacts:edit',

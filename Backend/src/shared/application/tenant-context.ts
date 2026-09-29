@@ -5,6 +5,11 @@
  */
 export interface TenantContext {
   readonly tenantId: string;
+  /**
+   * Fixa o tenant de uma operação SEM usuário logado, depois de autenticada
+   * por outro meio (ex.: chave de API). Só guards de autenticação chamam isto.
+   */
+  enter(tenantId: string): void;
 }
 
 export const TENANT_CONTEXT = Symbol('TenantContext');

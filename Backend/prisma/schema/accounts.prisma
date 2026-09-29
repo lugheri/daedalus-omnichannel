@@ -77,3 +77,22 @@ model Invitation {
   @@map("invitations")
   @@schema("accounts")
 }
+
+// Chave de API da conta (integrações servidor a servidor, ex.: formulário do
+// site). O segredo só existe na criação; no banco fica o SHA-256 dele.
+model ApiKey {
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  name                  String
+  secretHash            String    @map("secret_hash")
+  // Primeiros caracteres do segredo, para reconhecer a chave na tela.
+  hint                  String
+  createdByMembershipId String    @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime  @map("created_at") @db.Timestamptz(3)
+  lastUsedAt            DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt             DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("api_keys")
+  @@schema("accounts")
+}

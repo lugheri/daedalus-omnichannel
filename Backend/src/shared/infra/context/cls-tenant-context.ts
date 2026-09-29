@@ -16,4 +16,8 @@ export class ClsTenantContext implements TenantContext {
     if (!tenantId) throw new TenantNotResolvedError();
     return tenantId;
   }
+
+  enter(tenantId: string): void {
+    this.cls.set('tenantId', tenantId);
+  }
 }

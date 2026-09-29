@@ -22,6 +22,11 @@ export interface ContactRepository {
   findByIds(ids: string[]): Promise<Contact[]>;
   findByPhone(phone: Phone): Promise<Contact | null>;
   findByEmail(email: Email): Promise<Contact | null>;
+  /** Dos telefones/e-mails informados (normalizados), os que já existem — importação em lote. */
+  findExistingIdentifiers(
+    phones: string[],
+    emails: string[],
+  ): Promise<{ phones: Set<string>; emails: Set<string> }>;
   /** Mais recentes primeiro, com busca e filtro opcionais. */
   list(query: ContactListQuery): Promise<CursorPage<Contact>>;
 }

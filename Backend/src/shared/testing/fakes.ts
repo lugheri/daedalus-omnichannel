@@ -90,6 +90,10 @@ export class FakeTenantContext implements TenantContext {
   switchTo(tenantId: string | null): void {
     this.current = tenantId;
   }
+
+  enter(tenantId: string): void {
+    this.current = tenantId;
+  }
 }
 
 /** Guarda os avisos em tempo real emitidos, com as salas de destino. */

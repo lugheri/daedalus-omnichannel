@@ -1,3 +1,6 @@
+import type { ApiKeySecretGenerator } from '../application/ports/api-key-secret-generator';
+import type { ApiKeyRepository } from '../application/ports/api-key.repository';
+import type { ApiKey } from '../domain/api-key.entity';
 import type { AccountAccess } from '../application/account-access';
 import type { AccessCache } from '../application/ports/access-cache';
 import type {
@@ -276,5 +279,45 @@ export class FakeIdentityGateway implements IdentityGateway {
 
   private toInfo(user: (UserInfo & { password: string }) | undefined): UserInfo | null {
     return user ? { id: user.id, name: user.name, email: user.email } : null;
+  }
+}
+
+/** Chaves de API em memória (mesmo contrato do repositório real). */
+export class InMemoryApiKeyRepository implements ApiKeyRepository {
+  private keys: ApiKey[] = [];
+
+  save(key: ApiKey): Promise<void> {
+    this.keys = [...this.keys.filter((k) => k.id !== key.id), key];
+    return Promise.resolve();
+  }
+
+  findInTenant(tenantId: string, id: string): Promise<ApiKey | null> {
+    return Promise.resolve(this.keys.find((k) => k.id === id && k.tenantId === tenantId) ?? null);
+  }
+
+  findForAuthentication(id: string): Promise<ApiKey | null> {
+    return Promise.resolve(this.keys.find((k) => k.id === id) ?? null);
+  }
+
+  listByTenant(tenantId: string): Promise<ApiKey[]> {
+    return Promise.resolve(this.keys.filter((k) => k.tenantId === tenantId).reverse());
+  }
+}
+
+/** Segredos previsíveis (`secret-1`, `secret-2`...) e um "hash" legível. */
+export class SequentialApiKeySecretGenerator implements ApiKeySecretGenerator {
+  private next = 0;
+
+  generate() {
+    const secret = `secret-${++this.next}`;
+    return { secret, hash: this.hash(secret) };
+  }
+
+  hash(secret: string): string {
+    return `hash(${secret})`;
+  }
+
+  matches(secret: string, hash: string): boolean {
+    return this.hash(secret) === hash;
   }
 }

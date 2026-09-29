@@ -6,4 +6,5 @@ export { AccountsModule } from './accounts.module';
 export type { SystemRoleKey } from './domain/default-roles';
 export { TenantCreatedEvent } from './domain/events/tenant-created.event';
 export { PERMISSIONS, type Permission } from './domain/permissions';
+export { ApiKeyAuth, ApiKeyGuard } from './http/api-key.guard';
 export { RequireAnyPermission, RequirePermissions } from './http/require-permissions.decorator';

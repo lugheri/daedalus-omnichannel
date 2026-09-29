@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,7 +10,9 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe';
 import { RequirePermissions } from '../../accounts';
@@ -19,6 +22,7 @@ import {
   ListContactNotesUseCase,
 } from '../application/use-cases/contact-notes/contact-notes.use-cases';
 import { CreateContactUseCase } from '../application/use-cases/create-contact/create-contact.use-case';
+import { ImportContactsUseCase } from '../application/use-cases/import-contacts/import-contacts.use-case';
 import { GetContactUseCase } from '../application/use-cases/get-contact/get-contact.use-case';
 import { ListContactsUseCase } from '../application/use-cases/list-contacts/list-contacts.use-case';
 import { UpdateContactUseCase } from '../application/use-cases/update-contact/update-contact.use-case';
@@ -47,6 +51,7 @@ export class ContactsController {
     private readonly listNotes: ListContactNotesUseCase,
     private readonly addNote: AddContactNoteUseCase,
     private readonly deleteNote: DeleteContactNoteUseCase,
+    private readonly importContacts: ImportContactsUseCase,
   ) {}
 
   @Post()
@@ -64,6 +69,24 @@ export class ContactsController {
       source: query.source,
     });
     return { items: page.items.map(ContactPresenter.toHttp), nextCursor: page.nextCursor };
+  }
+
+  /**
+   * Importação de planilha CSV (multipart: campo 'label' opcional ANTES do
+   * 'file'). Responde com o relatório: criados, duplicados e erros por linha.
+   */
+  @Post('import')
+  @RequirePermissions('contacts:edit')
+  async import(@Req() request: FastifyRequest) {
+    const file = await request.file();
+    if (!file) {
+      throw new BadRequestException({ code: 'IMPORT_FILE_MISSING', message: 'No file sent' });
+    }
+    const label = file.fields.label;
+    return this.importContacts.execute({
+      content: await file.toBuffer(),
+      label: label && !Array.isArray(label) && label.type === 'field' ? String(label.value) : null,
+    });
   }
 
   @Get(':id')

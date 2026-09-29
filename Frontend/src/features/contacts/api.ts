@@ -50,6 +50,21 @@ export const contactsApi = {
     api<ContactNote>(`/v1/contacts/${id}/notes`, { method: 'POST', body: { body } }),
   deleteNote: (id: string, noteId: string) =>
     api<void>(`/v1/contacts/${id}/notes/${noteId}`, { method: 'DELETE' }),
+  /** O rótulo vai antes do arquivo: o servidor lê o multipart em ordem. */
+  importCsv: (file: File, label: string) => {
+    const form = new FormData()
+    if (label.trim()) form.append('label', label.trim())
+    form.append('file', file)
+    return api<ImportReport>('/v1/contacts/import', { method: 'POST', body: form })
+  },
+}
+
+export interface ImportReport {
+  total: number
+  created: number
+  duplicates: number
+  /** line = linha da planilha (a 1 é o cabeçalho). */
+  errors: { line: number; code: string }[]
 }
 
 export const contactsQueryKey = ['contacts'] as const

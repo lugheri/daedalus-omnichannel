@@ -73,6 +73,23 @@ export class PrismaContactRepository implements ContactRepository {
     return row ? ContactMapper.toDomain(row) : null;
   }
 
+  async findExistingIdentifiers(phones: string[], emails: string[]) {
+    const rows =
+      phones.length || emails.length
+        ? await this.db.contact.findMany({
+            where: {
+              tenantId: this.tenant.tenantId,
+              OR: [{ phone: { in: phones } }, { email: { in: emails } }],
+            },
+            select: { phone: true, email: true },
+          })
+        : [];
+    return {
+      phones: new Set(rows.flatMap((r) => (r.phone ? [r.phone] : []))),
+      emails: new Set(rows.flatMap((r) => (r.email ? [r.email] : []))),
+    };
+  }
+
   async list({ limit, cursor, search, source }: ContactListQuery): Promise<CursorPage<Contact>> {
     // Busca um item a mais só para saber se existe próxima página.
     const rows = await this.db.contact.findMany({

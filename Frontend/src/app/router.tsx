@@ -76,6 +76,18 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['integrations:manage']} />,
+            children: [
+              {
+                path: '/settings/integrations',
+                ...page(
+                  () => import('@/features/integrations/integrations-page'),
+                  'IntegrationsPage',
+                ),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['teams:manage']} />,
             children: [
               {

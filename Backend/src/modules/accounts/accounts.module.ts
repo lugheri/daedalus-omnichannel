@@ -8,7 +8,15 @@ import { ACCESS_CACHE } from './application/ports/access-cache';
 import { ACCOUNTS_SETTINGS, type AccountsSettings } from './application/ports/accounts-settings';
 import { IDENTITY_GATEWAY } from './application/ports/identity.gateway';
 import { INVITATION_REPOSITORY } from './application/ports/invitation.repository';
+import { API_KEY_SECRET_GENERATOR } from './application/ports/api-key-secret-generator';
+import { API_KEY_REPOSITORY } from './application/ports/api-key.repository';
 import { INVITATION_TOKEN_GENERATOR } from './application/ports/invitation-token-generator';
+import {
+  AuthenticateApiKeyUseCase,
+  CreateApiKeyUseCase,
+  ListApiKeysUseCase,
+  RevokeApiKeyUseCase,
+} from './application/use-cases/api-keys/api-keys.use-cases';
 import { MEMBERSHIP_REPOSITORY } from './application/ports/membership.repository';
 import { ROLE_REPOSITORY } from './application/ports/role.repository';
 import { TENANT_REPOSITORY } from './application/ports/tenant.repository';
@@ -42,10 +50,14 @@ import {
   InvitationsController,
 } from './http/invitations.controller';
 import { MeController } from './http/me.controller';
+import { ApiKeyGuard } from './http/api-key.guard';
+import { ApiKeysController } from './http/api-keys.controller';
 import { MemberDirectoryController } from './http/member-directory.controller';
 import { MembersController } from './http/members.controller';
 import { RolesController } from './http/roles.controller';
+import { CryptoApiKeySecretGenerator } from './infra/crypto-api-key-secret-generator';
 import { CryptoInvitationTokenGenerator } from './infra/crypto-invitation-token-generator';
+import { PrismaApiKeyRepository } from './infra/prisma-api-key.repository';
 import { IdentityFacadeGateway } from './infra/identity-facade.gateway';
 import {
   PrismaInvitationRepository,
@@ -69,6 +81,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     AuthController,
     MeController,
     MemberDirectoryController,
+    ApiKeysController,
     MembersController,
     InvitationsController,
     InvitationAcceptanceController,
@@ -86,6 +99,12 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     // Membros
     ListMembersUseCase,
     ListMemberDirectoryUseCase,
+    // Chaves de API
+    ListApiKeysUseCase,
+    CreateApiKeyUseCase,
+    RevokeApiKeyUseCase,
+    AuthenticateApiKeyUseCase,
+    ApiKeyGuard,
     ChangeMemberRoleUseCase,
     SetMemberStatusUseCase,
     // Convites
@@ -105,6 +124,8 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     { provide: MEMBERSHIP_REPOSITORY, useClass: PrismaMembershipRepository },
     { provide: INVITATION_REPOSITORY, useClass: PrismaInvitationRepository },
     { provide: INVITATION_TOKEN_GENERATOR, useClass: CryptoInvitationTokenGenerator },
+    { provide: API_KEY_REPOSITORY, useClass: PrismaApiKeyRepository },
+    { provide: API_KEY_SECRET_GENERATOR, useClass: CryptoApiKeySecretGenerator },
     { provide: ACCESS_CACHE, useClass: RedisAccessCache },
     { provide: IDENTITY_GATEWAY, useClass: IdentityFacadeGateway },
     {
@@ -113,6 +134,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
       useFactory: (config: AppConfig): AccountsSettings => ({ appUrl: config.appUrl }),
     },
   ],
-  exports: [AccountsFacade],
+  // ApiKeyGuard e o use case que ele usa: rotas de outros módulos usam @ApiKeyAuth().
+  exports: [AccountsFacade, ApiKeyGuard, AuthenticateApiKeyUseCase],
 })
 export class AccountsModule {}

@@ -39,6 +39,18 @@ export class InMemoryContactRepository implements ContactRepository {
     return Promise.resolve(this.ofTenant().filter((c) => ids.includes(c.id)));
   }
 
+  findExistingIdentifiers(phones: string[], emails: string[]) {
+    const mine = this.ofTenant();
+    return Promise.resolve({
+      phones: new Set(
+        mine.flatMap((c) => (c.phone && phones.includes(c.phone.value) ? [c.phone.value] : [])),
+      ),
+      emails: new Set(
+        mine.flatMap((c) => (c.email && emails.includes(c.email.value) ? [c.email.value] : [])),
+      ),
+    });
+  }
+
   findByPhone(phone: Phone): Promise<Contact | null> {
     return Promise.resolve(this.ofTenant().find((c) => c.phone?.equals(phone)) ?? null);
   }

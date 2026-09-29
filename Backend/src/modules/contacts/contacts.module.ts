@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { AccountsModule } from '../accounts';
+import { CaptureLeadUseCase } from './application/use-cases/capture-lead/capture-lead.use-case';
+import { ImportContactsUseCase } from './application/use-cases/import-contacts/import-contacts.use-case';
+import { LeadsIntakeController } from './http/leads-intake.controller';
 import { ContactsFacade } from './application/contacts.facade';
 import { CONTACT_NOTE_REPOSITORY } from './application/ports/contact-note.repository';
 import { CONTACT_REPOSITORY } from './application/ports/contact.repository';
@@ -16,7 +20,9 @@ import { PrismaContactNoteRepository } from './infra/prisma-contact-note.reposit
 import { PrismaContactRepository } from './infra/prisma-contact.repository';
 
 @Module({
-  controllers: [ContactsController],
+  // AccountsModule: o ApiKeyGuard (@ApiKeyAuth) da entrada de leads.
+  imports: [AccountsModule],
+  controllers: [ContactsController, LeadsIntakeController],
   providers: [
     CreateContactUseCase,
     GetContactUseCase,
@@ -25,6 +31,8 @@ import { PrismaContactRepository } from './infra/prisma-contact.repository';
     ListContactNotesUseCase,
     AddContactNoteUseCase,
     DeleteContactNoteUseCase,
+    CaptureLeadUseCase,
+    ImportContactsUseCase,
     ContactsFacade,
     // O único lugar que sabe que os repositórios são Prisma.
     { provide: CONTACT_REPOSITORY, useClass: PrismaContactRepository },

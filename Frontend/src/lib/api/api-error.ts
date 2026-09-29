@@ -68,6 +68,13 @@ const MESSAGES: Record<string, string> = {
   CONTACT_WITHOUT_IDENTIFIER: 'Informe ao menos um telefone ou e-mail.',
   CONTACT_ALREADY_EXISTS: 'Já existe um contato com este telefone ou e-mail.',
   CONTACT_NOT_FOUND: 'Contato não encontrado.',
+  API_KEY_NOT_FOUND: 'Chave não encontrada.',
+  API_KEY_INVALID_NAME: 'O nome da chave precisa ter entre 1 e 60 caracteres.',
+  IMPORT_NO_COLUMNS:
+    'A planilha precisa de uma coluna de telefone ou de e-mail (ex.: Telefone, Celular, E-mail).',
+  IMPORT_TOO_MANY_ROWS: 'A planilha passa de 2.000 linhas. Divida em arquivos menores.',
+  IMPORT_EMPTY: 'A planilha não tem linhas com dados.',
+  IMPORT_FILE_MISSING: 'Escolha um arquivo CSV.',
   CONTACT_NOTE_INVALID: 'A nota precisa ter entre 1 e 5000 caracteres.',
   CONTACT_NOTE_NOT_YOURS: 'Só quem escreveu pode apagar a nota.',
   CONTACT_NOTE_NOT_FOUND: 'Nota não encontrada.',
@@ -93,7 +100,12 @@ const MESSAGES: Record<string, string> = {
   CHANNEL_INVALID_RECIPIENT: 'Número inválido. Informe com DDD, ex.: (11) 98765-4321.',
 }
 
+/** Mensagem de um código de erro solto (ex.: erros por linha da importação). */
+export function messageForCode(code: string): string {
+  return MESSAGES[code] ?? 'Algo deu errado. Tente novamente.'
+}
+
 export function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) return MESSAGES[error.code] ?? 'Algo deu errado. Tente novamente.'
+  if (error instanceof ApiError) return messageForCode(error.code)
   return 'Algo deu errado. Tente novamente.'
 }

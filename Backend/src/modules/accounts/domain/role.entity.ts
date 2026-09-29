@@ -2,7 +2,7 @@ import { Entity } from '../../../shared/domain/entity';
 import type { RoleTemplate, SystemRoleKey } from './default-roles';
 import { InvalidRoleError } from './errors/invalid-role.error';
 import { SystemRoleImmutableError } from './errors/system-role-immutable.error';
-import type { Permission } from './permissions';
+import { PERMISSIONS, type Permission } from './permissions';
 
 export interface RoleProps {
   tenantId: string;
@@ -64,7 +64,7 @@ export class Role extends Entity<RoleProps> {
   }
 
   can(permission: Permission): boolean {
-    return this.props.permissions.includes(permission);
+    return this.permissions.includes(permission);
   }
 
   get isOwner(): boolean {
@@ -83,8 +83,12 @@ export class Role extends Entity<RoleProps> {
     return this.props.name;
   }
 
+  /**
+   * O Owner tem SEMPRE o catálogo inteiro — calculado aqui, não gravado: uma
+   * permissão nova vale para os Owners existentes sem migration.
+   */
   get permissions(): readonly Permission[] {
-    return this.props.permissions;
+    return this.isOwner ? PERMISSIONS : this.props.permissions;
   }
 
   get isSystem() {

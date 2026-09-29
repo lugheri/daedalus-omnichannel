@@ -73,6 +73,30 @@ export class Contact extends AggregateRoot<ContactProps> {
     this.props.updatedAt = new Date();
   }
 
+  /**
+   * Completa só o que está EM BRANCO (ex.: um formulário trouxe o e-mail de
+   * quem só tinha telefone). Nunca sobrescreve dado existente nem a origem.
+   * Devolve se algo mudou.
+   */
+  fillBlanks(input: { name?: string | null; phone?: Phone | null; email?: Email | null }): boolean {
+    let changed = false;
+    const name = nameOf(input.name);
+    if (!this.props.name && name) {
+      this.props.name = name;
+      changed = true;
+    }
+    if (!this.props.phone && input.phone) {
+      this.props.phone = input.phone;
+      changed = true;
+    }
+    if (!this.props.email && input.email) {
+      this.props.email = input.email;
+      changed = true;
+    }
+    if (changed) this.props.updatedAt = new Date();
+    return changed;
+  }
+
   get tenantId() {
     return this.props.tenantId;
   }

@@ -5,6 +5,7 @@ import {
   KeyRound,
   MessageCircle,
   Network,
+  Plug,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -36,5 +37,11 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Cargos',
     icon: KeyRound,
     anyOf: ['roles:manage', 'members:manage'],
+  },
+  {
+    to: '/settings/integrations',
+    label: 'Integrações',
+    icon: Plug,
+    anyOf: ['integrations:manage'],
   },
 ]

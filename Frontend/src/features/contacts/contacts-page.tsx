@@ -1,4 +1,4 @@
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { PageHeader } from '@/components/page-header'
@@ -25,6 +25,7 @@ import { usePermissions } from '@/features/auth/session-context'
 import { formatPhone } from '@/lib/phone'
 import { useContacts, type LeadSource } from './api'
 import { ContactFormDialog } from './contact-form-dialog'
+import { ImportDialog } from './import-dialog'
 import { LEAD_SOURCE_LABELS, LEAD_SOURCES } from './lead-source'
 
 const ALL = 'all'
@@ -37,6 +38,7 @@ export function ContactsPage() {
   const source = (params.get('source') as LeadSource | null) ?? undefined
   const contacts = useContacts({ q, source })
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [search, setSearch] = useState(q)
   const rows = contacts.data?.pages.flatMap((page) => page.items) ?? []
 
@@ -72,10 +74,16 @@ export function ContactsPage() {
         description="Pessoas com quem sua empresa conversa, em qualquer canal."
         actions={
           can('contacts:edit') && (
-            <Button onClick={() => setCreating(true)}>
-              <Plus />
-              Novo contato
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setImporting(true)}>
+                <Upload />
+                Importar planilha
+              </Button>
+              <Button onClick={() => setCreating(true)}>
+                <Plus />
+                Novo contato
+              </Button>
+            </>
           )
         }
       />
@@ -167,6 +175,7 @@ export function ContactsPage() {
       )}
 
       <ContactFormDialog open={creating} onOpenChange={setCreating} />
+      <ImportDialog open={importing} onOpenChange={setImporting} />
     </>
   )
 }
