@@ -3,20 +3,23 @@
 // Uma conversa por contato em cada canal (como o próprio WhatsApp): o status
 // alterna entre aberta, pendente e resolvida.
 model Conversation {
-  id                 String    @id @db.Uuid
-  tenantId           String    @map("tenant_id") @db.Uuid
-  channelId          String    @map("channel_id") @db.Uuid
-  contactId          String    @map("contact_id") @db.Uuid
+  id                 String                    @id @db.Uuid
+  tenantId           String                    @map("tenant_id") @db.Uuid
+  channelId          String                    @map("channel_id") @db.Uuid
+  contactId          String                    @map("contact_id") @db.Uuid
   status             String
   // Membro (membership) responsável; null = sem responsável.
-  assigneeId         String?   @map("assignee_id") @db.Uuid
+  assigneeId         String?                   @map("assignee_id") @db.Uuid
   // Equipe da conversa (módulo teams; só o id). null = fila geral.
-  teamId             String?   @map("team_id") @db.Uuid
-  lastMessageAt      DateTime  @map("last_message_at") @db.Timestamptz(3)
-  lastMessagePreview String?   @map("last_message_preview")
-  unreadCount        Int       @default(0) @map("unread_count")
-  createdAt          DateTime  @map("created_at") @db.Timestamptz(3)
+  teamId             String?                   @map("team_id") @db.Uuid
+  // Tabulação do atendimento atual (a última); null ao reabrir uma resolvida.
+  dispositionId      String?                   @map("disposition_id") @db.Uuid
+  lastMessageAt      DateTime                  @map("last_message_at") @db.Timestamptz(3)
+  lastMessagePreview String?                   @map("last_message_preview")
+  unreadCount        Int                       @default(0) @map("unread_count")
+  createdAt          DateTime                  @map("created_at") @db.Timestamptz(3)
   messages           Message[]
+  dispositions       ConversationDisposition[]
 
   @@unique([tenantId, channelId, contactId])
   // Caixa de entrada: por status, mais recentes primeiro.
@@ -54,5 +57,40 @@ model Message {
   // Chat: pela hora de envio no WhatsApp (mensagens chegam fora de ordem).
   @@index([tenantId, conversationId, sentAt(sort: Desc), id(sort: Desc)])
   @@map("messages")
+  @@schema("conversations")
+}
+
+// Tabulações de cada conta ("Venda realizada", "Sem interesse"...). Arquivar
+// tira das opções sem apagar do histórico.
+model Disposition {
+  id         String                    @id @db.Uuid
+  tenantId   String                    @map("tenant_id") @db.Uuid
+  name       String
+  color      String
+  archivedAt DateTime?                 @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime                  @map("created_at") @db.Timestamptz(3)
+  usages     ConversationDisposition[]
+
+  @@unique([tenantId, name])
+  @@map("dispositions")
+  @@schema("conversations")
+}
+
+// Histórico: cada tabulação dada a um atendimento (nunca alterado).
+model ConversationDisposition {
+  id             String       @id @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Restrict: tabulação usada não se apaga (só se arquiva).
+  dispositionId  String       @map("disposition_id") @db.Uuid
+  disposition    Disposition  @relation(fields: [dispositionId], references: [id], onDelete: Restrict)
+  note           String?
+  membershipId   String       @map("membership_id") @db.Uuid
+  createdAt      DateTime     @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, conversationId, createdAt(sort: Desc)])
+  @@index([tenantId, dispositionId])
+  @@map("conversation_dispositions")
   @@schema("conversations")
 }

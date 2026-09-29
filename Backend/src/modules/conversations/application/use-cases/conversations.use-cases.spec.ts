@@ -20,9 +20,12 @@ import {
   FakeContactDirectory,
   FakeMemberAccess,
   FakeTeamDirectory,
+  InMemoryConversationDispositionRepository,
   InMemoryConversationRepository,
+  InMemoryDispositionRepository,
   InMemoryMessageRepository,
 } from '../../testing/fakes';
+import { ConversationTabulator } from '../conversation-tabulator';
 import { VisibleConversations } from '../visible-conversations';
 import {
   ClaimConversationUseCase,
@@ -262,7 +265,19 @@ describe('Conversations', () => {
     await record();
     const conversation = await onlyConversation();
 
-    await new ChangeConversationStatusUseCase(conversations, events, uow, visible).execute({
+    const history = new InMemoryConversationDispositionRepository(tenant);
+    const tabulator = new ConversationTabulator(
+      new InMemoryDispositionRepository(tenant, history),
+      history,
+      ids,
+    );
+    await new ChangeConversationStatusUseCase(
+      conversations,
+      events,
+      uow,
+      visible,
+      tabulator,
+    ).execute({
       conversationId: conversation.id,
       status: 'resolved',
     });

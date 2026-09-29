@@ -5,6 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePermissions } from '@/features/auth/session-context'
 import { CONVERSATION_SCOPES } from '@/app/navigation'
 import { useContactConversations, type ConversationStatus } from '@/features/conversations/api'
+import { useDispositionLookup } from '@/features/dispositions/api'
+import { DispositionBadge } from '@/features/dispositions/disposition-badge'
 import { useMemberNames } from '@/features/members/api'
 
 const STATUS: Record<ConversationStatus, string> = {
@@ -24,6 +26,7 @@ export function ContactHistory({ contactId }: { contactId: string }) {
   const allowed = canAny(...CONVERSATION_SCOPES)
   const conversations = useContactConversations(contactId, allowed)
   const nameOf = useMemberNames()
+  const dispositionOf = useDispositionLookup()
   const items = conversations.data?.items ?? []
 
   return (
@@ -52,7 +55,12 @@ export function ContactHistory({ contactId }: { contactId: string }) {
                     {conversation.channel.name ?? 'Canal removido'}
                     {conversation.team && ` · ${conversation.team.name}`}
                   </span>
-                  <Badge variant="outline">{STATUS[conversation.status]}</Badge>
+                  <span className="flex shrink-0 items-center gap-1">
+                    {dispositionOf(conversation.dispositionId) && (
+                      <DispositionBadge disposition={dispositionOf(conversation.dispositionId)!} />
+                    )}
+                    <Badge variant="outline">{STATUS[conversation.status]}</Badge>
+                  </span>
                 </div>
                 <p className="text-muted-foreground truncate text-sm">
                   {conversation.lastMessagePreview ?? '—'}

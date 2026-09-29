@@ -1,4 +1,6 @@
 import type { ConversationView } from '../application/conversation-view';
+import type { ConversationDisposition } from '../domain/conversation-disposition.entity';
+import type { Disposition } from '../domain/disposition.entity';
 import type { Message } from '../domain/message.entity';
 
 /** Formato público de conversas e mensagens na API. */
@@ -8,6 +10,7 @@ export const ConversationPresenter = {
     status: conversation.status,
     assigneeId: conversation.assigneeId,
     team,
+    dispositionId: conversation.dispositionId,
     unreadCount: conversation.unreadCount,
     lastMessageAt: conversation.lastMessageAt.toISOString(),
     lastMessagePreview: conversation.lastMessagePreview,
@@ -40,5 +43,27 @@ export const MessagePresenter = {
       : null,
     senderMembershipId: message.senderMembershipId,
     sentAt: message.sentAt.toISOString(),
+  }),
+};
+
+export const DispositionPresenter = {
+  toHttp: (disposition: Disposition) => ({
+    id: disposition.id,
+    name: disposition.name,
+    color: disposition.color,
+    archived: !disposition.isActive,
+    createdAt: disposition.createdAt.toISOString(),
+  }),
+};
+
+/** Um registro do histórico de tabulações de um atendimento. */
+export const ConversationDispositionPresenter = {
+  toHttp: (record: ConversationDisposition) => ({
+    id: record.id,
+    conversationId: record.conversationId,
+    dispositionId: record.dispositionId,
+    note: record.note,
+    membershipId: record.membershipId,
+    createdAt: record.createdAt.toISOString(),
   }),
 };

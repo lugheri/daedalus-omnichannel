@@ -56,6 +56,20 @@ describe('Conversation', () => {
     expect(conversation.pullEvents()).toContainEqual(expect.any(ConversationStatusChangedEvent));
   });
 
+  it('a resolved conversation that reopens is a new atendimento, without disposition', () => {
+    const conversation = start();
+    conversation.setDisposition('disp-sale', 'agent-1');
+    conversation.changeStatus('pending');
+    conversation.changeStatus('open');
+    // Pendente → aberta é o mesmo atendimento: a tabulação fica.
+    expect(conversation.dispositionId).toBe('disp-sale');
+
+    conversation.changeStatus('resolved');
+    conversation.addMessage(inbound('voltei'));
+
+    expect(conversation.dispositionId).toBeNull();
+  });
+
   it('a member replying clears unread and takes the unassigned conversation', () => {
     const conversation = start();
     conversation.addMessage(inbound('Oi'));

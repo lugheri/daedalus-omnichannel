@@ -76,6 +76,18 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['dispositions:manage']} />,
+            children: [
+              {
+                path: '/settings/dispositions',
+                ...page(
+                  () => import('@/features/dispositions/dispositions-page'),
+                  'DispositionsPage',
+                ),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['integrations:manage']} />,
             children: [
               {

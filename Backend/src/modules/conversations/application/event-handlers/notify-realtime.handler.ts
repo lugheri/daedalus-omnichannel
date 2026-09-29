@@ -10,6 +10,7 @@ import {
 } from '../../../../shared/application/realtime';
 import {
   ConversationAssignedEvent,
+  ConversationDispositionSetEvent,
   ConversationMessageAddedEvent,
   ConversationMessageStatusChangedEvent,
   ConversationStatusChangedEvent,
@@ -23,7 +24,7 @@ import {
 /** Nome do aviso no Socket.IO; o front invalida as telas da conversa. */
 export const CONVERSATION_CHANGED = 'conversation.changed';
 
-type Reason = 'message' | 'message-status' | 'status' | 'assignment' | 'team';
+type Reason = 'message' | 'message-status' | 'status' | 'assignment' | 'team' | 'disposition';
 
 /** Quem está com a conversa: responsável e equipe. */
 interface Placement {
@@ -77,6 +78,11 @@ export class NotifyRealtimeHandler {
   @HandlesDomainEvent(ConversationTeamChangedEvent)
   onTeamChanged(event: DeliveredEvent<ConversationTeamChangedEvent>) {
     return this.notify(event, 'team', (now) => ({ ...now, teamId: event.previousTeamId }));
+  }
+
+  @HandlesDomainEvent(ConversationDispositionSetEvent)
+  onDisposition(event: DeliveredEvent<ConversationDispositionSetEvent>) {
+    return this.notify(event, 'disposition');
   }
 
   private async notify(

@@ -8,6 +8,8 @@ export interface Conversation {
   id: string
   status: ConversationStatus
   assigneeId: string | null
+  /** Tabulação do atendimento atual; null ao reabrir uma resolvida. */
+  dispositionId: string | null
   unreadCount: number
   lastMessageAt: string
   lastMessagePreview: string | null
@@ -38,6 +40,21 @@ export interface Message {
   media: { mimeType: string; size: number; fileName: string | null } | null
 }
 
+/** Um registro do histórico de tabulações de uma conversa. */
+export interface ConversationDisposition {
+  id: string
+  conversationId: string
+  dispositionId: string
+  note: string | null
+  membershipId: string
+  createdAt: string
+}
+
+export interface TabulationInput {
+  dispositionId: string
+  note?: string
+}
+
 interface Page<T> {
   items: T[]
   nextCursor: string | null
@@ -56,8 +73,19 @@ export const conversationsApi = {
     api<Page<Message>>(`/v1/conversations/${id}/messages`, { query: { limit: 50, cursor } }),
   send: (id: string, text: string) =>
     api<Message>(`/v1/conversations/${id}/messages`, { method: 'POST', body: { text } }),
-  changeStatus: (id: string, status: ConversationStatus) =>
-    api<void>(`/v1/conversations/${id}/status`, { method: 'POST', body: { status } }),
+  /** Ao resolver, a tabulação pode ir junto (obrigatória se a conta tem tabulações). */
+  changeStatus: (id: string, status: ConversationStatus, disposition?: TabulationInput) =>
+    api<void>(`/v1/conversations/${id}/status`, {
+      method: 'POST',
+      body: { status, disposition },
+    }),
+  tabulate: (id: string, input: TabulationInput) =>
+    api<ConversationDisposition>(`/v1/conversations/${id}/dispositions`, {
+      method: 'POST',
+      body: input,
+    }),
+  dispositions: (id: string) =>
+    api<ConversationDisposition[]>(`/v1/conversations/${id}/dispositions`),
   /** Anexo: legenda ANTES do arquivo (o backend lê os campos que vêm antes do file). */
   sendAttachment: (id: string, file: File, caption: string) => {
     const form = new FormData()
@@ -81,6 +109,16 @@ export const conversationKeys = {
   detail: (id: string) => ['conversations', 'detail', id] as const,
   byContact: (contactId: string) => ['conversations', 'contact', contactId] as const,
   messages: (id: string) => ['conversations', 'messages', id] as const,
+  dispositions: (id: string) => ['conversations', 'dispositions', id] as const,
+}
+
+/** Histórico de tabulações (mais recentes primeiro). */
+export function useConversationDispositions(id: string, enabled = true) {
+  return useQuery({
+    queryKey: conversationKeys.dispositions(id),
+    queryFn: () => conversationsApi.dispositions(id),
+    enabled,
+  })
 }
 
 /*

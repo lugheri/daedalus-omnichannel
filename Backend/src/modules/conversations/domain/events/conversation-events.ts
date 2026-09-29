@@ -81,3 +81,23 @@ export class ConversationTeamChangedEvent extends DomainEvent {
     super(conversationId);
   }
 }
+
+/**
+ * Atendimento tabulado (a cada tabulação, mesmo repetida: cada uma é um
+ * registro no histórico). As automações do kanban reagem a este evento.
+ */
+export class ConversationDispositionSetEvent extends DomainEvent {
+  static readonly eventName = 'conversation.disposition-set.v1';
+  readonly eventName = ConversationDispositionSetEvent.eventName;
+
+  constructor(
+    conversationId: string,
+    readonly tenantId: string,
+    readonly dispositionId: string,
+    readonly previousDispositionId: string | null,
+    /** Quem tabulou (membership). */
+    readonly membershipId: string,
+  ) {
+    super(conversationId);
+  }
+}

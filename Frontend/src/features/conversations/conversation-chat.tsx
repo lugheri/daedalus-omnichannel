@@ -12,6 +12,7 @@ import {
   Paperclip,
   RotateCcw,
   SendHorizontal,
+  Tag,
   Timer,
   X,
 } from 'lucide-react'
@@ -25,7 +26,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useMe, usePermissions } from '@/features/auth/session-context'
 import { useMemberNames } from '@/features/members/api'
-import { errorMessage } from '@/lib/api/api-error'
+import { useDispositionLookup, useDispositions } from '@/features/dispositions/api'
+import { DispositionBadge } from '@/features/dispositions/disposition-badge'
+import { ApiError, errorMessage } from '@/lib/api/api-error'
 import { formatPhone } from '@/lib/phone'
 import {
   conversationKeys,
@@ -38,6 +41,7 @@ import {
 import { contactInitials, contactLabel, dayLabel, isSameDay } from './format'
 import { MAX_ATTACHMENT_BYTES, fileSizeLabel } from './media-kind'
 import { MessageBubble } from './message-bubble'
+import { TabulateDialog } from './tabulate-dialog'
 import { TransferDialog } from './transfer-dialog'
 
 type MessagePages = InfiniteData<{ items: Message[]; nextCursor: string | null }>
@@ -57,6 +61,10 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
   const [attachment, setAttachment] = useState<File | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [transferring, setTransferring] = useState(false)
+  const [tabulating, setTabulating] = useState<'tabulate' | 'resolve' | null>(null)
+  const dispositions = useDispositions()
+  const dispositionOf = useDispositionLookup()
+  const hasDispositions = dispositions.data?.some((d) => !d.archived) ?? false
   const me = useMe()
   const { can } = usePermissions()
   const nameOf = useMemberNames()
@@ -85,7 +93,15 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
       toast.success(status === 'resolved' ? 'Conversa resolvida.' : 'Status atualizado.')
       void refresh()
     },
-    onError: (error) => toast.error(errorMessage(error)),
+    onError: (error) => {
+      // Alguém criou uma tabulação agora há pouco: pede a tabulação e segue.
+      if (error instanceof ApiError && error.code === 'CONVERSATION_DISPOSITION_REQUIRED') {
+        void dispositions.refetch()
+        setTabulating('resolve')
+        return
+      }
+      toast.error(errorMessage(error))
+    },
   })
 
   const claim = useMutation({
@@ -189,6 +205,12 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
                     ? `Responsável: ${nameOf(data.assigneeId) ?? 'outro membro'}`
                     : 'Sem responsável'}
               </p>
+              {dispositionOf(data.dispositionId) && (
+                <DispositionBadge
+                  disposition={dispositionOf(data.dispositionId)!}
+                  className="mt-0.5"
+                />
+              )}
             </div>
             {!data.assigneeId && (
               <Button
@@ -210,6 +232,17 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
                 onClick={() => setTransferring(true)}
               >
                 <ArrowRightLeft />
+              </Button>
+            )}
+            {hasDispositions && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Tabular"
+                title="Tabular atendimento"
+                onClick={() => setTabulating('tabulate')}
+              >
+                <Tag />
               </Button>
             )}
             <Badge variant="outline" className="hidden sm:inline-flex">
@@ -244,7 +277,11 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
                 <Button
                   size="sm"
                   disabled={changeStatus.isPending}
-                  onClick={() => changeStatus.mutate('resolved')}
+                  onClick={() =>
+                    hasDispositions && !data.dispositionId
+                      ? setTabulating('resolve')
+                      : changeStatus.mutate('resolved')
+                  }
                   aria-label="Resolver"
                 >
                   <CheckCheck />
@@ -301,6 +338,12 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
       {data && transferring && (
         <TransferDialog conversation={data} open onOpenChange={setTransferring} />
       )}
+      <TabulateDialog
+        conversationId={id}
+        mode={tabulating ?? 'tabulate'}
+        open={tabulating !== null}
+        onOpenChange={(open) => !open && setTabulating(null)}
+      />
 
       {attachment && (
         <div className="flex items-center gap-2 border-t px-3 pt-2 text-sm">

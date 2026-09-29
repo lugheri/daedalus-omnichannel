@@ -6,6 +6,7 @@ export { ConversationsModule } from './conversations.module';
 export type { ConversationStatus } from './domain/conversation.entity';
 export {
   ConversationAssignedEvent,
+  ConversationDispositionSetEvent,
   ConversationMessageAddedEvent,
   ConversationMessageStatusChangedEvent,
   ConversationStatusChangedEvent,

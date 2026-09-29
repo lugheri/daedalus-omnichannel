@@ -32,6 +32,7 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     name: 'Supervisor',
     permissions: [
       'teams:manage',
+      'dispositions:manage',
       'reports:view',
       'contacts:view',
       'contacts:edit',

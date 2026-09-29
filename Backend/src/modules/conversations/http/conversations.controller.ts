@@ -33,17 +33,27 @@ import {
   MarkConversationReadUseCase,
 } from '../application/use-cases/update-conversation/update-conversation.use-cases';
 import type { ConversationStatus } from '../domain/conversation.entity';
-import { ConversationPresenter, MessagePresenter } from './conversation.presenter';
+import {
+  ListConversationDispositionsUseCase,
+  TabulateConversationUseCase,
+} from '../application/use-cases/tabulate-conversation/tabulate-conversation.use-cases';
+import {
+  ConversationDispositionPresenter,
+  ConversationPresenter,
+  MessagePresenter,
+} from './conversation.presenter';
 import {
   changeStatusSchema,
   listConversationsQuerySchema,
   listMessagesQuerySchema,
   sendMessageSchema,
+  tabulateSchema,
   transferSchema,
   type ChangeStatusDto,
   type ListConversationsQuery,
   type ListMessagesQuery,
   type SendMessageDto,
+  type TabulateDto,
   type TransferDto,
 } from './dto/conversation.dto';
 
@@ -67,6 +77,8 @@ export class ConversationsController {
     private readonly transferConversation: TransferConversationUseCase,
     private readonly sendAttachment: SendAttachmentUseCase,
     private readonly getMessageMedia: GetMessageMediaUseCase,
+    private readonly tabulateConversation: TabulateConversationUseCase,
+    private readonly listDispositions: ListConversationDispositionsUseCase,
   ) {}
 
   @Get()
@@ -178,7 +190,25 @@ export class ConversationsController {
     await this.changeStatus.execute({
       conversationId: id,
       status: body.status as ConversationStatus,
+      disposition: body.disposition,
     });
+  }
+
+  /** Tabula o atendimento (a qualquer momento; cada uma fica no histórico). */
+  @Post(':id/dispositions')
+  async tabulate(
+    @Param('id', idParam) id: string,
+    @Body(new ZodValidationPipe(tabulateSchema)) body: TabulateDto,
+  ) {
+    return ConversationDispositionPresenter.toHttp(
+      await this.tabulateConversation.execute({ conversationId: id, ...body }),
+    );
+  }
+
+  /** Histórico de tabulações da conversa (mais recentes primeiro). */
+  @Get(':id/dispositions')
+  async dispositions(@Param('id', idParam) id: string) {
+    return (await this.listDispositions.execute(id)).map(ConversationDispositionPresenter.toHttp);
   }
 
   /** Pega para si uma conversa sem responsável (qualquer escopo). */

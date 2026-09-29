@@ -2,6 +2,8 @@ import type { CursorPage, PageRequest } from '../../../shared/application/pagina
 import type { TenantContext } from '../../../shared/application/tenant-context';
 import type { ChannelGateway, ChannelInfo } from '../application/ports/channel-gateway';
 import type { ContactDirectory, ContactInfo } from '../application/ports/contact-directory';
+import type { ConversationDispositionRepository } from '../application/ports/conversation-disposition.repository';
+import type { DispositionRepository } from '../application/ports/disposition.repository';
 import type {
   ConversationListQuery,
   ConversationRepository,
@@ -10,6 +12,8 @@ import type { CurrentMember, MemberAccess } from '../application/ports/member-ac
 import type { MessageRepository } from '../application/ports/message.repository';
 import type { TeamDirectory, TeamInfo } from '../application/ports/team-directory';
 import type { Conversation } from '../domain/conversation.entity';
+import type { ConversationDisposition } from '../domain/conversation-disposition.entity';
+import type { Disposition } from '../domain/disposition.entity';
 import type { Message } from '../domain/message.entity';
 import { isVisible } from '../domain/visibility';
 
@@ -182,5 +186,71 @@ export class FakeTeamDirectory implements TeamDirectory {
 
   exists(teamId: string): Promise<boolean> {
     return Promise.resolve(this.teams.some((t) => t.id === teamId));
+  }
+}
+
+export class InMemoryConversationDispositionRepository implements ConversationDispositionRepository {
+  readonly items: ConversationDisposition[] = [];
+
+  constructor(private readonly tenant: TenantContext) {}
+
+  save(record: ConversationDisposition): Promise<void> {
+    this.items.push(record);
+    return Promise.resolve();
+  }
+
+  listByConversation(conversationId: string): Promise<ConversationDisposition[]> {
+    return Promise.resolve(
+      this.items
+        .filter((r) => r.tenantId === this.tenant.tenantId && r.conversationId === conversationId)
+        .reverse(),
+    );
+  }
+}
+
+/** "Usada" = aparece no histórico informado (como a FK do banco). */
+export class InMemoryDispositionRepository implements DispositionRepository {
+  private items: Disposition[] = [];
+
+  constructor(
+    private readonly tenant: TenantContext,
+    private readonly history: InMemoryConversationDispositionRepository,
+  ) {}
+
+  private ofTenant() {
+    return this.items.filter((d) => d.tenantId === this.tenant.tenantId);
+  }
+
+  save(disposition: Disposition): Promise<void> {
+    this.items = [...this.items.filter((d) => d.id !== disposition.id), disposition];
+    return Promise.resolve();
+  }
+
+  findById(id: string): Promise<Disposition | null> {
+    return Promise.resolve(this.ofTenant().find((d) => d.id === id) ?? null);
+  }
+
+  findByName(name: string): Promise<Disposition | null> {
+    const lower = name.toLowerCase();
+    return Promise.resolve(this.ofTenant().find((d) => d.name.toLowerCase() === lower) ?? null);
+  }
+
+  list(): Promise<Disposition[]> {
+    return Promise.resolve([...this.ofTenant()].sort((a, b) => a.name.localeCompare(b.name)));
+  }
+
+  hasActive(): Promise<boolean> {
+    return Promise.resolve(this.ofTenant().some((d) => d.isActive));
+  }
+
+  isUsed(id: string): Promise<boolean> {
+    return Promise.resolve(
+      this.history.items.some((r) => r.tenantId === this.tenant.tenantId && r.dispositionId === id),
+    );
+  }
+
+  delete(id: string): Promise<void> {
+    this.items = this.items.filter((d) => !(d.id === id && d.tenantId === this.tenant.tenantId));
+    return Promise.resolve();
   }
 }

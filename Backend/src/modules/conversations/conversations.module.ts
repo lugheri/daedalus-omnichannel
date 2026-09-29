@@ -27,6 +27,24 @@ import {
   MarkConversationReadUseCase,
 } from './application/use-cases/update-conversation/update-conversation.use-cases';
 import { VisibleConversations } from './application/visible-conversations';
+import { ConversationTabulator } from './application/conversation-tabulator';
+import { CONVERSATION_DISPOSITION_REPOSITORY } from './application/ports/conversation-disposition.repository';
+import { DISPOSITION_REPOSITORY } from './application/ports/disposition.repository';
+import {
+  CreateDispositionUseCase,
+  DeleteDispositionUseCase,
+  ListDispositionsUseCase,
+  UpdateDispositionUseCase,
+} from './application/use-cases/dispositions/dispositions.use-cases';
+import {
+  ListConversationDispositionsUseCase,
+  TabulateConversationUseCase,
+} from './application/use-cases/tabulate-conversation/tabulate-conversation.use-cases';
+import { DispositionsController } from './http/dispositions.controller';
+import {
+  PrismaConversationDispositionRepository,
+  PrismaDispositionRepository,
+} from './infra/prisma-disposition.repository';
 import { GetMessageMediaUseCase } from './application/use-cases/get-message-media/get-message-media.use-case';
 import { SendAttachmentUseCase } from './application/use-cases/send-attachment/send-attachment.use-case';
 import { ConversationsController } from './http/conversations.controller';
@@ -46,9 +64,10 @@ import { PrismaMessageRepository } from './infra/prisma-message.repository';
  */
 @Module({
   imports: [AccountsModule, ChannelsModule, ContactsModule, TeamsModule],
-  controllers: [ConversationsController],
+  controllers: [ConversationsController, DispositionsController],
   providers: [
     VisibleConversations,
+    ConversationTabulator,
     // Membro (HTTP)
     ListConversationsUseCase,
     GetConversationUseCase,
@@ -60,6 +79,13 @@ import { PrismaMessageRepository } from './infra/prisma-message.repository';
     TransferConversationUseCase,
     SendAttachmentUseCase,
     GetMessageMediaUseCase,
+    TabulateConversationUseCase,
+    ListConversationDispositionsUseCase,
+    // Tabulações (catálogo)
+    ListDispositionsUseCase,
+    CreateDispositionUseCase,
+    UpdateDispositionUseCase,
+    DeleteDispositionUseCase,
     // Canais (worker)
     RecordChannelMessageUseCase,
     ApplySendResultUseCase,
@@ -69,6 +95,11 @@ import { PrismaMessageRepository } from './infra/prisma-message.repository';
     // Adapters
     { provide: CONVERSATION_REPOSITORY, useClass: PrismaConversationRepository },
     { provide: MESSAGE_REPOSITORY, useClass: PrismaMessageRepository },
+    { provide: DISPOSITION_REPOSITORY, useClass: PrismaDispositionRepository },
+    {
+      provide: CONVERSATION_DISPOSITION_REPOSITORY,
+      useClass: PrismaConversationDispositionRepository,
+    },
     { provide: CONTACT_DIRECTORY, useClass: ContactsFacadeDirectory },
     { provide: CHANNEL_GATEWAY, useClass: ChannelsFacadeGateway },
     { provide: MEMBER_ACCESS, useClass: FacadesMemberAccess },

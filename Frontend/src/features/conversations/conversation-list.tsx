@@ -2,6 +2,8 @@ import { Inbox, WifiOff } from 'lucide-react'
 import { Link } from 'react-router'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { useDispositionLookup } from '@/features/dispositions/api'
+import { DispositionBadge } from '@/features/dispositions/disposition-badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -48,6 +50,7 @@ export function ConversationList({
 }) {
   const conversations = useConversations(status, assignee)
   const nameOf = useMemberNames()
+  const dispositionOf = useDispositionLookup()
   const realtime = useRealtimeStatus()
   const items = conversations.data?.pages.flatMap((page) => page.items) ?? []
 
@@ -144,6 +147,12 @@ export function ConversationList({
                     .filter(Boolean)
                     .join(' · ')}
                 </span>
+                {dispositionOf(conversation.dispositionId) && (
+                  <DispositionBadge
+                    disposition={dispositionOf(conversation.dispositionId)!}
+                    className="mt-1"
+                  />
+                )}
               </div>
             </Link>
           )

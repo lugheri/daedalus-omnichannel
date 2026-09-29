@@ -1,6 +1,7 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import {
   ConversationAssignedEvent,
+  ConversationDispositionSetEvent,
   ConversationMessageAddedEvent,
   ConversationStatusChangedEvent,
   ConversationTeamChangedEvent,
@@ -23,6 +24,11 @@ export interface ConversationProps {
   assigneeId: string | null;
   /** Equipe da conversa (herdada do canal); null = fila geral. */
   teamId: string | null;
+  /**
+   * Tabulação do atendimento atual (a última dada). Volta a null quando o
+   * cliente escreve numa conversa resolvida: é um atendimento novo.
+   */
+  dispositionId: string | null;
   lastMessageAt: Date;
   lastMessagePreview: string | null;
   unreadCount: number;
@@ -44,6 +50,7 @@ export class Conversation extends AggregateRoot<ConversationProps> {
       ...input,
       status: 'open',
       assigneeId: null,
+      dispositionId: null,
       lastMessageAt: now,
       lastMessagePreview: null,
       unreadCount: 0,
@@ -91,6 +98,8 @@ export class Conversation extends AggregateRoot<ConversationProps> {
     const previous = this.props.status;
     if (previous === status) return;
     this.props.status = status;
+    // Resolvida e reaberta = atendimento novo, ainda sem tabulação.
+    if (previous === 'resolved') this.props.dispositionId = null;
     this.addEvent(
       new ConversationStatusChangedEvent(this.id, this.props.tenantId, status, previous),
     );
@@ -123,6 +132,21 @@ export class Conversation extends AggregateRoot<ConversationProps> {
     this.addEvent(new ConversationTeamChangedEvent(this.id, this.props.tenantId, teamId, previous));
   }
 
+  /** Tabula o atendimento. Se a tabulação existe e está ativa, o use case confere. */
+  setDisposition(dispositionId: string, membershipId: string): void {
+    const previous = this.props.dispositionId;
+    this.props.dispositionId = dispositionId;
+    this.addEvent(
+      new ConversationDispositionSetEvent(
+        this.id,
+        this.props.tenantId,
+        dispositionId,
+        previous,
+        membershipId,
+      ),
+    );
+  }
+
   markRead(): void {
     this.props.unreadCount = 0;
   }
@@ -144,6 +168,9 @@ export class Conversation extends AggregateRoot<ConversationProps> {
   }
   get teamId() {
     return this.props.teamId;
+  }
+  get dispositionId() {
+    return this.props.dispositionId;
   }
   get lastMessageAt() {
     return this.props.lastMessageAt;
