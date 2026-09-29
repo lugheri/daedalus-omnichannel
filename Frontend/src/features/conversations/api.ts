@@ -48,6 +48,9 @@ export const conversationsApi = {
     api<Page<Conversation>>('/v1/conversations', {
       query: { status, assignee: assignee === 'all' ? undefined : assignee, limit: 30, cursor },
     }),
+  /** Histórico de um contato: todas as conversas dele (qualquer status) no meu escopo. */
+  byContact: (contactId: string) =>
+    api<Page<Conversation>>('/v1/conversations', { query: { contactId, limit: 50 } }),
   get: (id: string) => api<Conversation>(`/v1/conversations/${id}`),
   messages: (id: string, cursor?: string) =>
     api<Page<Message>>(`/v1/conversations/${id}/messages`, { query: { limit: 50, cursor } }),
@@ -76,6 +79,7 @@ export const conversationKeys = {
   list: (status: ConversationStatus, assignee: AssigneeFilter) =>
     ['conversations', 'list', status, assignee] as const,
   detail: (id: string) => ['conversations', 'detail', id] as const,
+  byContact: (contactId: string) => ['conversations', 'contact', contactId] as const,
   messages: (id: string) => ['conversations', 'messages', id] as const,
 }
 
@@ -95,6 +99,14 @@ export function useConversations(status: ConversationStatus, assignee: AssigneeF
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     refetchInterval: live ? false : LIST_REFRESH_MS,
+  })
+}
+
+export function useContactConversations(contactId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: conversationKeys.byContact(contactId),
+    queryFn: () => conversationsApi.byContact(contactId),
+    enabled,
   })
 }
 

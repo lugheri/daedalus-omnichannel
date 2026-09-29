@@ -7,6 +7,8 @@ export const listConversationsQuerySchema = z.object({
   status: status.optional(),
   /** Recorte: só as minhas, ou só as sem responsável. */
   assignee: z.enum(['me', 'none']).optional(),
+  /** Histórico de um contato (todas as conversas dele no meu escopo). */
+  contactId: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
   /** Opaco: repasse o `nextCursor` da página anterior. */
   cursor: z.string().max(200).optional(),

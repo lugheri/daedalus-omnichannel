@@ -164,7 +164,19 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
               <AvatarFallback>{contactInitials(data.contact)}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <h2 className="truncate font-medium">{contactLabel(data.contact)}</h2>
+              <h2 className="truncate font-medium">
+                {can('contacts:view') ? (
+                  <Link
+                    to={`/contacts/${data.contact.id}`}
+                    className="hover:underline"
+                    title="Ver ficha do contato"
+                  >
+                    {contactLabel(data.contact)}
+                  </Link>
+                ) : (
+                  contactLabel(data.contact)
+                )}
+              </h2>
               <p className="text-muted-foreground truncate text-xs">
                 {data.contact.name && data.contact.phone && `${formatPhone(data.contact.phone)} · `}
                 {data.channel.name ?? 'Canal removido'}

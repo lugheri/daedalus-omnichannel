@@ -1,6 +1,7 @@
 import type { ContactModel } from '../../../shared/infra/prisma/generated/models';
 import { Contact } from '../domain/contact.entity';
 import { Email } from '../domain/email.vo';
+import { isLeadSource } from '../domain/lead-source';
 import { Phone } from '../domain/phone.vo';
 
 /**
@@ -15,7 +16,10 @@ export const ContactMapper = {
       name: row.name,
       phone: row.phone ? Phone.create(row.phone) : null,
       email: row.email ? Email.create(row.email) : null,
+      source: isLeadSource(row.source) ? row.source : 'manual',
+      sourceDetail: row.sourceDetail,
       createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     });
   },
 
@@ -26,7 +30,10 @@ export const ContactMapper = {
       name: contact.name,
       phone: contact.phone?.value ?? null,
       email: contact.email?.value ?? null,
+      source: contact.source,
+      sourceDetail: contact.sourceDetail,
       createdAt: contact.createdAt,
+      updatedAt: contact.updatedAt,
     };
   },
 };

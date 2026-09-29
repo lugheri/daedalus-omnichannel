@@ -42,11 +42,13 @@ export class InMemoryConversationRepository implements ConversationRepository {
     scope,
     status,
     assignee,
+    contactId,
     me,
     limit,
   }: ConversationListQuery): Promise<CursorPage<Conversation>> {
     const items = this.ofTenant()
       .filter((c) => (!status || c.status === status) && isVisible(c, scope))
+      .filter((c) => !contactId || c.contactId === contactId)
       .filter((c) =>
         assignee === 'me' ? c.assigneeId === me : assignee === 'none' ? !c.assigneeId : true,
       )

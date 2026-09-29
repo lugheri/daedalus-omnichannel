@@ -44,8 +44,8 @@ export class ContactsFacade {
   }
 
   /**
-   * O contato com este telefone; se não existir, cria (ex.: primeira
-   * mensagem de um cliente). Lança `InvalidPhoneError` para telefone inválido.
+   * O contato com este telefone; se não existir, cria com origem `whatsapp`
+   * (primeira mensagem de um cliente). Lança `InvalidPhoneError` para telefone inválido.
    * Participa da transação em andamento, se houver.
    */
   async findOrCreateByPhone(input: {
@@ -59,6 +59,7 @@ export class ContactsFacade {
       tenantId: this.tenant.tenantId,
       name: input.name,
       phone: input.phone,
+      source: 'whatsapp',
     });
     await this.unitOfWork.run(async () => {
       await this.contacts.save(contact);

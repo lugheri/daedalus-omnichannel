@@ -5,3 +5,4 @@
 export { ContactsFacade, type ContactSummary } from './application/contacts.facade';
 export { ContactsModule } from './contacts.module';
 export { ContactCreatedEvent } from './domain/events/contact-created.event';
+export { LEAD_SOURCES, type LeadSource } from './domain/lead-source';

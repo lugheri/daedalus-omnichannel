@@ -58,7 +58,10 @@ describe('Contact', () => {
       name: null,
       phone: original.phone,
       email: null,
+      source: 'manual',
+      sourceDetail: null,
       createdAt: original.createdAt,
+      updatedAt: original.updatedAt,
     });
 
     expect(restored.pullEvents()).toHaveLength(0);

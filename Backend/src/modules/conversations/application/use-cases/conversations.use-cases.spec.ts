@@ -454,4 +454,20 @@ describe('Conversations', () => {
       );
     });
   });
+  it("a contact's history: only that contact's conversations, within the member's scope", async () => {
+    await record();
+    await record({ externalId: 'WA-9', contactPhone: '+5511900000009' });
+    const all = (await list()).items;
+    const maria = all.find((v) => v.contact?.phone === '+5511987654321')!;
+
+    const history = await new ListConversationsUseCase(
+      conversations,
+      contacts,
+      channels,
+      teams,
+      visible,
+    ).execute({ limit: 20, contactId: maria.conversation.contactId });
+
+    expect(history.items.map((v) => v.conversation.id)).toEqual([maria.conversation.id]);
+  });
 });

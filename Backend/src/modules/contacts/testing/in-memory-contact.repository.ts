@@ -1,6 +1,6 @@
-import type { CursorPage, PageRequest } from '../../../shared/application/pagination';
+import type { CursorPage } from '../../../shared/application/pagination';
 import type { TenantContext } from '../../../shared/application/tenant-context';
-import type { ContactRepository } from '../application/ports/contact.repository';
+import type { ContactListQuery, ContactRepository } from '../application/ports/contact.repository';
 import type { Contact } from '../domain/contact.entity';
 import type { Email } from '../domain/email.vo';
 import { ContactAlreadyExistsError } from '../domain/errors/contact-already-exists.error';
@@ -47,8 +47,19 @@ export class InMemoryContactRepository implements ContactRepository {
     return Promise.resolve(this.ofTenant().find((c) => c.email?.equals(email)) ?? null);
   }
 
-  list({ limit, cursor }: PageRequest): Promise<CursorPage<Contact>> {
-    const newestFirst = this.ofTenant().reverse();
+  list({ limit, cursor, search, source }: ContactListQuery): Promise<CursorPage<Contact>> {
+    const term = search?.trim().toLowerCase();
+    const digits = term?.replace(/\D/g, '') ?? '';
+    const newestFirst = this.ofTenant()
+      .filter((c) => !source || c.source === source)
+      .filter(
+        (c) =>
+          !term ||
+          c.name?.toLowerCase().includes(term) ||
+          c.email?.value.includes(term) ||
+          (digits.length >= 3 && c.phone?.value.includes(digits)),
+      )
+      .reverse();
     const start = cursor ? newestFirst.findIndex((c) => c.id === cursor) + 1 : 0;
     const items = newestFirst.slice(start, start + limit);
     const hasMore = start + limit < newestFirst.length;

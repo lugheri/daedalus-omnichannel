@@ -25,6 +25,7 @@ export class ListConversationsUseCase {
   async execute(input: {
     status?: ConversationStatus;
     assignee?: 'me' | 'none';
+    contactId?: string;
     limit: number;
     cursor?: string;
   }): Promise<CursorPage<ConversationView>> {

@@ -15,59 +15,57 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { FieldGroup } from '@/components/ui/field'
-import { formatPhoneInput } from '@/lib/phone'
-import { contactsApi, contactsQueryKey } from './api'
+import { formatPhone, formatPhoneInput } from '@/lib/phone'
+import { contactsApi, contactsQueryKey, type Contact } from './api'
 
-/**
- * Só o formato é checado aqui. Se o telefone é válido (E.164) ou se o
- * contato já existe, quem decide é a API — o erro aparece no topo do form.
- */
 const schema = z
   .object({
     name: z.string().trim().max(200),
     phone: z.string().trim().max(32),
     email: z.union([z.literal(''), z.email('E-mail inválido')]),
-    sourceDetail: z.string().trim().max(200),
   })
   .refine((v) => v.phone || v.email, {
     message: 'Informe ao menos um telefone ou e-mail',
     path: ['phone'],
   })
-type ContactForm = z.infer<typeof schema>
+type EditForm = z.infer<typeof schema>
 
-export function ContactFormDialog({
+/** Edição de nome, telefone e e-mail. A origem não muda (é histórico). */
+export function ContactEditDialog({
+  contact,
   open,
   onOpenChange,
 }: {
+  contact: Contact
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const form = useForm<ContactForm>({
+  const form = useForm<EditForm>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', phone: '', email: '', sourceDetail: '' },
+    values: {
+      name: contact.name ?? '',
+      phone: contact.phone ? formatPhone(contact.phone) : '',
+      email: contact.email ?? '',
+    },
   })
 
-  const create = useMutation({
-    mutationFn: (values: ContactForm) =>
-      contactsApi.create({
-        name: values.name || undefined,
-        phone: values.phone || undefined,
-        email: values.email || undefined,
-        sourceDetail: values.sourceDetail || undefined,
+  const save = useMutation({
+    mutationFn: (values: EditForm) =>
+      contactsApi.update(contact.id, {
+        name: values.name || null,
+        phone: values.phone || null,
+        email: values.email || null,
       }),
     onSuccess: () => {
-      toast.success('Contato criado.')
+      toast.success('Contato atualizado.')
       void queryClient.invalidateQueries({ queryKey: contactsQueryKey })
       close(false)
     },
   })
 
   const close = (next: boolean) => {
-    if (!next) {
-      form.reset()
-      create.reset()
-    }
+    if (!next) save.reset()
     onOpenChange(next)
   }
 
@@ -75,12 +73,12 @@ export function ContactFormDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Novo contato</DialogTitle>
-          <DialogDescription>Informe ao menos um telefone ou e-mail.</DialogDescription>
+          <DialogTitle>Editar contato</DialogTitle>
+          <DialogDescription>Telefone com DDD, ex.: (11) 98765-4321.</DialogDescription>
         </DialogHeader>
-        <form id="contact-form" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
+        <form id="contact-edit-form" onSubmit={form.handleSubmit((v) => save.mutate(v))} noValidate>
           <FieldGroup>
-            <FormError error={create.error} />
+            <FormError error={save.error} />
             <TextField form={form} name="name" label="Nome" autoFocus />
             <TextField
               form={form}
@@ -88,25 +86,17 @@ export function ContactFormDialog({
               label="Telefone"
               type="tel"
               inputMode="tel"
-              placeholder="(11) 98765-4321"
-              description="Com DDD, ex.: (11) 98765-4321. Outros países: comece com + e o código do país."
               mask={formatPhoneInput}
             />
             <TextField form={form} name="email" label="E-mail" type="email" />
-            <TextField
-              form={form}
-              name="sourceDetail"
-              label="Como chegou até nós (opcional)"
-              placeholder="Ex.: indicação, feira, loja física"
-            />
           </FieldGroup>
         </form>
         <DialogFooter>
           <Button variant="outline" onClick={() => close(false)}>
             Cancelar
           </Button>
-          <Button type="submit" form="contact-form" disabled={create.isPending}>
-            {create.isPending ? 'Salvando…' : 'Salvar'}
+          <Button type="submit" form="contact-edit-form" disabled={save.isPending}>
+            {save.isPending ? 'Salvando…' : 'Salvar'}
           </Button>
         </DialogFooter>
       </DialogContent>

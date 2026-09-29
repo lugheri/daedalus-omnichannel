@@ -1,12 +1,18 @@
 // Módulo contacts. Sem relations com models de outros módulos (só ids).
 
 model Contact {
-  id        String   @id @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  name      String?
-  phone     String?
-  email     String?
-  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+  id           String        @id @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  name         String?
+  phone        String?
+  email        String?
+  // De onde o contato veio: whatsapp | manual | import | web_form.
+  source       String        @default("manual")
+  // Detalhe livre da origem (ex.: campanha, página do formulário).
+  sourceDetail String?       @map("source_detail")
+  createdAt    DateTime      @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @map("updated_at") @db.Timestamptz(3)
+  notes        ContactNote[]
 
   // Unicidade por tenant. No Postgres, NULLs não colidem entre si:
   // vários contatos sem e-mail são permitidos.
@@ -14,6 +20,23 @@ model Contact {
   @@unique([tenantId, email])
   // Listagem por tenant, mais recentes primeiro (UUIDv7 ordena por criação).
   @@index([tenantId, id(sort: Desc)])
+  @@index([tenantId, source])
   @@map("contacts")
+  @@schema("contacts")
+}
+
+// Nota interna da equipe sobre o contato (o cliente nunca vê).
+model ContactNote {
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  contactId          String   @map("contact_id") @db.Uuid
+  contact            Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  // Autor: vínculo (membership) do módulo accounts — só o id.
+  authorMembershipId String   @map("author_membership_id") @db.Uuid
+  body               String
+  createdAt          DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, contactId, id(sort: Desc)])
+  @@map("contact_notes")
   @@schema("contacts")
 }

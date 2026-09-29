@@ -60,6 +60,10 @@ export const router = createBrowserRouter([
                 path: '/contacts',
                 ...page(() => import('@/features/contacts/contacts-page'), 'ContactsPage'),
               },
+              {
+                path: '/contacts/:id',
+                ...page(() => import('@/features/contacts/contact-page'), 'ContactPage'),
+              },
             ],
           },
           {

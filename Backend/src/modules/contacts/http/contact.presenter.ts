@@ -1,3 +1,4 @@
+import type { ContactNote } from '../domain/contact-note.entity';
 import type { Contact } from '../domain/contact.entity';
 
 /**
@@ -5,13 +6,23 @@ import type { Contact } from '../domain/contact.entity';
  * internas não quebrem o contrato com o frontend (e vice-versa).
  */
 export const ContactPresenter = {
-  toHttp(contact: Contact) {
-    return {
-      id: contact.id,
-      name: contact.name,
-      phone: contact.phone?.value ?? null,
-      email: contact.email?.value ?? null,
-      createdAt: contact.createdAt.toISOString(),
-    };
-  },
+  toHttp: (contact: Contact) => ({
+    id: contact.id,
+    name: contact.name,
+    phone: contact.phone?.value ?? null,
+    email: contact.email?.value ?? null,
+    source: contact.source,
+    sourceDetail: contact.sourceDetail,
+    createdAt: contact.createdAt.toISOString(),
+    updatedAt: contact.updatedAt.toISOString(),
+  }),
+};
+
+export const ContactNotePresenter = {
+  toHttp: (note: ContactNote) => ({
+    id: note.id,
+    body: note.body,
+    authorMembershipId: note.authorMembershipId,
+    createdAt: note.createdAt.toISOString(),
+  }),
 };

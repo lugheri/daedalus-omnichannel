@@ -5,6 +5,8 @@ import type { ConversationScope } from '../../domain/visibility';
 export interface ConversationListQuery {
   scope: ConversationScope;
   status?: ConversationStatus;
+  /** Só as conversas deste contato (histórico na ficha do contato). */
+  contactId?: string;
   /** Recorte dentro do escopo: só as minhas, ou só as sem responsável. */
   assignee?: 'me' | 'none';
   /** O membro da requisição (para "as minhas"). */

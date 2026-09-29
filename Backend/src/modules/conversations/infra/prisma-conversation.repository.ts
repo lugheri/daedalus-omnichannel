@@ -59,6 +59,7 @@ export class PrismaConversationRepository implements ConversationRepository {
     scope,
     status,
     assignee,
+    contactId,
     me,
     limit,
     cursor,
@@ -67,6 +68,7 @@ export class PrismaConversationRepository implements ConversationRepository {
     const where: Prisma.ConversationWhereInput = {
       tenantId: this.tenant.tenantId,
       ...(status && { status }),
+      ...(contactId && { contactId }),
       AND: [
         scopeFilter(scope),
         assignee === 'me' ? { assigneeId: me } : assignee === 'none' ? { assigneeId: null } : {},

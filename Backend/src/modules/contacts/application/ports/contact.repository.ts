@@ -1,7 +1,14 @@
 import type { CursorPage, PageRequest } from '../../../../shared/application/pagination';
 import type { Contact } from '../../domain/contact.entity';
 import type { Email } from '../../domain/email.vo';
+import type { LeadSource } from '../../domain/lead-source';
 import type { Phone } from '../../domain/phone.vo';
+
+export interface ContactListQuery extends PageRequest {
+  /** Trecho do nome, do e-mail ou do telefone (só dígitos). */
+  search?: string;
+  source?: LeadSource;
+}
 
 /**
  * Port de persistência de contatos. Toda operação é restrita ao tenant da
@@ -15,8 +22,8 @@ export interface ContactRepository {
   findByIds(ids: string[]): Promise<Contact[]>;
   findByPhone(phone: Phone): Promise<Contact | null>;
   findByEmail(email: Email): Promise<Contact | null>;
-  /** Mais recentes primeiro. */
-  list(page: PageRequest): Promise<CursorPage<Contact>>;
+  /** Mais recentes primeiro, com busca e filtro opcionais. */
+  list(query: ContactListQuery): Promise<CursorPage<Contact>>;
 }
 
 export const CONTACT_REPOSITORY = Symbol('ContactRepository');

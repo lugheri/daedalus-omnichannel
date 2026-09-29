@@ -1,11 +1,11 @@
 import { TransactionHost } from '@nestjs-cls/transactional';
 import type { TransactionalAdapterPrisma } from '@nestjs-cls/transactional-adapter-prisma';
 import { Inject, Injectable } from '@nestjs/common';
-import type { CursorPage, PageRequest } from '../../../shared/application/pagination';
+import type { CursorPage } from '../../../shared/application/pagination';
 import { TENANT_CONTEXT, type TenantContext } from '../../../shared/application/tenant-context';
 import { Prisma } from '../../../shared/infra/prisma/generated/client';
 import type { PrismaService } from '../../../shared/infra/prisma/prisma.service';
-import type { ContactRepository } from '../application/ports/contact.repository';
+import type { ContactListQuery, ContactRepository } from '../application/ports/contact.repository';
 import type { Contact } from '../domain/contact.entity';
 import type { Email } from '../domain/email.vo';
 import { ContactAlreadyExistsError } from '../domain/errors/contact-already-exists.error';
@@ -73,12 +73,14 @@ export class PrismaContactRepository implements ContactRepository {
     return row ? ContactMapper.toDomain(row) : null;
   }
 
-  async list({ limit, cursor }: PageRequest): Promise<CursorPage<Contact>> {
+  async list({ limit, cursor, search, source }: ContactListQuery): Promise<CursorPage<Contact>> {
     // Busca um item a mais só para saber se existe próxima página.
     const rows = await this.db.contact.findMany({
       where: {
         tenantId: this.tenant.tenantId,
         ...(cursor && { id: { lt: cursor } }),
+        ...(source && { source }),
+        ...(search && { OR: searchFilter(search) }),
       },
       orderBy: { id: 'desc' },
       take: limit + 1,
@@ -104,4 +106,15 @@ function translateUniqueViolation(error: unknown): unknown {
     if (details.includes(constraint)) return new ContactAlreadyExistsError(field);
   }
   return error;
+}
+
+/** Nome/e-mail contêm o termo (sem diferenciar maiúsculas); telefone, os dígitos dele. */
+function searchFilter(search: string): Prisma.ContactWhereInput[] {
+  const term = search.trim();
+  const digits = term.replace(/\D/g, '');
+  return [
+    { name: { contains: term, mode: 'insensitive' } },
+    { email: { contains: term, mode: 'insensitive' } },
+    ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
+  ];
 }
