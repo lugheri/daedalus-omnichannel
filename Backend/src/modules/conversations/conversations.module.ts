@@ -28,6 +28,11 @@ import {
 } from './application/use-cases/update-conversation/update-conversation.use-cases';
 import { VisibleConversations } from './application/visible-conversations';
 import { ConversationsFacade } from './application/conversations.facade';
+import { TextDelivery } from './application/text-delivery';
+import {
+  AssignBySystemUseCase,
+  SendAutomatedMessageUseCase,
+} from './application/use-cases/system-actions/system-actions.use-cases';
 import { ConversationTabulator } from './application/conversation-tabulator';
 import { CONVERSATION_DISPOSITION_REPOSITORY } from './application/ports/conversation-disposition.repository';
 import { DISPOSITION_REPOSITORY } from './application/ports/disposition.repository';
@@ -69,6 +74,10 @@ import { PrismaMessageRepository } from './infra/prisma-message.repository';
   providers: [
     VisibleConversations,
     ConversationsFacade,
+    TextDelivery,
+    // Sistema (automações, pela facade)
+    SendAutomatedMessageUseCase,
+    AssignBySystemUseCase,
     ConversationTabulator,
     // Membro (HTTP)
     ListConversationsUseCase,

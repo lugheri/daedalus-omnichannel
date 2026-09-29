@@ -320,10 +320,12 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
               <MessageBubble
                 message={message}
                 senderName={
-                  message.senderMembershipId === me.membershipId ||
-                  message.senderMembershipId === 'me'
-                    ? 'Você'
-                    : nameOf(message.senderMembershipId)
+                  message.automated
+                    ? 'Automação'
+                    : message.senderMembershipId === me.membershipId ||
+                        message.senderMembershipId === 'me'
+                      ? 'Você'
+                      : nameOf(message.senderMembershipId)
                 }
               />
               {(!older || !isSameDay(older.sentAt, message.sentAt)) && (
@@ -446,6 +448,7 @@ function addOptimistic(queryClient: QueryClient, conversationId: string, text: s
     status: 'pending',
     error: null,
     senderMembershipId: 'me',
+    automated: false,
     sentAt: new Date().toISOString(),
     media: null,
   }

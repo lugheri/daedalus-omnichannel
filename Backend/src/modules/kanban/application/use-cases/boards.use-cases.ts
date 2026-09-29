@@ -11,6 +11,10 @@ import { ColumnNotEmptyError } from '../../domain/errors/column-not-empty.error'
 import { InvalidBoardTeamError } from '../../domain/errors/invalid-board-team.error';
 import { BOARD_CARD_REPOSITORY, type BoardCardRepository } from '../ports/board-card.repository';
 import { BOARD_REPOSITORY, type BoardRepository } from '../ports/board.repository';
+import {
+  AUTOMATION_RULE_REPOSITORY,
+  type AutomationRuleRepository,
+} from '../ports/automation-rule.repository';
 import { TEAM_DIRECTORY, type TeamDirectory } from '../ports/team-directory';
 
 /** Colunas de um quadro novo, se quem cria não disser outras. */
@@ -183,13 +187,15 @@ export class DeleteColumnUseCase extends BoardChange {
     @Inject(EVENT_BUS) events: EventBus,
     @Inject(UNIT_OF_WORK) unitOfWork: UnitOfWork,
     @Inject(BOARD_CARD_REPOSITORY) private readonly cards: BoardCardRepository,
+    @Inject(AUTOMATION_RULE_REPOSITORY) private readonly rules: AutomationRuleRepository,
   ) {
     super(boards, events, unitOfWork);
   }
 
   /**
    * Coluna com cards precisa de `moveTo` (outra coluna do quadro): eles vão
-   * para o fim dela, sem disparar as automações de entrada.
+   * para o fim dela, sem disparar as automações de entrada. As automações da
+   * coluna e as que movem cards PARA ela saem junto.
    */
   execute(boardId: string, columnId: string, moveTo?: string): Promise<Board> {
     return this.change(boardId, async (board) => {
@@ -199,6 +205,9 @@ export class DeleteColumnUseCase extends BoardChange {
       if ((await this.cards.countInColumn(columnId)) > 0) {
         if (moveTo === undefined || moveTo === columnId) throw new ColumnNotEmptyError();
         await this.cards.moveAll(columnId, moveTo);
+      }
+      for (const rule of await this.rules.listByBoard(board.id)) {
+        if (rule.dependsOnColumn(columnId)) await this.rules.delete(rule);
       }
     });
   }

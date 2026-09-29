@@ -42,6 +42,8 @@ export interface MessageProps {
   status: MessageStatus;
   /** Membro que enviou pelo sistema; null para recebidas e enviadas pelo celular. */
   senderMembershipId: string | null;
+  /** Enviada por uma automação (sem membro por trás). */
+  automated: boolean;
   /** Anexo, se houver (e se deu para baixar). */
   media: MessageMedia | null;
   error: string | null;
@@ -67,6 +69,7 @@ export class Message extends AggregateRoot<MessageProps> {
       direction: 'inbound',
       status: 'received',
       senderMembershipId: null,
+      automated: false,
       error: null,
       createdAt: new Date(),
     });
@@ -86,6 +89,7 @@ export class Message extends AggregateRoot<MessageProps> {
       direction: 'outbound',
       status: 'sent',
       senderMembershipId: null,
+      automated: false,
       error: null,
       createdAt: new Date(),
     });
@@ -99,17 +103,38 @@ export class Message extends AggregateRoot<MessageProps> {
       senderMembershipId: string;
     },
   ): Message {
+    return Message.pendingText(id, input, input.senderMembershipId, false);
+  }
+
+  /** Mensagem de uma automação: pendente até o canal confirmar, sem remetente. */
+  static automated(
+    id: string,
+    input: Pick<MessageProps, 'tenantId' | 'conversationId' | 'channelId'> & { text: string },
+  ): Message {
+    return Message.pendingText(id, input, null, true);
+  }
+
+  private static pendingText(
+    id: string,
+    input: Pick<MessageProps, 'tenantId' | 'conversationId' | 'channelId'> & { text: string },
+    senderMembershipId: string | null,
+    automated: boolean,
+  ): Message {
     const text = input.text.trim();
     if (text.length < 1 || text.length > MAX_TEXT) throw new InvalidMessageTextError();
     const now = new Date();
     return new Message(id, {
-      ...input,
+      tenantId: input.tenantId,
+      conversationId: input.conversationId,
+      channelId: input.channelId,
       text,
       direction: 'outbound',
       kind: 'text',
       externalId: null,
       status: 'pending',
       media: null,
+      senderMembershipId,
+      automated,
       error: null,
       sentAt: now,
       createdAt: now,
@@ -143,6 +168,7 @@ export class Message extends AggregateRoot<MessageProps> {
       externalId: null,
       status: 'pending',
       senderMembershipId: input.senderMembershipId,
+      automated: false,
       error: null,
       sentAt: now,
       createdAt: now,
@@ -211,6 +237,9 @@ export class Message extends AggregateRoot<MessageProps> {
   }
   get senderMembershipId() {
     return this.props.senderMembershipId;
+  }
+  get automated() {
+    return this.props.automated;
   }
   get media() {
     return this.props.media;

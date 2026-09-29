@@ -2,10 +2,16 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { ClsService } from 'nestjs-cls';
 import { randomUUID } from 'node:crypto';
 import { AppConfigModule } from '../../src/config/app-config.module';
+import { idleDedupeKey } from '../../src/modules/kanban/application/ports/automation-run.repository';
+import { AutomationRule } from '../../src/modules/kanban/domain/automation-rule.entity';
 import { BoardCard } from '../../src/modules/kanban/domain/board-card.entity';
 import { Board } from '../../src/modules/kanban/domain/board.entity';
 import { PrismaBoardCardRepository } from '../../src/modules/kanban/infra/prisma-board-card.repository';
 import { PrismaBoardRepository } from '../../src/modules/kanban/infra/prisma-board.repository';
+import {
+  PrismaAutomationRuleRepository,
+  PrismaAutomationRunRepository,
+} from '../../src/modules/kanban/infra/prisma-automation.repository';
 import type { AppClsStore } from '../../src/shared/infra/context/app-cls-store';
 import { PrismaModule } from '../../src/shared/infra/prisma/prisma.module';
 import { PrismaService } from '../../src/shared/infra/prisma/prisma.service';
@@ -21,18 +27,27 @@ describe('Kanban (Postgres real)', () => {
   let prisma: PrismaService;
   let boards: PrismaBoardRepository;
   let cards: PrismaBoardCardRepository;
+  let rules: PrismaAutomationRuleRepository;
+  let runs: PrismaAutomationRunRepository;
   const tenantId = randomUUID();
   const otherTenant = randomUUID();
 
   beforeAll(async () => {
     app = await Test.createTestingModule({
       imports: [AppConfigModule, PrismaModule, SharedInfraModule],
-      providers: [PrismaBoardRepository, PrismaBoardCardRepository],
+      providers: [
+        PrismaBoardRepository,
+        PrismaBoardCardRepository,
+        PrismaAutomationRuleRepository,
+        PrismaAutomationRunRepository,
+      ],
     }).compile();
     await app.init();
     prisma = app.get(PrismaService);
     boards = app.get(PrismaBoardRepository);
     cards = app.get(PrismaBoardCardRepository);
+    rules = app.get(PrismaAutomationRuleRepository);
+    runs = app.get(PrismaAutomationRunRepository);
   });
 
   afterAll(async () => {
@@ -149,6 +164,52 @@ describe('Kanban (Postgres real)', () => {
 
       const saved = await boards.findById(board.id);
       expect(saved?.columns.map((c) => c.name)).toEqual(['Bê', 'C']);
+    });
+  });
+
+  it('idle automation: due cards count from activation, and each entry runs once', async () => {
+    await inTenant(tenantId, async () => {
+      const { board, placed } = await boardWithCards(tenantId, [0, 1]);
+      const [a, b] = board.columns;
+      const rule = AutomationRule.create(randomUUID(), {
+        tenantId,
+        boardId: board.id,
+        columnId: a.id,
+        trigger: { type: 'card_idle', minutes: 60 },
+        actions: [{ type: 'move', columnId: b.id }],
+      });
+      await rules.save(rule);
+      expect((await rules.findById(rule.id))?.trigger).toEqual({ type: 'card_idle', minutes: 60 });
+      expect((await rules.listEnabledIdleAllTenants()).map((r) => r.id)).toContain(rule.id);
+
+      const at = (min: number) => new Date(rule.activeSince.getTime() + min * 60_000);
+      // Cards acabaram de entrar e a regra é nova: nada antes de 60 min.
+      expect(await runs.dueIdleCards(rule, at(59), 10)).toEqual([]);
+      const due = await runs.dueIdleCards(rule, at(61), 10);
+      expect(due.map((c) => c.id).sort()).toEqual(placed.map((c) => c.id).sort());
+
+      const run = {
+        id: randomUUID(),
+        tenantId,
+        ruleId: rule.id,
+        cardId: due[0].id,
+        conversationId: due[0].conversationId,
+        dedupeKey: idleDedupeKey(due[0]),
+        status: 'running' as const,
+        results: [],
+        createdAt: new Date(),
+        finishedAt: null,
+      };
+      expect(await runs.start(run)).toBe(true);
+      expect(await runs.start({ ...run, id: randomUUID() })).toBe(false); // mesmo disparo
+      await runs.finish(run.id, 'succeeded', [{ type: 'move', ok: true }]);
+
+      // A chave do SQL bate com a do código: o card que rodou sai da lista.
+      expect((await runs.dueIdleCards(rule, at(61), 10)).map((c) => c.id)).toEqual([due[1].id]);
+      expect((await runs.listByRule(rule.id, 5))[0]).toMatchObject({
+        status: 'succeeded',
+        results: [{ type: 'move', ok: true }],
+      });
     });
   });
 });

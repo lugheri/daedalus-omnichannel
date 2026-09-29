@@ -64,26 +64,41 @@ export class TransferConversationUseCase extends ChangesConversation {
     super(conversations, events, unitOfWork);
   }
 
-  async execute(input: {
-    conversationId: string;
-    teamId?: string | null;
-    assigneeId?: string | null;
-  }): Promise<void> {
+  async execute(input: TransferInput & { conversationId: string }): Promise<void> {
     const { conversation } = await this.visible.load(input.conversationId);
-
-    if (input.teamId !== undefined) {
-      if (input.teamId && !(await this.teams.exists(input.teamId))) throw new InvalidTeamError();
-      conversation.moveToTeam(input.teamId);
-      // Trocou de equipe sem dizer para quem: vai para a fila da equipe nova.
-      if (input.assigneeId === undefined) conversation.assign(null);
-    }
-    if (input.assigneeId !== undefined) {
-      if (input.assigneeId) {
-        const [active] = await this.members.activeMemberIds([input.assigneeId]);
-        if (!active) throw new InvalidAssigneeError();
-      }
-      conversation.assign(input.assigneeId);
-    }
+    await applyTransfer(conversation, input, this.teams, this.members);
     await this.persist(conversation);
+  }
+}
+
+/** Campo ausente = não muda; `null` = tira (fila geral / sem responsável). */
+export interface TransferInput {
+  teamId?: string | null;
+  assigneeId?: string | null;
+}
+
+/**
+ * Regras da transferência (usadas também pelas automações): equipe precisa
+ * existir, responsável precisa estar ativo, e trocar só a equipe devolve a
+ * conversa para a fila dela.
+ */
+export async function applyTransfer(
+  conversation: Conversation,
+  input: TransferInput,
+  teams: TeamDirectory,
+  members: MemberAccess,
+): Promise<void> {
+  if (input.teamId !== undefined) {
+    if (input.teamId && !(await teams.exists(input.teamId))) throw new InvalidTeamError();
+    conversation.moveToTeam(input.teamId);
+    // Trocou de equipe sem dizer para quem: vai para a fila da equipe nova.
+    if (input.assigneeId === undefined) conversation.assign(null);
+  }
+  if (input.assigneeId !== undefined) {
+    if (input.assigneeId) {
+      const [active] = await members.activeMemberIds([input.assigneeId]);
+      if (!active) throw new InvalidAssigneeError();
+    }
+    conversation.assign(input.assigneeId);
   }
 }

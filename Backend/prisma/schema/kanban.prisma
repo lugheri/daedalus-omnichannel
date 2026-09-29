@@ -3,14 +3,15 @@
 // Quadro da conta. Entrada automática: novas conversas entram na primeira
 // coluna — todas ("all"), só as de uma equipe ("team") ou nenhuma ("none").
 model Board {
-  id            String        @id @db.Uuid
-  tenantId      String        @map("tenant_id") @db.Uuid
+  id            String           @id @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
   name          String
-  autoAddMode   String        @default("none") @map("auto_add_mode")
-  autoAddTeamId String?       @map("auto_add_team_id") @db.Uuid
-  createdAt     DateTime      @map("created_at") @db.Timestamptz(3)
+  autoAddMode   String           @default("none") @map("auto_add_mode")
+  autoAddTeamId String?          @map("auto_add_team_id") @db.Uuid
+  createdAt     DateTime         @map("created_at") @db.Timestamptz(3)
   columns       BoardColumn[]
   cards         BoardCard[]
+  automations   AutomationRule[]
 
   @@unique([tenantId, name])
   @@index([tenantId, autoAddMode])
@@ -19,14 +20,15 @@ model Board {
 }
 
 model BoardColumn {
-  id       String      @id @db.Uuid
-  tenantId String      @map("tenant_id") @db.Uuid
-  boardId  String      @map("board_id") @db.Uuid
-  board    Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  name     String
+  id          String           @id @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  boardId     String           @map("board_id") @db.Uuid
+  board       Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name        String
   // Ordem da coluna no quadro (0, 1, 2...).
-  position Int
-  cards    BoardCard[]
+  position    Int
+  cards       BoardCard[]
+  automations AutomationRule[]
 
   @@index([tenantId, boardId, position])
   @@map("board_columns")
@@ -55,5 +57,56 @@ model BoardCard {
   @@index([tenantId, columnId, position])
   @@index([tenantId, conversationId])
   @@map("board_cards")
+  @@schema("kanban")
+}
+
+// Automação de uma coluna. Gatilho em colunas (para consultar): entrada do
+// card, tempo parado (idleMinutes) ou evento da conversa (move o card PARA
+// esta coluna; dispositionId no gatilho de tabulação). Ações em JSON.
+model AutomationRule {
+  id            String          @id @db.Uuid
+  tenantId      String          @map("tenant_id") @db.Uuid
+  boardId       String          @map("board_id") @db.Uuid
+  board         Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  columnId      String          @map("column_id") @db.Uuid
+  column        BoardColumn     @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  triggerType   String          @map("trigger_type")
+  idleMinutes   Int?            @map("idle_minutes")
+  dispositionId String?         @map("disposition_id") @db.Uuid
+  actions       Json
+  enabled       Boolean
+  // O tempo parado conta a partir daqui (criação/reativação da regra): uma
+  // regra nova não dispara para cards que já estavam parados há muito tempo.
+  activeSince   DateTime        @map("active_since") @db.Timestamptz(3)
+  createdAt     DateTime        @map("created_at") @db.Timestamptz(3)
+  runs          AutomationRun[]
+
+  @@index([tenantId, boardId])
+  @@index([tenantId, columnId, triggerType])
+  @@index([triggerType, enabled])
+  @@map("automation_rules")
+  @@schema("kanban")
+}
+
+// Execução de uma regra. dedupeKey único por regra: cada disparo roda uma
+// vez só (evento repetido, sweep repetido) — mensagem nunca sai duplicada.
+model AutomationRun {
+  id             String         @id @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  ruleId         String         @map("rule_id") @db.Uuid
+  rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  cardId         String         @map("card_id") @db.Uuid
+  conversationId String         @map("conversation_id") @db.Uuid
+  dedupeKey      String         @map("dedupe_key")
+  // running | succeeded | failed
+  status         String
+  // Resultado de cada ação: [{ type, ok, error? }]
+  results        Json
+  createdAt      DateTime       @map("created_at") @db.Timestamptz(3)
+  finishedAt     DateTime?      @map("finished_at") @db.Timestamptz(3)
+
+  @@unique([ruleId, dedupeKey])
+  @@index([tenantId, ruleId, createdAt(sort: Desc)])
+  @@map("automation_runs")
   @@schema("kanban")
 }

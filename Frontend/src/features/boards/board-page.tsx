@@ -34,6 +34,8 @@ import {
 import { CardContent } from './board-card-item'
 import { BoardColumnView } from './board-column'
 import { BoardSettingsDialog, ColumnNameDialog, DeleteColumnDialog } from './board-dialogs'
+import { useAutomations } from './automations/api'
+import { AutomationsDialog } from './automations/automations-dialog'
 
 /** Ids dos cards de cada coluna, na ordem. */
 type Layout = Record<string, string[]>
@@ -42,6 +44,7 @@ type ColumnDialog =
   | { kind: 'add' }
   | { kind: 'rename'; column: BoardColumn }
   | { kind: 'delete'; column: BoardColumn }
+  | { kind: 'automations'; column: BoardColumn }
 
 export function BoardPage() {
   const { id = '' } = useParams()
@@ -74,6 +77,9 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
   const [settings, setSettings] = useState(false)
   const [columnDialog, setColumnDialog] = useState<ColumnDialog | null>(null)
   const [loadingMore, setLoadingMore] = useState<string | null>(null)
+  const automations = useAutomations(board.id, manage)
+  const rulesOf = (columnId: string) =>
+    automations.data?.filter((rule) => rule.columnId === columnId) ?? []
 
   const pageOf = useMemo(() => new Map(pages.map((p) => [p.columnId, p])), [pages])
   const cardById = useMemo(
@@ -301,6 +307,8 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
                           ? () => moveColumn.mutate({ column, index: index + 1 })
                           : undefined,
                       remove: () => setColumnDialog({ kind: 'delete', column }),
+                      automations: () => setColumnDialog({ kind: 'automations', column }),
+                      automationCount: rulesOf(column.id).length,
                     }
                   : undefined
               }
@@ -318,6 +326,15 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
         <ColumnNameDialog
           board={board}
           column={columnDialog.column}
+          open
+          onOpenChange={() => setColumnDialog(null)}
+        />
+      )}
+      {columnDialog?.kind === 'automations' && (
+        <AutomationsDialog
+          board={board}
+          column={columnDialog.column}
+          rules={rulesOf(columnDialog.column.id)}
           open
           onOpenChange={() => setColumnDialog(null)}
         />

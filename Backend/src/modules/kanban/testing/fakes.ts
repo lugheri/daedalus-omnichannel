@@ -1,6 +1,17 @@
 import type { TenantContext } from '../../../shared/application/tenant-context';
 import type { BoardCardRepository, CardKey } from '../application/ports/board-card.repository';
 import type { BoardRepository } from '../application/ports/board.repository';
+import type { AutomationRuleRepository } from '../application/ports/automation-rule.repository';
+import {
+  idleDedupeKey,
+  type ActionResult,
+  type AutomationRun,
+  type AutomationRunRepository,
+  type RunStatus,
+} from '../application/ports/automation-run.repository';
+import type { ConversationActions } from '../application/ports/conversation-actions';
+import type { MemberDirectory } from '../application/ports/member-directory';
+import { AutomationRule, type TriggerType } from '../domain/automation-rule.entity';
 import type {
   CardConversation,
   ConversationDirectory,
@@ -226,5 +237,173 @@ export class FakeTeamDirectory implements TeamDirectory {
 
   exists(teamId: string): Promise<boolean> {
     return Promise.resolve(this.teams.includes(teamId));
+  }
+}
+
+const copyRule = (r: AutomationRule) =>
+  AutomationRule.restore(r.id, {
+    tenantId: r.tenantId,
+    boardId: r.boardId,
+    columnId: r.columnId,
+    trigger: { ...r.trigger },
+    actions: r.actions.map((a) => ({ ...a })),
+    enabled: r.enabled,
+    activeSince: r.activeSince,
+    createdAt: r.createdAt,
+  });
+
+export class InMemoryAutomationRuleRepository implements AutomationRuleRepository {
+  items: AutomationRule[] = [];
+
+  constructor(private readonly tenant: TenantContext) {}
+
+  private ofTenant() {
+    return this.items.filter((r) => r.tenantId === this.tenant.tenantId);
+  }
+
+  save(rule: AutomationRule): Promise<void> {
+    const index = this.items.findIndex((r) => r.id === rule.id);
+    if (index >= 0) this.items[index] = copyRule(rule);
+    else this.items.push(copyRule(rule));
+    return Promise.resolve();
+  }
+
+  findById(id: string): Promise<AutomationRule | null> {
+    const rule = this.ofTenant().find((r) => r.id === id);
+    return Promise.resolve(rule ? copyRule(rule) : null);
+  }
+
+  listByBoard(boardId: string): Promise<AutomationRule[]> {
+    return Promise.resolve(
+      this.ofTenant()
+        .filter((r) => r.boardId === boardId)
+        .map(copyRule),
+    );
+  }
+
+  listEnabledForColumn(columnId: string, trigger: TriggerType): Promise<AutomationRule[]> {
+    return Promise.resolve(
+      this.ofTenant()
+        .filter((r) => r.enabled && r.columnId === columnId && r.trigger.type === trigger)
+        .map(copyRule),
+    );
+  }
+
+  listEnabledMoveInto(boardId: string, trigger: TriggerType, dispositionId?: string) {
+    return Promise.resolve(
+      this.ofTenant()
+        .filter((r) => r.enabled && r.boardId === boardId && r.trigger.type === trigger)
+        .filter(
+          (r) =>
+            !dispositionId ||
+            (r.trigger.type === 'disposition_set' && r.trigger.dispositionId === dispositionId),
+        )
+        .map(copyRule),
+    );
+  }
+
+  countForColumn(columnId: string): Promise<number> {
+    return Promise.resolve(this.ofTenant().filter((r) => r.columnId === columnId).length);
+  }
+
+  delete(rule: AutomationRule): Promise<void> {
+    this.items = this.items.filter((r) => r.id !== rule.id);
+    return Promise.resolve();
+  }
+
+  listEnabledIdleAllTenants(): Promise<{ id: string; tenantId: string }[]> {
+    return Promise.resolve(
+      this.items
+        .filter((r) => r.enabled && r.trigger.type === 'card_idle')
+        .map((r) => ({ id: r.id, tenantId: r.tenantId })),
+    );
+  }
+}
+
+/** Execuções; "vencidos" reproduz a consulta do banco sobre os cards informados. */
+export class InMemoryAutomationRunRepository implements AutomationRunRepository {
+  items: AutomationRun[] = [];
+
+  constructor(
+    private readonly tenant: TenantContext,
+    private readonly cards: InMemoryBoardCardRepository,
+  ) {}
+
+  start(run: AutomationRun): Promise<boolean> {
+    if (this.items.some((r) => r.ruleId === run.ruleId && r.dedupeKey === run.dedupeKey)) {
+      return Promise.resolve(false);
+    }
+    this.items.push({ ...run });
+    return Promise.resolve(true);
+  }
+
+  finish(runId: string, status: RunStatus, results: ActionResult[]): Promise<void> {
+    const run = this.items.find((r) => r.id === runId)!;
+    Object.assign(run, { status, results, finishedAt: new Date() });
+    return Promise.resolve();
+  }
+
+  listByRule(ruleId: string, limit: number): Promise<AutomationRun[]> {
+    return Promise.resolve(
+      this.items
+        .filter((r) => r.ruleId === ruleId && r.tenantId === this.tenant.tenantId)
+        .reverse()
+        .slice(0, limit),
+    );
+  }
+
+  async dueIdleCards(rule: AutomationRule, now: Date, limit: number): Promise<BoardCard[]> {
+    if (rule.trigger.type !== 'card_idle') return [];
+    const before = now.getTime() - rule.trigger.minutes * 60_000;
+    const inColumn = await this.cards.listColumn(rule.columnId, { limit: 10_000 });
+    return inColumn
+      .filter((c) => Math.max(c.enteredColumnAt.getTime(), rule.activeSince.getTime()) <= before)
+      .filter(
+        (c) => !this.items.some((r) => r.ruleId === rule.id && r.dedupeKey === idleDedupeKey(c)),
+      )
+      .slice(0, limit);
+  }
+}
+
+/** Registra o que as automações fizeram; `failSend` simula o canal fora. */
+export class FakeConversationActions implements ConversationActions {
+  readonly sent: { conversationId: string; text: string }[] = [];
+  readonly assigned: {
+    conversationId: string;
+    teamId?: string | null;
+    assigneeId?: string | null;
+  }[] = [];
+  readonly names = new Map<string, string | null>();
+  readonly dispositions = new Set<string>();
+  failSend: Error | null = null;
+
+  contactName(conversationId: string): Promise<string | null> {
+    return Promise.resolve(this.names.get(conversationId) ?? null);
+  }
+
+  sendAutomatedMessage(conversationId: string, text: string): Promise<void> {
+    if (this.failSend) return Promise.reject(this.failSend);
+    this.sent.push({ conversationId, text });
+    return Promise.resolve();
+  }
+
+  assign(
+    conversationId: string,
+    input: { teamId?: string | null; assigneeId?: string | null },
+  ): Promise<void> {
+    this.assigned.push({ conversationId, ...input });
+    return Promise.resolve();
+  }
+
+  dispositionExists(dispositionId: string): Promise<boolean> {
+    return Promise.resolve(this.dispositions.has(dispositionId));
+  }
+}
+
+export class FakeMemberDirectory implements MemberDirectory {
+  constructor(private readonly active: string[] = []) {}
+
+  isActive(membershipId: string): Promise<boolean> {
+    return Promise.resolve(this.active.includes(membershipId));
   }
 }

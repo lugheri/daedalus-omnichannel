@@ -21,6 +21,7 @@ import {
   FakeConversationDirectory,
   FakeTeamDirectory,
   InMemoryBoardCardRepository,
+  InMemoryAutomationRuleRepository,
   InMemoryBoardRepository,
 } from '../testing/fakes';
 import { KanbanAutoAddHandler } from './event-handlers/kanban-auto-add.handler';
@@ -152,7 +153,13 @@ describe('Kanban', () => {
       await add(board.id, 'conv-2', a.id); // topo: conv-2, conv-1
       await add(board.id, 'conv-3', b.id);
       const remove = (moveTo?: string) =>
-        new DeleteColumnUseCase(boards, events, uow, cards).execute(board.id, a.id, moveTo);
+        new DeleteColumnUseCase(
+          boards,
+          events,
+          uow,
+          cards,
+          new InMemoryAutomationRuleRepository(tenant),
+        ).execute(board.id, a.id, moveTo);
 
       await expect(remove()).rejects.toThrow(ColumnNotEmptyError);
       await expect(remove(a.id)).rejects.toThrow(ColumnNotEmptyError);
@@ -171,7 +178,13 @@ describe('Kanban', () => {
     it('an empty column is deleted without destination; the last one stays', async () => {
       const board = await create('Vendas', ['A', 'B']);
       const remove = (columnId: string) =>
-        new DeleteColumnUseCase(boards, events, uow, cards).execute(board.id, columnId);
+        new DeleteColumnUseCase(
+          boards,
+          events,
+          uow,
+          cards,
+          new InMemoryAutomationRuleRepository(tenant),
+        ).execute(board.id, columnId);
       await remove(board.columns[0].id);
       await expect(remove(board.columns[1].id)).rejects.toMatchObject({
         code: 'BOARD_NEEDS_COLUMN',

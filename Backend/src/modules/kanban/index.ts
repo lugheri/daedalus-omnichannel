@@ -9,3 +9,4 @@ export {
   BoardChangedEvent,
 } from './domain/events/kanban-events';
 export { KanbanModule } from './kanban.module';
+export { KanbanWorkerModule } from './kanban.worker.module';

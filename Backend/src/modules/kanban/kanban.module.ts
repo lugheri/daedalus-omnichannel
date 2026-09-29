@@ -26,7 +26,32 @@ import {
   RemoveCardUseCase,
 } from './application/use-cases/cards.use-cases';
 import { BoardsController } from './http/boards.controller';
-import { ConversationsFacadeDirectory, TeamsFacadeDirectory } from './infra/facade-gateways';
+import { AutomationsController } from './http/automations.controller';
+import { AutomationRunner } from './application/automations/automation-runner';
+import {
+  AutomationReferences,
+  CreateAutomationUseCase,
+  DeleteAutomationUseCase,
+  ListAutomationRunsUseCase,
+  ListAutomationsUseCase,
+  UpdateAutomationUseCase,
+} from './application/automations/automation-rules.use-cases';
+import { KanbanAutomationTriggersHandler } from './application/automations/automation-triggers.handler';
+import { IdleSweepUseCase, RunIdleRuleUseCase } from './application/automations/idle-automations';
+import { AUTOMATION_RULE_REPOSITORY } from './application/ports/automation-rule.repository';
+import { AUTOMATION_RUN_REPOSITORY } from './application/ports/automation-run.repository';
+import { CONVERSATION_ACTIONS } from './application/ports/conversation-actions';
+import { MEMBER_DIRECTORY } from './application/ports/member-directory';
+import {
+  PrismaAutomationRuleRepository,
+  PrismaAutomationRunRepository,
+} from './infra/prisma-automation.repository';
+import {
+  AccountsFacadeMembers,
+  ConversationsFacadeActions,
+  ConversationsFacadeDirectory,
+  TeamsFacadeDirectory,
+} from './infra/facade-gateways';
 import { PrismaBoardCardRepository } from './infra/prisma-board-card.repository';
 import { PrismaBoardRepository } from './infra/prisma-board.repository';
 
@@ -37,7 +62,7 @@ import { PrismaBoardRepository } from './infra/prisma-board.repository';
  */
 @Module({
   imports: [AccountsModule, ConversationsModule, TeamsModule],
-  controllers: [BoardsController],
+  controllers: [BoardsController, AutomationsController],
   providers: [
     BoardsReader,
     CreateBoardUseCase,
@@ -51,6 +76,17 @@ import { PrismaBoardRepository } from './infra/prisma-board.repository';
     MoveCardUseCase,
     RemoveCardUseCase,
     ListConversationPlacementsUseCase,
+    // Automações
+    AutomationReferences,
+    ListAutomationsUseCase,
+    CreateAutomationUseCase,
+    UpdateAutomationUseCase,
+    DeleteAutomationUseCase,
+    ListAutomationRunsUseCase,
+    AutomationRunner,
+    IdleSweepUseCase,
+    RunIdleRuleUseCase,
+    KanbanAutomationTriggersHandler,
     // Worker
     KanbanAutoAddHandler,
     KanbanTeamCleanupHandler,
@@ -60,6 +96,11 @@ import { PrismaBoardRepository } from './infra/prisma-board.repository';
     { provide: BOARD_CARD_REPOSITORY, useClass: PrismaBoardCardRepository },
     { provide: CONVERSATION_DIRECTORY, useClass: ConversationsFacadeDirectory },
     { provide: TEAM_DIRECTORY, useClass: TeamsFacadeDirectory },
+    { provide: AUTOMATION_RULE_REPOSITORY, useClass: PrismaAutomationRuleRepository },
+    { provide: AUTOMATION_RUN_REPOSITORY, useClass: PrismaAutomationRunRepository },
+    { provide: CONVERSATION_ACTIONS, useClass: ConversationsFacadeActions },
+    { provide: MEMBER_DIRECTORY, useClass: AccountsFacadeMembers },
   ],
+  exports: [IdleSweepUseCase, RunIdleRuleUseCase],
 })
 export class KanbanModule {}

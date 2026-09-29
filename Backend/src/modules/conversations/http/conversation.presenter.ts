@@ -42,6 +42,8 @@ export const MessagePresenter = {
         }
       : null,
     senderMembershipId: message.senderMembershipId,
+    /** Enviada por uma automação do kanban (sem remetente). */
+    automated: message.automated,
     sentAt: message.sentAt.toISOString(),
   }),
 };

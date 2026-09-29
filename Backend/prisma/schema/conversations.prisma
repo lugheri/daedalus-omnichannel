@@ -44,6 +44,8 @@ model Message {
   externalId         String?      @map("external_id")
   status             String
   senderMembershipId String?      @map("sender_membership_id") @db.Uuid
+  // Enviada por uma automação do kanban (sem membro por trás).
+  automated          Boolean      @default(false)
   // Anexo no armazenamento (bucket privado): só a referência; o arquivo sai pela API.
   mediaKey           String?      @map("media_key")
   mediaMimeType      String?      @map("media_mime_type")

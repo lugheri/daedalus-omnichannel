@@ -35,6 +35,8 @@ export interface Message {
   status: MessageStatus
   error: string | null
   senderMembershipId: string | null
+  /** Enviada por uma automação do kanban (sem remetente). */
+  automated: boolean
   sentAt: string
   /** Anexo (o arquivo sai por GET .../messages/:id/media). */
   media: { mimeType: string; size: number; fileName: string | null } | null

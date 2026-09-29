@@ -240,6 +240,16 @@ Processo próprio (`whatsapp-connector.ts`, ADR 0006), mesma imagem. Regras:
 - Excluir coluna com cards exige `moveTo`: os cards vão em massa para o fim da outra coluna **sem** disparar automações. Excluir o quadro leva colunas e cards (FK do card para a coluna é `NoAction`: checada no fim do comando, então a cascata do quadro passa, mas apagar só a coluna com cards falha).
 - Tempo real: `board.changed { boardId }` para as salas de escopo de conversas do tenant; o front também recarrega os cards a cada `conversation.changed` (o card mostra dados da conversa).
 
+## Automações do kanban
+
+- Regra (`AutomationRule`) pertence a uma coluna; gerenciar exige `boards:manage` (`/v1/boards/:id/automations`, até 10 por coluna). Gatilhos: `card_entered` (ações: mensagem, atribuir), `card_idle` (minutos, 1 min–90 dias; ações: mensagem, atribuir, **mover**) e eventos da conversa que **movem o card para a coluna da regra** (`disposition_set`, `conversation_resolved`, `customer_replied`), em todo quadro em que a conversa estiver (várias regras no mesmo quadro: vale a coluna mais à esquerda).
+- **Entrada nunca move** (evita laço instantâneo entre colunas); só o tempo parado move, no máximo uma vez por entrada.
+- **Cada disparo roda uma vez só:** `AutomationRun` com `(ruleId, dedupeKey)` único é gravado ANTES de agir (evento: `eventId` da entrega; tempo parado: `cardId:enteredColumnAt` — a mesma chave no SQL de `dueIdleCards` e em `idleDedupeKey`). Evento repetido/retry não reenvia mensagem ao cliente; se o processo cair no meio, o disparo fica `running` e não é refeito (preferimos não enviar a enviar duas vezes). Uma ação que falha não impede as seguintes; o resultado de cada uma fica na execução (`GET .../automations/:id/runs`).
+- **Tempo parado conta a partir da ativação da regra** (`activeSince`: criação, reativação ou troca de gatilho) — regra nova não dispara em massa para cards parados há meses.
+- Varredura: agendador do BullMQ (`upsertJobScheduler`, único no Redis, a cada 60 s) na fila `kanban-automations`, registrado pelo `KanbanWorkerModule` (só no worker). A varredura lê as regras de todas as contas (`listEnabledIdleAllTenants`, sem filtro de tenant de propósito) e enfileira um job por regra **no tenant dela** (`TenantContext.enter`), com id por minuto.
+- Ações nas conversas passam por métodos `…AsSystem` da `ConversationsFacade` (sem membro: só o tenant limita; nunca chamar de uma requisição HTTP). Mensagem automática: `Message.automated` (`automated: true`, sem remetente), aparece como "Automação" no chat; texto com `{{nome}}`/`{{nome_completo}}` (`renderTemplate` arruma a pontuação sem nome). Atribuir usa as mesmas regras da transferência (`applyTransfer`).
+- Excluir coluna apaga as regras dela (FK) e as que movem cards para ela; os cards movidos em massa não disparam automações.
+
 ## Testes em execução (API + worker de teste)
 
 - Com o worker de dev rodando, uma API/worker de teste no **mesmo banco** disputa os eventos do outbox com ele. Para testes de ponta a ponta com o worker, suba a API/worker de teste apontando para o ambiente de e2e (banco `<nome>_e2e`, Redis db 1, `QUEUE_PREFIX=omni-e2e`) — e pare-os antes do `npm run test:e2e`, que usa as mesmas filas.

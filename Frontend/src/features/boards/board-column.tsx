@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { ArrowLeft, ArrowRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -18,6 +18,9 @@ export interface ColumnActions {
   moveLeft?: () => void
   moveRight?: () => void
   remove: () => void
+  automations: () => void
+  /** Regras da coluna (ativas ou não). */
+  automationCount: number
 }
 
 /** Uma coluna: cabeçalho, cards (soltáveis mesmo vazia) e "carregar mais". */
@@ -59,41 +62,57 @@ export function BoardColumnView({
           </span>
         </h2>
         {actions && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                aria-label={`Ações da coluna ${column.name}`}
-              >
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={actions.rename}>
-                <Pencil />
-                Renomear
-              </DropdownMenuItem>
-              {actions.moveLeft && (
-                <DropdownMenuItem onSelect={actions.moveLeft}>
-                  <ArrowLeft />
-                  Mover para a esquerda
-                </DropdownMenuItem>
+          <div className="flex shrink-0 items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-7 gap-1 px-1.5',
+                actions.automationCount === 0 && 'text-muted-foreground',
               )}
-              {actions.moveRight && (
-                <DropdownMenuItem onSelect={actions.moveRight}>
-                  <ArrowRight />
-                  Mover para a direita
+              aria-label={`Automações da coluna ${column.name} (${actions.automationCount})`}
+              title="Automações"
+              onClick={actions.automations}
+            >
+              <Zap />
+              {actions.automationCount > 0 && actions.automationCount}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  aria-label={`Ações da coluna ${column.name}`}
+                >
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={actions.rename}>
+                  <Pencil />
+                  Renomear
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={actions.remove}>
-                <Trash2 />
-                Excluir coluna
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {actions.moveLeft && (
+                  <DropdownMenuItem onSelect={actions.moveLeft}>
+                    <ArrowLeft />
+                    Mover para a esquerda
+                  </DropdownMenuItem>
+                )}
+                {actions.moveRight && (
+                  <DropdownMenuItem onSelect={actions.moveRight}>
+                    <ArrowRight />
+                    Mover para a direita
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={actions.remove}>
+                  <Trash2 />
+                  Excluir coluna
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
       </header>
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>

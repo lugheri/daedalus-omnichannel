@@ -139,7 +139,9 @@ export function DeleteColumnDialog({
               ? 'O quadro precisa de ao menos uma coluna.'
               : hasCards
                 ? 'Os cards desta coluna vão para o fim da coluna escolhida (sem disparar automações).'
-                : 'A coluna está vazia.'}
+                : 'A coluna está vazia.'}{' '}
+            {others.length > 0 &&
+              'As automações desta coluna, e as que movem cards para ela, também são excluídas.'}
           </DialogDescription>
         </DialogHeader>
         <FormError error={remove.error} />

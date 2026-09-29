@@ -27,6 +27,11 @@ import {
 } from '../../testing/fakes';
 import { ConversationTabulator } from '../conversation-tabulator';
 import { ConversationsFacade } from '../conversations.facade';
+import { TextDelivery } from '../text-delivery';
+import {
+  AssignBySystemUseCase,
+  SendAutomatedMessageUseCase,
+} from './system-actions/system-actions.use-cases';
 import { VisibleConversations } from '../visible-conversations';
 import {
   ClaimConversationUseCase,
@@ -100,17 +105,26 @@ describe('Conversations', () => {
       media: null,
       ...overrides,
     });
+  const delivery = () => new TextDelivery(conversations, messages, channels, events, uow);
   const send = (conversationId: string, text = 'Olá! Como posso ajudar?') =>
-    new SendMessageUseCase(
+    new SendMessageUseCase(contacts, channels, ids, visible, delivery()).execute({
+      conversationId,
+      text,
+    });
+  /** A facade com as ações de sistema (automações). */
+  const facade = () => {
+    const history = new InMemoryConversationDispositionRepository(tenant);
+    return new ConversationsFacade(
       conversations,
-      messages,
       contacts,
       channels,
-      ids,
-      events,
-      uow,
+      teams,
+      new InMemoryDispositionRepository(tenant, history),
       visible,
-    ).execute({ conversationId, text });
+      new SendAutomatedMessageUseCase(conversations, contacts, channels, ids, delivery()),
+      new AssignBySystemUseCase(conversations, teams, access, events, uow),
+    );
+  };
   const teams = new FakeTeamDirectory([
     { id: 'team-sales', name: 'Vendas' },
     { id: 'team-support', name: 'Suporte' },
@@ -294,12 +308,57 @@ describe('Conversations', () => {
     const [first, second] = [byName('Cliente'), byName('Bia')];
     first.assign('agent-2'); // de outra pessoa: o agente não vê
     await conversations.save(first);
-    const facade = new ConversationsFacade(conversations, contacts, channels, teams, visible);
-
-    const summaries = await facade.visibleSummaries([first.id, 'nope', second.id]);
+    const summaries = await facade().visibleSummaries([first.id, 'nope', second.id]);
     expect(summaries.map((s) => [s.id, s.contact.name])).toEqual([[second.id, 'Bia']]);
-    expect(await facade.isVisible(first.id)).toBe(false);
-    expect(await facade.isVisible(second.id)).toBe(true);
+    expect(await facade().isVisible(first.id)).toBe(false);
+    expect(await facade().isVisible(second.id)).toBe(true);
+  });
+
+  describe('system actions (automations)', () => {
+    it('sends an automated message: marked, no sender, even outside any member scope', async () => {
+      await record();
+      const conversation = await onlyConversation();
+      conversation.assign('agent-2'); // o agente da requisição nem vê a conversa
+      await conversations.save(conversation);
+
+      await facade().sendAutomatedMessageAsSystem(
+        conversation.id,
+        '  Olá! Recebemos seu pedido.  ',
+      );
+
+      const sent = messages.items.at(-1)!;
+      expect(sent).toMatchObject({
+        direction: 'outbound',
+        automated: true,
+        senderMembershipId: null,
+        status: 'pending',
+        text: 'Olá! Recebemos seu pedido.',
+      });
+      expect(channels.sent.at(-1)).toMatchObject({ messageId: sent.id, to: '+5511987654321' });
+      // Não muda o responsável (não é um membro respondendo).
+      expect((await conversations.findById(conversation.id))!.assigneeId).toBe('agent-2');
+    });
+
+    it('assigns with the transfer rules (existing team, active member)', async () => {
+      await record();
+      const conversation = await onlyConversation();
+      access.active.add('agent-9');
+
+      await facade().assignAsSystem(conversation.id, {
+        teamId: 'team-sales',
+        assigneeId: 'agent-9',
+      });
+      expect(await conversations.findById(conversation.id)).toMatchObject({
+        teamId: 'team-sales',
+        assigneeId: 'agent-9',
+      });
+      await expect(facade().assignAsSystem(conversation.id, { teamId: 'ghost' })).rejects.toThrow(
+        InvalidTeamError,
+      );
+      await expect(
+        facade().assignAsSystem(conversation.id, { assigneeId: 'inactive' }),
+      ).rejects.toThrow(InvalidAssigneeError);
+    });
   });
 
   describe('teams and assignment', () => {

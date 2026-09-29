@@ -83,6 +83,7 @@ function toDomain(row: MessageModel): Message {
     externalId: row.externalId,
     status: row.status as MessageStatus,
     senderMembershipId: row.senderMembershipId,
+    automated: row.automated,
     media:
       row.mediaKey && row.mediaMimeType
         ? {
@@ -110,6 +111,7 @@ function toPersistence(message: Message): MessageModel {
     externalId: message.externalId,
     status: message.status,
     senderMembershipId: message.senderMembershipId,
+    automated: message.automated,
     mediaKey: message.media?.key ?? null,
     mediaMimeType: message.media?.mimeType ?? null,
     mediaSize: message.media?.size ?? null,
