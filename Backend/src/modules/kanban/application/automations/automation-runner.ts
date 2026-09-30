@@ -6,7 +6,7 @@ import { DomainError } from '../../../../shared/domain/domain-error';
 import type { AutomationAction, AutomationRule } from '../../domain/automation-rule.entity';
 import type { BoardCard } from '../../domain/board-card.entity';
 import { positionBetween } from '../../domain/card-position';
-import { renderTemplate } from '../../domain/message-template';
+import { renderTemplate } from '../../../../shared/domain/message-template';
 import { BOARD_CARD_REPOSITORY, type BoardCardRepository } from '../ports/board-card.repository';
 import {
   AUTOMATION_RUN_REPOSITORY,

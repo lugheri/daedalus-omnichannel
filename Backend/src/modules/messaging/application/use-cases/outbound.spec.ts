@@ -17,6 +17,7 @@ import {
   FakeProviderClients,
   FakeUnsubscribeTokens,
   FakeWebhookVerifier,
+  InMemoryCampaignRepository,
   InMemoryMessagingProviderRepository,
   InMemoryOptOutRepository,
   InMemoryOutboundMessageRepository,
@@ -140,6 +141,7 @@ describe('Messages to contacts', () => {
       cipher,
       tokens,
       urls,
+      new InMemoryCampaignRepository(tenant),
     ).execute(id);
   const stored = async (id: string) => (await messages.findById(id))!;
 

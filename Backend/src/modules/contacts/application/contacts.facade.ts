@@ -5,7 +5,14 @@ import { TENANT_CONTEXT, type TenantContext } from '../../../shared/application/
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../shared/application/unit-of-work';
 import { Contact } from '../domain/contact.entity';
 import { Phone } from '../domain/phone.vo';
-import { CONTACT_REPOSITORY, type ContactRepository } from './ports/contact.repository';
+import {
+  CONTACT_REPOSITORY,
+  type AudienceCount,
+  type ContactFilter,
+  type ContactRepository,
+} from './ports/contact.repository';
+
+export type { AudienceCount, ContactFilter };
 
 /**
  * Dados de contato expostos a outros módulos — objetos simples, nunca a
@@ -36,6 +43,19 @@ export class ContactsFacade {
   async findById(id: string): Promise<ContactSummary | null> {
     const contact = await this.contacts.findById(id);
     return contact ? summarize(contact) : null;
+  }
+
+  /** Público de campanha: uma página dos contatos que casam com o filtro. */
+  async audiencePage(
+    filter: ContactFilter,
+    page: { cursor?: string; limit: number },
+  ): Promise<{ items: ContactSummary[]; nextCursor: string | null }> {
+    const result = await this.contacts.list({ ...filter, ...page });
+    return { items: result.items.map(summarize), nextCursor: result.nextCursor };
+  }
+
+  countAudience(filter: ContactFilter): Promise<AudienceCount> {
+    return this.contacts.count(filter);
   }
 
   async findByIds(ids: string[]): Promise<ContactSummary[]> {

@@ -45,6 +45,9 @@ model OutboundMessage {
   deliveredAt        DateTime? @map("delivered_at") @db.Timestamptz(3)
   updatedAt          DateTime  @map("updated_at") @db.Timestamptz(3)
 
+  // Um contato entra uma vez só em cada campanha (montagem retomável). Nas
+  // mensagens individuais, campaignId é null e não conta (NULLs são distintos).
+  @@unique([campaignId, contactId])
   @@index([tenantId, contactId, createdAt(sort: Desc)])
   @@index([tenantId, campaignId])
   @@map("outbound_messages")
@@ -63,5 +66,37 @@ model OptOut {
 
   @@id([tenantId, channel, address])
   @@map("opt_outs")
+  @@schema("messaging")
+}
+
+// Campanha de e-mail ou SMS para um público (filtro de contatos).
+// draft → scheduled → sending → sent; canceled a qualquer momento antes de acabar.
+model Campaign {
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  name                  String
+  channel               String
+  subject               String?
+  // Texto com {{nome}} / {{nome_completo}}.
+  body                  String
+  // Filtro do público: { search?, source?, sourceDetail? }.
+  audience              Json
+  status                String
+  scheduledAt           DateTime? @map("scheduled_at") @db.Timestamptz(3)
+  startedAt             DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt            DateTime? @map("finished_at") @db.Timestamptz(3)
+  // Montagem do público, em lotes (retomável se o worker cair no meio).
+  audienceCursor        String?   @map("audience_cursor")
+  queuedCount           Int       @default(0) @map("queued_count")
+  skippedNoAddress      Int       @default(0) @map("skipped_no_address")
+  skippedOptedOut       Int       @default(0) @map("skipped_opted_out")
+  createdByMembershipId String    @map("created_by_membership_id") @db.Uuid
+  createdAt             DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  // A varredura: agendadas que já venceram, de todas as contas.
+  @@index([status, scheduledAt])
+  @@map("campaigns")
   @@schema("messaging")
 }

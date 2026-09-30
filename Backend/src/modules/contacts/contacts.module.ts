@@ -13,7 +13,10 @@ import {
 } from './application/use-cases/contact-notes/contact-notes.use-cases';
 import { CreateContactUseCase } from './application/use-cases/create-contact/create-contact.use-case';
 import { GetContactUseCase } from './application/use-cases/get-contact/get-contact.use-case';
-import { ListContactsUseCase } from './application/use-cases/list-contacts/list-contacts.use-case';
+import {
+  ListContactsUseCase,
+  ListSourceDetailsUseCase,
+} from './application/use-cases/list-contacts/list-contacts.use-case';
 import { UpdateContactUseCase } from './application/use-cases/update-contact/update-contact.use-case';
 import { ContactsController } from './http/contacts.controller';
 import { PrismaContactNoteRepository } from './infra/prisma-contact-note.repository';
@@ -27,6 +30,7 @@ import { PrismaContactRepository } from './infra/prisma-contact.repository';
     CreateContactUseCase,
     GetContactUseCase,
     ListContactsUseCase,
+    ListSourceDetailsUseCase,
     UpdateContactUseCase,
     ListContactNotesUseCase,
     AddContactNoteUseCase,

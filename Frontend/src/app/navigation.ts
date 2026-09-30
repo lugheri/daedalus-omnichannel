@@ -3,6 +3,7 @@ import {
   Home,
   Inbox,
   Mail,
+  Megaphone,
   KeyRound,
   MessageCircle,
   Network,
@@ -32,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Início', icon: Home, anyOf: [] },
   { to: '/conversations', label: 'Conversas', icon: Inbox, anyOf: CONVERSATION_SCOPES },
   { to: '/boards', label: 'Quadros', icon: SquareKanban, anyOf: CONVERSATION_SCOPES },
+  { to: '/campaigns', label: 'Campanhas', icon: Megaphone, anyOf: ['campaigns:manage'] },
   { to: '/contacts', label: 'Contatos', icon: Contact, anyOf: ['contacts:view'] },
   { to: '/settings/channels', label: 'Canais', icon: MessageCircle, anyOf: ['channels:manage'] },
   {

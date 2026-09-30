@@ -23,8 +23,8 @@ export class PrismaOutboundMessageRepository implements OutboundMessageRepositor
     return this.txHost.tx;
   }
 
-  async save(message: OutboundMessage): Promise<void> {
-    const data: OutboundMessageModel = {
+  private toRow(message: OutboundMessage): OutboundMessageModel {
+    return {
       id: message.id,
       tenantId: this.tenant.tenantId,
       channel: message.channel,
@@ -42,6 +42,10 @@ export class PrismaOutboundMessageRepository implements OutboundMessageRepositor
       deliveredAt: message.deliveredAt,
       updatedAt: message.updatedAt,
     };
+  }
+
+  async save(message: OutboundMessage): Promise<void> {
+    const data = this.toRow(message);
     await this.db.outboundMessage.upsert({
       where: { id: message.id, tenantId: data.tenantId },
       create: data,
@@ -65,6 +69,64 @@ export class PrismaOutboundMessageRepository implements OutboundMessageRepositor
       take: limit,
     });
     return rows.map(toDomain);
+  }
+
+  async saveMany(messages: OutboundMessage[]): Promise<void> {
+    if (messages.length === 0) return;
+    await this.db.outboundMessage.createMany({ data: messages.map((m) => this.toRow(m)) });
+  }
+
+  async contactsInCampaign(campaignId: string, contactIds: string[]): Promise<Set<string>> {
+    if (contactIds.length === 0) return new Set();
+    const rows = await this.db.outboundMessage.findMany({
+      where: { tenantId: this.tenant.tenantId, campaignId, contactId: { in: contactIds } },
+      select: { contactId: true },
+    });
+    return new Set(rows.map((r) => r.contactId));
+  }
+
+  async countByStatus(campaignId: string): Promise<Record<OutboundStatus, number>> {
+    const counts: Record<OutboundStatus, number> = {
+      queued: 0,
+      sent: 0,
+      delivered: 0,
+      failed: 0,
+      bounced: 0,
+    };
+    if (!UUID.test(campaignId)) return counts;
+    const rows = await this.db.outboundMessage.groupBy({
+      by: ['status'],
+      where: { tenantId: this.tenant.tenantId, campaignId },
+      _count: { _all: true },
+    });
+    for (const row of rows) counts[row.status as OutboundStatus] = row._count._all;
+    return counts;
+  }
+
+  async listByCampaign(
+    campaignId: string,
+    { cursor, limit, status }: { cursor?: string; limit: number; status?: OutboundStatus },
+  ) {
+    const rows = await this.db.outboundMessage.findMany({
+      where: {
+        tenantId: this.tenant.tenantId,
+        campaignId,
+        ...(status && { status }),
+        ...(cursor && UUID.test(cursor) && { id: { gt: cursor } }),
+      },
+      orderBy: { id: 'asc' },
+      take: limit + 1,
+    });
+    const items = rows.slice(0, limit).map(toDomain);
+    return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null };
+  }
+
+  async queuedIdsInCampaign(campaignId: string): Promise<string[]> {
+    const rows = await this.db.outboundMessage.findMany({
+      where: { tenantId: this.tenant.tenantId, campaignId, status: 'queued' },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
   }
 }
 

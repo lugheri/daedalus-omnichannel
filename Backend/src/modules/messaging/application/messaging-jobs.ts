@@ -27,3 +27,18 @@ export const InboundSmsJob = defineJob<{ from: string; body: string }>(
   MESSAGING_QUEUE,
   'inbound-sms',
 );
+
+/** Monta o público de uma campanha em lotes e enfileira as entregas (retomável). */
+export const MaterializeCampaignJob = defineJob<{ campaignId: string }>(
+  MESSAGING_QUEUE,
+  'materialize-campaign',
+);
+
+/** A cada minuto (agendado no worker): começa as campanhas agendadas que venceram. */
+export const CampaignSweepJob = defineJob<Record<string, never>>(MESSAGING_QUEUE, 'campaign-sweep');
+
+/**
+ * Ritmo de envio das campanhas, por canal: SMS a 1/s (limite da Twilio para
+ * um número comum); e-mail a 20/s (folgado para o SendGrid).
+ */
+export const CAMPAIGN_RATE_PER_SECOND = { email: 20, sms: 1 } as const;

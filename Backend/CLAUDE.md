@@ -127,6 +127,7 @@ Módulos iniciais:
 - Repositórios acessam o banco **sempre** por `TransactionHost.tx` (nunca pelo `PrismaService` direto), para participar da transação em andamento.
 - Use cases com mais de uma escrita envolvem o trabalho em `unitOfWork.run(...)` (port `UnitOfWork`, token `UNIT_OF_WORK`) — **não** usar o decorator `@Transactional()`, que acopla a application ao nestjs-cls e quebra os testes com `new`. A transação vale entre módulos (ex.: cadastro grava em identity e accounts).
 - Migrations sempre pelo Prisma; nunca alterar o banco manualmente.
+- O `prisma migrate dev --create-only` pede confirmação (ex.: ao criar unique) e falha em shell não interativo. Alternativa: `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema --script > prisma/migrations/<timestamp>_<nome>/migration.sql` e depois `prisma migrate deploy`.
 
 ## Eventos, filas e worker
 
@@ -263,6 +264,14 @@ Processo próprio (`whatsapp-connector.ts`, ADR 0006), mesma imagem. Regras:
 - **Descadastro** (`OptOut` por canal + endereço; bloqueia envio e entrega): link assinado no rodapé de todo e-mail (`HmacUnsubscribeTokens`, chave derivada da `ENCRYPTION_KEY`, sem expirar) + cabeçalhos `List-Unsubscribe`/`List-Unsubscribe-Post` (RFC 8058, um clique no Gmail/Outlook). **GET só mostra a página; quem descadastra é o POST** (antivírus de e-mail abrem links). Também: resposta "SAIR/PARAR/STOP…" por SMS (webhook de entrada da Twilio) e eventos `unsubscribe`/`spamreport` do SendGrid. Reativar exige `messaging:manage` (só a pedido do contato).
 - O token do descadastro passa de 100 caracteres: o `FastifyAdapter` usa `maxParamLength: 1000` (o padrão recusaria o link).
 
+### Campanhas
+
+- `Campaign` (`campaigns:manage`, Admin/Supervisor por padrão; `/v1/campaigns`): um canal, texto com `{{nome}}`/`{{nome_completo}}` (`shared/domain/message-template.ts`, o mesmo das automações), assunto obrigatório no e-mail, e **público por filtros de contato** (`search`, `source`, `sourceDetail` — o lote da importação), lidos pelo `ContactsFacade.audiencePage`. Estados: rascunho → agendada → enviando → enviada; cancelada. Só se edita rascunho/agendada; só se exclui rascunho.
+- **Agendar** exige o provedor do canal configurado; `at: null` = agora (enfileira `MaterializeCampaignJob` com jobId `campaign:<id>`). As agendadas são iniciadas pela **varredura por minuto** (`CampaignSweepJob`, `upsertJobScheduler` no `MessagingScheduler`, só no worker), que entra no tenant de cada uma.
+- **Montagem do público** em lotes de 500, retomável: o cursor fica na campanha e `@@unique([campaignId, contactId])` impede mensagem duplicada; ao retomar, reenfileira as `queued` já gravadas. Pula quem não tem endereço ou está descadastrado (contadores na campanha). O texto é truncado **depois** de personalizar. SMS de campanha leva o rodapé `SMS_OPT_OUT_FOOTER` ("responda SAIR").
+- **Ritmo**: cada mensagem é um `DeliverOutboundJob` com `delayMs` pela posição (`CAMPAIGN_RATE_PER_SECOND`: SMS 1/s — limite de número longo da Twilio —, e-mail 20/s). Por isso "enviada" significa "público montado": ainda pode haver mensagens na fila, e **cancelar vale até a última sair** (a entrega recusa com `CAMPAIGN_CANCELED`).
+- Relatório: contagem por status das mensagens + destinatários (`/:id/recipients`).
+
 ## Testes em execução (API + worker de teste)
 
 - Com o worker de dev rodando, uma API/worker de teste no **mesmo banco** disputa os eventos do outbox com ele. Para testes de ponta a ponta com o worker, suba a API/worker de teste apontando para o ambiente de e2e (banco `<nome>_e2e`, Redis db 1, `QUEUE_PREFIX=omni-e2e`) — e pare-os antes do `npm run test:e2e`, que usa as mesmas filas.
@@ -278,6 +287,7 @@ Processo próprio (`whatsapp-connector.ts`, ADR 0006), mesma imagem. Regras:
 - `domain/`: testes unitários puros, sem Nest.
 - Use cases: unitários com fakes dos ports, sem banco e sem Nest (instanciados com `new`). Fakes do shared kernel em `shared/testing/fakes.ts`; repositório em memória do módulo em `<modulo>/testing/`, reproduzindo o contrato do real (isolamento por tenant, unicidade, ordem).
 - Todo módulo tenant-aware tem teste provando que um tenant não enxerga dados de outro (`FakeTenantContext.switchTo`).
+- `test/e2e/modules.e2e-spec.ts` compila o container de injeção **completo** da API e do worker: pega provider sem registro, fila não registrada no módulo que a injeta (cada módulo que usa `@InjectQueue` registra a fila) e tipo de construtor que o Nest não resolve.
 - Integração em `test/e2e/*.e2e-spec.ts`: repositórios, outbox, filas. Usa o Postgres e o Redis do Docker, mas **isolados do dev** (`test/e2e/e2e-env.ts`): banco `omnichannel_e2e` (criado e migrado pelo `global-setup.ts` a cada execução), Redis db 1 e filas `omni-e2e`. Pode rodar com o `npm run dev` de pé. Dados de teste com ids/e-mails próprios (`@teste.dev`), limpos no `afterAll`.
 - O `dist` é compartilhado por API e worker no watch: por isso `deleteOutDir: false` no nest-cli e a limpeza fica no `prebuild` (dist + tsbuildinfo).
 - Todo use case novo vem com `.spec.ts`.

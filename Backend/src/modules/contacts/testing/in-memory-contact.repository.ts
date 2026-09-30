@@ -1,6 +1,12 @@
 import type { CursorPage } from '../../../shared/application/pagination';
 import type { TenantContext } from '../../../shared/application/tenant-context';
-import type { ContactListQuery, ContactRepository } from '../application/ports/contact.repository';
+import type {
+  AudienceCount,
+  ContactFilter,
+  ContactListQuery,
+  ContactRepository,
+  SourceDetailCount,
+} from '../application/ports/contact.repository';
 import type { Contact } from '../domain/contact.entity';
 import type { Email } from '../domain/email.vo';
 import { ContactAlreadyExistsError } from '../domain/errors/contact-already-exists.error';
@@ -59,24 +65,49 @@ export class InMemoryContactRepository implements ContactRepository {
     return Promise.resolve(this.ofTenant().find((c) => c.email?.equals(email)) ?? null);
   }
 
-  list({ limit, cursor, search, source }: ContactListQuery): Promise<CursorPage<Contact>> {
+  list({ limit, cursor, ...filter }: ContactListQuery): Promise<CursorPage<Contact>> {
+    const newestFirst = this.matching(filter).reverse();
+    const start = cursor ? newestFirst.findIndex((c) => c.id === cursor) + 1 : 0;
+    const items = newestFirst.slice(start, start + limit);
+    const hasMore = start + limit < newestFirst.length;
+
+    return Promise.resolve({ items, nextCursor: hasMore ? items[items.length - 1].id : null });
+  }
+
+  count(filter: ContactFilter): Promise<AudienceCount> {
+    const found = this.matching(filter);
+    return Promise.resolve({
+      total: found.length,
+      withEmail: found.filter((c) => c.email).length,
+      withPhone: found.filter((c) => c.phone).length,
+    });
+  }
+
+  listSourceDetails(): Promise<SourceDetailCount[]> {
+    const counts = new Map<string, SourceDetailCount>();
+    for (const c of this.ofTenant()) {
+      if (!c.sourceDetail) continue;
+      const key = `${c.source}|${c.sourceDetail}`;
+      const entry = counts.get(key) ?? { source: c.source, detail: c.sourceDetail, count: 0 };
+      entry.count += 1;
+      counts.set(key, entry);
+    }
+    return Promise.resolve([...counts.values()]);
+  }
+
+  private matching({ search, source, sourceDetail }: ContactFilter): Contact[] {
     const term = search?.trim().toLowerCase();
     const digits = term?.replace(/\D/g, '') ?? '';
-    const newestFirst = this.ofTenant()
+    return this.ofTenant()
       .filter((c) => !source || c.source === source)
+      .filter((c) => !sourceDetail || c.sourceDetail?.toLowerCase() === sourceDetail.toLowerCase())
       .filter(
         (c) =>
           !term ||
           c.name?.toLowerCase().includes(term) ||
           c.email?.value.includes(term) ||
           (digits.length >= 3 && c.phone?.value.includes(digits)),
-      )
-      .reverse();
-    const start = cursor ? newestFirst.findIndex((c) => c.id === cursor) + 1 : 0;
-    const items = newestFirst.slice(start, start + limit);
-    const hasMore = start + limit < newestFirst.length;
-
-    return Promise.resolve({ items, nextCursor: hasMore ? items[items.length - 1].id : null });
+      );
   }
 
   private ofTenant(): Contact[] {

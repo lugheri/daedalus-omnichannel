@@ -24,7 +24,10 @@ import {
 import { CreateContactUseCase } from '../application/use-cases/create-contact/create-contact.use-case';
 import { ImportContactsUseCase } from '../application/use-cases/import-contacts/import-contacts.use-case';
 import { GetContactUseCase } from '../application/use-cases/get-contact/get-contact.use-case';
-import { ListContactsUseCase } from '../application/use-cases/list-contacts/list-contacts.use-case';
+import {
+  ListContactsUseCase,
+  ListSourceDetailsUseCase,
+} from '../application/use-cases/list-contacts/list-contacts.use-case';
 import { UpdateContactUseCase } from '../application/use-cases/update-contact/update-contact.use-case';
 import { ContactNotePresenter, ContactPresenter } from './contact.presenter';
 import {
@@ -47,6 +50,7 @@ export class ContactsController {
     private readonly createContact: CreateContactUseCase,
     private readonly getContact: GetContactUseCase,
     private readonly listContacts: ListContactsUseCase,
+    private readonly listSourceDetails: ListSourceDetailsUseCase,
     private readonly updateContact: UpdateContactUseCase,
     private readonly listNotes: ListContactNotesUseCase,
     private readonly addNote: AddContactNoteUseCase,
@@ -67,8 +71,15 @@ export class ContactsController {
       cursor: query.cursor,
       search: query.q || undefined,
       source: query.source,
+      sourceDetail: query.sourceDetail || undefined,
     });
     return { items: page.items.map(ContactPresenter.toHttp), nextCursor: page.nextCursor };
+  }
+
+  /** Detalhes de origem em uso (campanhas do site, lotes de importação), com contagem. */
+  @Get('source-details')
+  sourceDetails() {
+    return this.listSourceDetails.execute();
   }
 
   /**

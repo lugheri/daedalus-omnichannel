@@ -7,6 +7,8 @@ export const listContactsQuerySchema = z.object({
   /** Busca por nome, e-mail ou telefone. */
   q: z.string().trim().max(100).optional(),
   source: z.enum(LEAD_SOURCES).optional(),
+  /** Detalhe da origem (campanha do site, lote de importação), exato. */
+  sourceDetail: z.string().trim().max(200).optional(),
 });
 
 export type ListContactsQuery = z.infer<typeof listContactsQuerySchema>;

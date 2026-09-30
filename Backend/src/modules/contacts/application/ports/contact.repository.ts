@@ -4,10 +4,27 @@ import type { Email } from '../../domain/email.vo';
 import type { LeadSource } from '../../domain/lead-source';
 import type { Phone } from '../../domain/phone.vo';
 
-export interface ContactListQuery extends PageRequest {
+/** Filtro de contatos (lista da tela e público de campanhas). */
+export interface ContactFilter {
   /** Trecho do nome, do e-mail ou do telefone (só dígitos). */
   search?: string;
   source?: LeadSource;
+  /** Detalhe da origem, exato sem diferenciar maiúsculas (campanha do site, lote de importação). */
+  sourceDetail?: string;
+}
+
+export interface ContactListQuery extends PageRequest, ContactFilter {}
+
+export interface AudienceCount {
+  total: number;
+  withEmail: number;
+  withPhone: number;
+}
+
+export interface SourceDetailCount {
+  source: LeadSource;
+  detail: string;
+  count: number;
 }
 
 /**
@@ -27,8 +44,12 @@ export interface ContactRepository {
     phones: string[],
     emails: string[],
   ): Promise<{ phones: Set<string>; emails: Set<string> }>;
-  /** Mais recentes primeiro, com busca e filtro opcionais. */
+  /** Mais recentes primeiro, com busca e filtros opcionais. */
   list(query: ContactListQuery): Promise<CursorPage<Contact>>;
+  /** Quantos casam com o filtro, e quantos desses têm e-mail / telefone. */
+  count(filter: ContactFilter): Promise<AudienceCount>;
+  /** Detalhes de origem em uso (campanhas, lotes), com quantos contatos cada. */
+  listSourceDetails(): Promise<SourceDetailCount[]>;
 }
 
 export const CONTACT_REPOSITORY = Symbol('ContactRepository');

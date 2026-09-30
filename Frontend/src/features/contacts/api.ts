@@ -91,3 +91,18 @@ export function useContact(id: string) {
 export function useContactNotes(id: string) {
   return useQuery({ queryKey: contactKeys.notes(id), queryFn: () => contactsApi.notes(id) })
 }
+
+export interface SourceDetail {
+  source: LeadSource
+  detail: string
+  count: number
+}
+
+/** Detalhes de origem em uso (campanhas do site, lotes de importação). */
+export function useSourceDetails() {
+  return useQuery({
+    queryKey: ['contacts', 'source-details'] as const,
+    queryFn: () => api<SourceDetail[]>('/v1/contacts/source-details'),
+    staleTime: 60_000,
+  })
+}

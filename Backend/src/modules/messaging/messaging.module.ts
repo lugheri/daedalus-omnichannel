@@ -35,6 +35,25 @@ import {
   RecordInboundSmsUseCase,
 } from './application/use-cases/provider-webhooks.use-cases';
 import { UnsubscribeUseCase } from './application/use-cases/unsubscribe.use-cases';
+import { CAMPAIGN_REPOSITORY } from './application/ports/campaign.repository';
+import {
+  MaterializeCampaignUseCase,
+  StartDueCampaignsUseCase,
+} from './application/use-cases/campaign-sending.use-cases';
+import {
+  CancelCampaignUseCase,
+  CreateCampaignUseCase,
+  DeleteCampaignUseCase,
+  GetCampaignUseCase,
+  ListCampaignRecipientsUseCase,
+  ListCampaignsUseCase,
+  PreviewAudienceUseCase,
+  ScheduleCampaignUseCase,
+  UnscheduleCampaignUseCase,
+  UpdateCampaignUseCase,
+} from './application/use-cases/campaigns.use-cases';
+import { CampaignsController } from './http/campaigns.controller';
+import { PrismaCampaignRepository } from './infra/prisma-campaign.repository';
 import { ContactMessagesController } from './http/contact-messages.controller';
 import { MessagingSettingsController } from './http/messaging-settings.controller';
 import { PublicMessagingController } from './http/public-messaging.controller';
@@ -64,7 +83,12 @@ function webhooksReachable(url: string): boolean {
  */
 @Module({
   imports: [AccountsModule, ContactsModule, BullModule.registerQueue({ name: MESSAGING_QUEUE })],
-  controllers: [MessagingSettingsController, ContactMessagesController, PublicMessagingController],
+  controllers: [
+    MessagingSettingsController,
+    ContactMessagesController,
+    PublicMessagingController,
+    CampaignsController,
+  ],
   providers: [
     // Configuração
     ListMessagingProvidersUseCase,
@@ -84,6 +108,19 @@ function webhooksReachable(url: string): boolean {
     ApplyProviderEventsUseCase,
     RecordInboundSmsUseCase,
     UnsubscribeUseCase,
+    // Campanhas
+    ListCampaignsUseCase,
+    GetCampaignUseCase,
+    CreateCampaignUseCase,
+    UpdateCampaignUseCase,
+    ScheduleCampaignUseCase,
+    UnscheduleCampaignUseCase,
+    CancelCampaignUseCase,
+    DeleteCampaignUseCase,
+    PreviewAudienceUseCase,
+    ListCampaignRecipientsUseCase,
+    MaterializeCampaignUseCase,
+    StartDueCampaignsUseCase,
     // Adapters
     {
       provide: PROVIDER_ENDPOINTS,
@@ -114,12 +151,15 @@ function webhooksReachable(url: string): boolean {
     { provide: MESSAGING_PROVIDER_REPOSITORY, useClass: PrismaMessagingProviderRepository },
     { provide: OUTBOUND_MESSAGE_REPOSITORY, useClass: PrismaOutboundMessageRepository },
     { provide: OPT_OUT_REPOSITORY, useClass: PrismaOptOutRepository },
+    { provide: CAMPAIGN_REPOSITORY, useClass: PrismaCampaignRepository },
   ],
   exports: [
     DeliverOutboundMessageUseCase,
     GiveUpOutboundMessageUseCase,
     ApplyProviderEventsUseCase,
     RecordInboundSmsUseCase,
+    MaterializeCampaignUseCase,
+    StartDueCampaignsUseCase,
   ],
 })
 export class MessagingModule {}

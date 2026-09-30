@@ -97,6 +97,33 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['campaigns:manage']} />,
+            children: [
+              {
+                path: '/campaigns',
+                ...page(() => import('@/features/campaigns/campaigns-page'), 'CampaignsPage'),
+              },
+              {
+                path: '/campaigns/new',
+                ...page(
+                  () => import('@/features/campaigns/campaign-editor-page'),
+                  'CampaignEditorPage',
+                ),
+              },
+              {
+                path: '/campaigns/:id',
+                ...page(() => import('@/features/campaigns/campaign-page'), 'CampaignPage'),
+              },
+              {
+                path: '/campaigns/:id/edit',
+                ...page(
+                  () => import('@/features/campaigns/campaign-editor-page'),
+                  'CampaignEditorPage',
+                ),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['messaging:manage']} />,
             children: [
               {

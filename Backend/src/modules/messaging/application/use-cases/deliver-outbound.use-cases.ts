@@ -5,6 +5,7 @@ import { ProviderUnavailableError } from '../../domain/errors/provider-unavailab
 import type { MessagingProvider } from '../../domain/messaging-provider.entity';
 import type { OutboundMessage } from '../../domain/outbound-message.entity';
 import { composeEmail } from '../email-composer';
+import { CAMPAIGN_REPOSITORY, type CampaignRepository } from '../ports/campaign.repository';
 import {
   MESSAGING_PROVIDER_REPOSITORY,
   type MessagingProviderRepository,
@@ -38,11 +39,18 @@ export class DeliverOutboundMessageUseCase {
     @Inject(SECRET_CIPHER) private readonly cipher: SecretCipher,
     @Inject(UNSUBSCRIBE_TOKENS) private readonly tokens: UnsubscribeTokens,
     @Inject(MESSAGING_URLS) private readonly urls: MessagingUrls,
+    @Inject(CAMPAIGN_REPOSITORY) private readonly campaigns: CampaignRepository,
   ) {}
 
   async execute(messageId: string): Promise<void> {
     const message = await this.messages.findById(messageId);
     if (!message || message.status !== 'queued') return;
+    // Campanha cancelada: o que ainda não saiu, não sai.
+    if (message.campaignId) {
+      const campaign = await this.campaigns.findById(message.campaignId);
+      if (!campaign || campaign.status === 'canceled')
+        return this.fail(message, 'CAMPAIGN_CANCELED');
+    }
 
     const provider = await this.providers.findByChannel(message.channel);
     if (!provider) return this.fail(message, 'MESSAGING_NOT_CONFIGURED');

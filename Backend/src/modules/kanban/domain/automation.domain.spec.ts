@@ -3,7 +3,7 @@ import {
   type AutomationAction,
   type AutomationTrigger,
 } from './automation-rule.entity';
-import { renderTemplate } from './message-template';
+import { renderTemplate } from '../../../shared/domain/message-template';
 
 const rule = (trigger: AutomationTrigger, actions: AutomationAction[]) =>
   AutomationRule.create('r-1', {

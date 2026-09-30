@@ -5,9 +5,16 @@ import type { CursorPage } from '../../../shared/application/pagination';
 import { TENANT_CONTEXT, type TenantContext } from '../../../shared/application/tenant-context';
 import { Prisma } from '../../../shared/infra/prisma/generated/client';
 import type { PrismaService } from '../../../shared/infra/prisma/prisma.service';
-import type { ContactListQuery, ContactRepository } from '../application/ports/contact.repository';
+import type {
+  AudienceCount,
+  ContactFilter,
+  ContactListQuery,
+  ContactRepository,
+  SourceDetailCount,
+} from '../application/ports/contact.repository';
 import type { Contact } from '../domain/contact.entity';
 import type { Email } from '../domain/email.vo';
+import type { LeadSource } from '../domain/lead-source';
 import { ContactAlreadyExistsError } from '../domain/errors/contact-already-exists.error';
 import type { Phone } from '../domain/phone.vo';
 import { ContactMapper } from './contact.mapper';
@@ -90,14 +97,12 @@ export class PrismaContactRepository implements ContactRepository {
     };
   }
 
-  async list({ limit, cursor, search, source }: ContactListQuery): Promise<CursorPage<Contact>> {
+  async list({ limit, cursor, ...filter }: ContactListQuery): Promise<CursorPage<Contact>> {
     // Busca um item a mais só para saber se existe próxima página.
     const rows = await this.db.contact.findMany({
       where: {
-        tenantId: this.tenant.tenantId,
+        ...this.whereOf(filter),
         ...(cursor && { id: { lt: cursor } }),
-        ...(source && { source }),
-        ...(search && { OR: searchFilter(search) }),
       },
       orderBy: { id: 'desc' },
       take: limit + 1,
@@ -106,6 +111,39 @@ export class PrismaContactRepository implements ContactRepository {
     const hasMore = rows.length > limit;
     const items = rows.slice(0, limit).map((row) => ContactMapper.toDomain(row));
     return { items, nextCursor: hasMore ? items[items.length - 1].id : null };
+  }
+
+  async count(filter: ContactFilter): Promise<AudienceCount> {
+    const where = this.whereOf(filter);
+    const [total, withEmail, withPhone] = await Promise.all([
+      this.db.contact.count({ where }),
+      this.db.contact.count({ where: { ...where, email: { not: null } } }),
+      this.db.contact.count({ where: { ...where, phone: { not: null } } }),
+    ]);
+    return { total, withEmail, withPhone };
+  }
+
+  async listSourceDetails(): Promise<SourceDetailCount[]> {
+    const rows = await this.db.contact.groupBy({
+      by: ['source', 'sourceDetail'],
+      where: { tenantId: this.tenant.tenantId, sourceDetail: { not: null } },
+      _count: { _all: true },
+      orderBy: { sourceDetail: 'asc' },
+    });
+    return rows.map((row) => ({
+      source: row.source as LeadSource,
+      detail: row.sourceDetail ?? '',
+      count: row._count._all,
+    }));
+  }
+
+  private whereOf({ search, source, sourceDetail }: ContactFilter): Prisma.ContactWhereInput {
+    return {
+      tenantId: this.tenant.tenantId,
+      ...(source && { source }),
+      ...(sourceDetail && { sourceDetail: { equals: sourceDetail, mode: 'insensitive' } }),
+      ...(search && { OR: searchFilter(search) }),
+    };
   }
 }
 
