@@ -17,6 +17,7 @@ import { EndSessionUseCase } from './application/use-cases/end-session/end-sessi
 import { RefreshSessionUseCase } from './application/use-cases/refresh-session/refresh-session.use-case';
 import { RegisterUserUseCase } from './application/use-cases/register-user/register-user.use-case';
 import { RevokeMembershipSessionsUseCase } from './application/use-cases/revoke-membership-sessions/revoke-membership-sessions.use-case';
+import { RevokeSessionUseCase } from './application/use-cases/revoke-session/revoke-session.use-case';
 import { StartSessionUseCase } from './application/use-cases/start-session/start-session.use-case';
 import { VerifyCredentialsUseCase } from './application/use-cases/verify-credentials/verify-credentials.use-case';
 import { AuthSessionController } from './http/auth-session.controller';
@@ -50,6 +51,7 @@ import { RedisRevokedSessionList } from './infra/redis-revoked-session-list';
     EndSessionUseCase,
     AuthenticateAccessTokenUseCase,
     RevokeMembershipSessionsUseCase,
+    RevokeSessionUseCase,
     AuthTokensFactory,
     IdentityFacade,
     RefreshTokenCookie,

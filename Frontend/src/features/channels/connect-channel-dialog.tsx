@@ -54,7 +54,7 @@ export function ConnectChannelDialog({
           {!channel && <Skeleton className="size-66" />}
           {channel && connected && (
             <>
-              <CheckCircle2 className="size-12 text-emerald-600" />
+              <CheckCircle2 className="size-12 text-success" />
               <p className="font-medium">
                 Conectado{channel.phoneNumber && ` a ${formatPhone(channel.phoneNumber)}`}
               </p>

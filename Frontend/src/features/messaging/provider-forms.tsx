@@ -58,7 +58,7 @@ function WebhookUrl({ url, reachable }: { url?: string; reachable: boolean }) {
         </Button>
       </div>
       {!reachable && (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
+        <p className="text-xs text-warning">
           Este ambiente não tem endereço público (https): os provedores não conseguem chamá-lo.
           Funciona em produção.
         </p>

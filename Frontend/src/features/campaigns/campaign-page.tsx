@@ -285,7 +285,9 @@ function CampaignView({ campaign }: { campaign: CampaignReport }) {
                         variant={
                           r.status === 'failed' || r.status === 'bounced'
                             ? 'destructive'
-                            : 'outline'
+                            : r.status === 'delivered'
+                              ? 'success'
+                              : 'outline'
                         }
                       >
                         {RECIPIENT_STATUS[r.status]}

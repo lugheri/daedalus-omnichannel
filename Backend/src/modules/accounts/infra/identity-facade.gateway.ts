@@ -38,4 +38,8 @@ export class IdentityFacadeGateway implements IdentityGateway {
   async revokeMembershipSessions(membershipId: string): Promise<void> {
     await this.identity.revokeMembershipSessions(membershipId);
   }
+
+  revokeSession(sessionId: string): Promise<void> {
+    return this.identity.revokeSession(sessionId);
+  }
 }

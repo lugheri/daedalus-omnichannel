@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountAccessDeniedError } from '../../../domain/errors/account-access-denied.error';
-import type { Membership } from '../../../domain/membership.entity';
 import type { Tenant } from '../../../domain/tenant.entity';
+import { findAccessibleAccounts } from '../../accessible-accounts';
 import {
   IDENTITY_GATEWAY,
   type IdentityGateway,
@@ -43,7 +43,7 @@ export class LogInUseCase {
       password: input.password,
     });
 
-    const accesses = await this.accessibleAccounts(user.id);
+    const accesses = await findAccessibleAccounts(this.memberships, this.tenants, user.id);
     if (accesses.length === 0) throw new AccountAccessDeniedError();
 
     const chosen = input.tenantId
@@ -63,18 +63,5 @@ export class LogInUseCase {
       membershipId: chosen.membership.id,
     });
     return { kind: 'authenticated', tenant: chosen.tenant, tokens };
-  }
-
-  /** Vínculos ativos em contas que não estão suspensas. */
-  private async accessibleAccounts(
-    userId: string,
-  ): Promise<{ membership: Membership; tenant: Tenant }[]> {
-    const memberships = await this.memberships.findActiveByUserId(userId);
-    const tenants = await this.tenants.findManyByIds(memberships.map((m) => m.tenantId));
-
-    return memberships.flatMap((membership) => {
-      const tenant = tenants.find((t) => t.id === membership.tenantId);
-      return tenant?.allowsAccess ? [{ membership, tenant }] : [];
-    });
   }
 }

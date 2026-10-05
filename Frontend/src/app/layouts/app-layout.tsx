@@ -1,106 +1,152 @@
-import { LogOut, MessagesSquare } from 'lucide-react'
-import { NavLink, Outlet, useMatches, useNavigate } from 'react-router'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useMe, usePermissions, useSession } from '@/features/auth/session-context'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Outlet, useLocation, useMatches, useNavigate } from 'react-router'
+import { useMe, usePermissions } from '@/features/auth/session-context'
 import { RealtimeProvider } from '@/features/realtime/realtime-provider'
 import { cn } from '@/lib/utils'
-import { NAV_ITEMS } from '../navigation'
+import { itemsOf, locate, visibleModules, type NavModule } from '../navigation'
+import { Breadcrumbs } from './shell/breadcrumbs'
+import { CommandPalette } from './shell/command-palette'
+import { ModulePanel } from './shell/module-panel'
+import { ModuleRail } from './shell/module-rail'
+import { TopBar } from './shell/top-bar'
+import { useStoredFlag } from './shell/use-stored-flag'
 
-/** Moldura das telas logadas: menu lateral (filtrado por permissão) + cabeçalho. */
+/** Abaixo disto (o `md` do Tailwind), trilho e painel viram gaveta. */
+const MOBILE_QUERY = '(max-width: 767px)'
+
+/**
+ * Moldura das telas logadas: barra do topo, trilho de módulos, painel com
+ * as telas do módulo e o conteúdo com a trilha "Módulo › Grupo › Tela".
+ * Tudo filtrado por permissão. No celular, trilho e painel viram gaveta.
+ */
 export function AppLayout() {
   const me = useMe()
   const { canAny } = usePermissions()
-  const { end } = useSession()
+  const { pathname } = useLocation()
   const navigate = useNavigate()
   // Telas que ocupam a área inteira (ex.: caixa de entrada) declaram handle: { fullBleed: true }.
   const fullBleed = useMatches().some(
     (match) => (match.handle as RouteHandle | undefined)?.fullBleed,
   )
-  const items = NAV_ITEMS.filter((item) => item.anyOf.length === 0 || canAny(...item.anyOf))
 
-  const logOut = async () => {
-    await end()
-    navigate('/login', { replace: true })
+  const modules = useMemo(() => visibleModules(canAny), [canAny])
+  const location = locate(modules, pathname)
+
+  const [railCompact, setRailCompact] = useStoredFlag('omni.shell.railCompact', false)
+  const [panelCollapsed, setPanelCollapsed] = useStoredFlag('omni.shell.panelCollapsed', false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  // Na gaveta, tocar num módulo mostra as telas dele antes de navegar.
+  const [drawerModule, setDrawerModule] = useState<NavModule | null>(null)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // Voltar a um módulo reabre a última tela vista nele (nesta aba e nesta conta:
+  // depois de trocar de conta, a tela da anterior não existe mais).
+  const lastVisited = useRef(new Map<string, string>())
+  useEffect(() => {
+    if (location) lastVisited.current.set(`${me.tenant.id}:${location.module.key}`, pathname)
+  }, [location, pathname, me.tenant.id])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  const closeDrawer = () => {
+    setDrawerOpen(false)
+    setDrawerModule(null)
   }
 
-  return (
-    <RealtimeProvider>
-      <div className="flex h-svh">
-        <aside className="bg-muted/40 hidden w-60 shrink-0 flex-col border-r md:flex">
-          <div className="flex h-14 items-center gap-2 border-b px-4 font-semibold">
-            <MessagesSquare className="text-primary size-5" />
-            Omnichannel
-          </div>
-          <nav className="flex flex-col gap-1 p-2">
-            {items.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={to === '/'}
-                className={({ isActive }) =>
-                  cn(
-                    'text-muted-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm',
-                    isActive && 'bg-accent text-accent-foreground font-medium',
-                  )
-                }
-              >
-                <Icon className="size-4" />
-                {label}
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
+  const openModule = (module: NavModule) => {
+    const isMobile = window.matchMedia(MOBILE_QUERY).matches
+    if (isMobile && itemsOf(module).length > 1) {
+      setDrawerModule(module)
+      return
+    }
+    const first = itemsOf(module)[0]
+    const target = lastVisited.current.get(`${me.tenant.id}:${module.key}`) ?? first?.to
+    if (target) navigate(target)
+    closeDrawer()
+  }
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 items-center justify-between gap-4 border-b px-4 md:px-6">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="truncate font-medium">{me.tenant.name}</span>
-              {me.tenant.status === 'trial' && <Badge variant="secondary">Teste</Badge>}
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 px-2">
-                  <Avatar className="size-7">
-                    <AvatarFallback>{initials(me.user.name)}</AvatarFallback>
-                  </Avatar>
-                  <span className="hidden text-sm sm:inline">{me.user.name}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="flex flex-col">
-                  <span>{me.user.name}</span>
-                  <span className="text-muted-foreground text-xs font-normal">{me.user.email}</span>
-                  <span className="text-muted-foreground text-xs font-normal">{me.role.name}</span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => void logOut()}>
-                  <LogOut />
-                  Sair
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </header>
+  const toggleMenu = () => {
+    if (window.matchMedia(MOBILE_QUERY).matches) {
+      if (drawerOpen) closeDrawer()
+      else setDrawerOpen(true)
+    } else {
+      setPanelCollapsed(!panelCollapsed)
+    }
+  }
+
+  const panelModule = (drawerOpen && drawerModule) || location?.module
+  // Módulo de uma tela só não tem o que escolher: sem painel.
+  const panelUseful = !!panelModule && itemsOf(panelModule).length > 1
+
+  return (
+    <RealtimeProvider key={me.tenant.id}>
+      <div className="flex h-svh flex-col">
+        <TopBar onMenu={toggleMenu} onSearch={() => setPaletteOpen(true)} />
+
+        <div className="relative flex min-h-0 flex-1">
+          <div
+            className={cn(
+              'flex shrink-0',
+              'max-md:fixed max-md:top-12 max-md:bottom-0 max-md:left-0 max-md:z-30 max-md:transition-transform max-md:duration-200',
+              !drawerOpen && 'max-md:-translate-x-full',
+            )}
+          >
+            <ModuleRail
+              modules={modules}
+              current={panelModule?.key}
+              compact={railCompact}
+              onCompactChange={setRailCompact}
+              onSelect={openModule}
+            />
+            {panelModule && panelUseful && (
+              <div className={cn(panelCollapsed && 'md:hidden')}>
+                <ModulePanel
+                  module={panelModule}
+                  onCollapse={drawerOpen ? undefined : () => setPanelCollapsed(true)}
+                  onNavigate={closeDrawer}
+                />
+              </div>
+            )}
+          </div>
+
+          {drawerOpen && (
+            <div
+              aria-hidden
+              onClick={closeDrawer}
+              className="fixed inset-x-0 top-12 bottom-0 z-20 bg-black/40 md:hidden"
+            />
+          )}
 
           <main
             className={cn(
-              'min-h-0 flex-1',
-              fullBleed ? 'flex flex-col' : 'overflow-y-auto p-4 md:p-6',
+              'min-h-0 min-w-0 flex-1',
+              fullBleed ? 'flex flex-col' : 'overflow-y-auto',
             )}
           >
-            <Outlet />
+            {fullBleed ? (
+              <Outlet />
+            ) : (
+              <div className="px-4 pt-2.5 pb-8 md:px-5">
+                {location && <Breadcrumbs location={location} pathname={pathname} />}
+                <div className="mt-1.5">
+                  <Outlet />
+                </div>
+              </div>
+            )}
           </main>
         </div>
       </div>
+
+      <CommandPalette modules={modules} open={paletteOpen} onOpenChange={setPaletteOpen} />
     </RealtimeProvider>
   )
 }
@@ -108,12 +154,4 @@ export function AppLayout() {
 /** Metadados que uma rota pode declarar em `handle`. */
 export interface RouteHandle {
   fullBleed?: boolean
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('')
 }

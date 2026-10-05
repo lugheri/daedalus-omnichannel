@@ -18,6 +18,8 @@ export interface IdentityGateway {
   }): Promise<SessionTokens>;
   /** Derruba as sessões de um vínculo desativado. */
   revokeMembershipSessions(membershipId: string): Promise<void>;
+  /** Encerra uma sessão (ex.: a da conta anterior, ao trocar de conta). */
+  revokeSession(sessionId: string): Promise<void>;
 }
 
 export interface UserInfo {

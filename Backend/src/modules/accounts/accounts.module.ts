@@ -31,6 +31,10 @@ import {
   RevokeInvitationUseCase,
 } from './application/use-cases/invitations/manage-invitations.use-case';
 import { LogInUseCase } from './application/use-cases/log-in/log-in.use-case';
+import {
+  ListMyAccountsUseCase,
+  SwitchAccountUseCase,
+} from './application/use-cases/my-accounts/my-accounts.use-cases';
 import { ChangeMemberRoleUseCase } from './application/use-cases/members/change-member-role.use-case';
 import { ListMemberDirectoryUseCase } from './application/use-cases/members/list-member-directory.use-case';
 import { ListMembersUseCase } from './application/use-cases/members/list-members.use-case';
@@ -44,6 +48,7 @@ import {
 } from './application/use-cases/roles/manage-roles.use-case';
 import { SignUpUseCase } from './application/use-cases/sign-up/sign-up.use-case';
 import { AccessGuard } from './http/access.guard';
+import { AccountSwitchController } from './http/account-switch.controller';
 import { AuthController } from './http/auth.controller';
 import {
   InvitationAcceptanceController,
@@ -79,6 +84,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
   imports: [IdentityModule],
   controllers: [
     AuthController,
+    AccountSwitchController,
     MeController,
     MemberDirectoryController,
     ApiKeysController,
@@ -93,6 +99,8 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     LogInUseCase,
     ResolveAccessUseCase,
     GetMeUseCase,
+    ListMyAccountsUseCase,
+    SwitchAccountUseCase,
     CurrentAccess,
     AccountsFacade,
     { provide: APP_GUARD, useClass: AccessGuard },

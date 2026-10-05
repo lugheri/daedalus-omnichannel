@@ -44,6 +44,13 @@ export const authApi = {
 
   me: () => api<Me>('/v1/me'),
 
+  /** Contas em que a pessoa pode entrar (seletor de conta). */
+  accounts: () => api<Tenant[]>('/v1/me/accounts'),
+
+  /** Nova sessão na conta escolhida; a da conta atual é encerrada pela API. */
+  switchAccount: (tenantId: string) =>
+    api<SessionStart>('/v1/auth/switch-account', { method: 'POST', body: { tenantId } }),
+
   lookUpInvitation: (token: string) =>
     api<InvitationPreview>('/v1/invitations/lookup', { query: { token } }),
 

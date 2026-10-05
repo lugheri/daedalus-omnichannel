@@ -48,7 +48,15 @@ test.describe.serial('ciclo de vida da conta', () => {
   test('Owner convida uma pessoa como Agent e sai', async ({ page }) => {
     await logIn(page, owner.email, owner.password)
 
-    await page.getByRole('navigation').getByRole('link', { name: 'Membros' }).click()
+    // Trilho de módulos → painel com as telas do módulo
+    await page
+      .getByRole('navigation', { name: 'Módulos' })
+      .getByRole('button', { name: 'Pessoas e acesso' })
+      .click()
+    await page
+      .getByRole('navigation', { name: 'Telas de Pessoas e acesso' })
+      .getByRole('link', { name: 'Membros' })
+      .click()
     await expect(page.getByRole('cell', { name: /Ana Teste/ })).toBeVisible()
     await page.getByRole('button', { name: 'Convidar' }).click()
 
@@ -82,13 +90,18 @@ test.describe.serial('ciclo de vida da conta', () => {
     await page.getByRole('button', { name: 'Aceitar convite' }).click()
 
     await expect(page.getByRole('heading', { name: 'Olá, Bia' })).toBeVisible()
-    const nav = page.getByRole('navigation')
-    await expect(nav.getByRole('link', { name: 'Contatos' })).toBeVisible()
-    await expect(nav.getByRole('link', { name: 'Membros' })).toHaveCount(0)
+    // Agent não vê o módulo de pessoas
+    const rail = page.getByRole('navigation', { name: 'Módulos' })
+    await expect(rail.getByRole('button', { name: 'Atendimento' })).toBeVisible()
+    await expect(rail.getByRole('button', { name: 'Pessoas e acesso' })).toHaveCount(0)
     await shot(page, '07-home-agent')
 
     // Agent pode criar contatos...
-    await nav.getByRole('link', { name: 'Contatos' }).click()
+    await rail.getByRole('button', { name: 'Atendimento' }).click()
+    await page
+      .getByRole('navigation', { name: 'Telas de Atendimento' })
+      .getByRole('link', { name: 'Contatos' })
+      .click()
     await page.getByRole('button', { name: 'Novo contato' }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('Nome').fill('Cliente Teste')

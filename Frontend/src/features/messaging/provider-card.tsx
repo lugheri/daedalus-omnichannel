@@ -28,8 +28,8 @@ export function ProviderStatusBadge({ provider }: { provider: ProviderView<unkno
   if (!provider) return <Badge variant="outline">Não configurado</Badge>
   if (provider.status === 'verified') {
     return (
-      <Badge variant="secondary" className="gap-1">
-        <CheckCircle2 className="size-3.5 text-emerald-600" />
+      <Badge variant="success" className="gap-1">
+        <CheckCircle2 className="size-3.5" />
         Funcionando
       </Badge>
     )

@@ -228,6 +228,7 @@ export class FakeIdentityGateway implements IdentityGateway {
   readonly users: (UserInfo & { password: string })[] = [];
   readonly sessions: { userId: string; tenantId: string; membershipId: string }[] = [];
   readonly revokedMemberships: string[] = [];
+  readonly revokedSessions: string[] = [];
 
   registerUser(input: { email: string; name: string; password: string }) {
     if (this.users.some((u) => u.email === input.email)) {
@@ -274,6 +275,11 @@ export class FakeIdentityGateway implements IdentityGateway {
 
   revokeMembershipSessions(membershipId: string): Promise<void> {
     this.revokedMemberships.push(membershipId);
+    return Promise.resolve();
+  }
+
+  revokeSession(sessionId: string): Promise<void> {
+    this.revokedSessions.push(sessionId);
     return Promise.resolve();
   }
 

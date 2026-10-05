@@ -34,11 +34,14 @@ const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyl
 
 const STATUS: Record<
   OutboundStatus,
-  { label: string; variant: 'outline' | 'secondary' | 'destructive' }
+  {
+    label: string
+    variant: 'outline' | 'secondary' | 'destructive' | 'default' | 'success' | 'warning'
+  }
 > = {
   queued: { label: 'Na fila', variant: 'outline' },
-  sent: { label: 'Enviado', variant: 'outline' },
-  delivered: { label: 'Entregue', variant: 'secondary' },
+  sent: { label: 'Enviado', variant: 'secondary' },
+  delivered: { label: 'Entregue', variant: 'success' },
   failed: { label: 'Falhou', variant: 'destructive' },
   bounced: { label: 'Devolvido', variant: 'destructive' },
 }

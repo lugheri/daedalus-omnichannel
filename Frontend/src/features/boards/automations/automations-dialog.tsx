@@ -164,7 +164,7 @@ export function AutomationsDialog({
 
 const STATUS = {
   running: { label: 'em andamento', variant: 'outline' },
-  succeeded: { label: 'ok', variant: 'secondary' },
+  succeeded: { label: 'ok', variant: 'success' },
   failed: { label: 'com falha', variant: 'destructive' },
 } as const
 

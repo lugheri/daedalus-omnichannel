@@ -1,6 +1,7 @@
 import { Controller, Get, Inject } from '@nestjs/common';
 import { ACTOR_CONTEXT, type ActorContext } from '../../../shared/application/actor-context';
 import { GetMeUseCase } from '../application/use-cases/get-me/get-me.use-case';
+import { ListMyAccountsUseCase } from '../application/use-cases/my-accounts/my-accounts.use-cases';
 import { TenantPresenter } from './tenant.presenter';
 
 /** Qualquer membro autenticado pode ver os próprios dados — sem permissão específica. */
@@ -8,6 +9,7 @@ import { TenantPresenter } from './tenant.presenter';
 export class MeController {
   constructor(
     private readonly getMe: GetMeUseCase,
+    private readonly listMyAccounts: ListMyAccountsUseCase,
     @Inject(ACTOR_CONTEXT) private readonly actors: ActorContext,
   ) {}
 
@@ -22,5 +24,12 @@ export class MeController {
       role: access.role,
       permissions: access.permissions,
     };
+  }
+
+  /** As contas em que a pessoa pode entrar (seletor de conta; a troca é em /v1/auth/switch-account). */
+  @Get('accounts')
+  async accounts() {
+    const tenants = await this.listMyAccounts.execute(this.actors.actor);
+    return tenants.map((tenant) => TenantPresenter.toHttp(tenant));
   }
 }

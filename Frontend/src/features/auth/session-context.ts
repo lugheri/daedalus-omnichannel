@@ -9,6 +9,8 @@ export interface SessionContextValue {
   /** Depois de login, cadastro ou aceite de convite: guarda o token e carrega o /me. */
   start: (session: SessionStart) => Promise<void>
   end: () => Promise<void>
+  /** Troca de conta sem nova senha: nova sessão, cache limpo, /me da conta escolhida. */
+  switchAccount: (tenantId: string) => Promise<void>
   /** Recarrega o /me (ex.: depois de mudar o próprio cargo). */
   reload: () => Promise<void>
 }

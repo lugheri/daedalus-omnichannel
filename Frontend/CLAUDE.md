@@ -31,7 +31,7 @@ A porta do dev server é **5180**, não a 5173 padrão do Vite: outro projeto da
 ```
 src/
 ├── main.tsx
-├── app/                 # router, providers, layouts, navegação (menu)
+├── app/                 # router, providers, layouts (layouts/shell: moldura), navegação (menu)
 ├── components/
 │   ├── ui/              # shadcn (gerado)
 │   └── form/            # TextField, FormError — ligam RHF + Field do shadcn
@@ -57,7 +57,10 @@ e2e/                     # testes Playwright
 - Rótulos das permissões em `features/roles/permissions.ts` — permissão nova no catálogo do backend = entrada nova aqui.
 - **Textos da interface em português**; código, nomes de arquivos e rotas em inglês.
 - Arquivos em kebab-case; componentes em PascalCase. Um arquivo que exporta componente não exporta hooks/funções (Fast Refresh) — por isso `session.tsx` (provider) e `session-context.ts` (hooks).
-- Páginas novas entram no `app/router.tsx` com `lazy` e, se tiverem menu, em `app/navigation.ts`.
+- Páginas novas entram no `app/router.tsx` com `lazy` e, se tiverem menu, em `app/navigation.ts` — dentro de um **módulo** (`NAV_MODULES`: módulo → grupos → telas, cada tela com `anyOf`). Módulo/grupo sem tela visível some (`visibleModules`); a trilha e o item ativo vêm de `locate()` (prefixo mais longo do caminho).
+- **Moldura (padrão do Janus, `app/layouts/shell/`):** barra escura no topo (menu, marca, busca, conta, usuário); **trilho de módulos** com o nome embaixo do ícone (modo só-ícone opcional); **painel** com as telas do módulo por grupo (some em módulo de uma tela só; recolhível); trilha "Módulo › Grupo › Tela" acima do conteúdo (fora das telas `fullBleed`). Voltar a um módulo reabre a última tela vista nele (por conta). **Ctrl+K** abre a busca de telas (sem acento). No celular (< `md`), trilho + painel viram gaveta: tocar num módulo de várias telas mostra as telas antes de navegar. Preferências da moldura (`useStoredFlag`) ficam no `localStorage` — só conveniência, com padrão se falhar. Landmarks: `nav` "Módulos" e "Telas de <módulo>" (os testes navegam por eles).
+- **Troca de conta** (`AccountSwitcher`, na barra do topo): lista `/v1/me/accounts` ao abrir; trocar vai para o Início **antes** de `useSession().switchAccount()` (a tela aberta é dado da conta anterior), que limpa o cache e recarrega o `/me`. O `RealtimeProvider` tem `key` = conta, para reconectar com o token novo.
+- **Tema (paleta do Janus):** tokens em `index.css` (claro e `.dark`), tema pelo `next-themes` (claro / escuro / do sistema, no menu do usuário). Além dos do shadcn: `rail`/`rail-2`/`rail-foreground` (topo e trilho, escuros nos dois temas), `faint` (texto terciário), `success`/`warning` (+ `-soft`) e `destructive-soft`. **Status usam as variantes do `Badge`** — `success` (ok), `warning` (atenção), `destructive` (erro), `outline`/`secondary` (neutro) —, nunca cor fixa do Tailwind (`emerald-600`…), que não acompanha o tema.
 - O `AppLayout` tem altura fixa (`h-svh`) e o scroll fica dentro do `<main>`. Telas que ocupam a área inteira, com scroll próprio por coluna (ex.: caixa de entrada), declaram `handle: { fullBleed: true }` na rota — o `<main>` perde o padding. Em layouts de colunas flex, lembre do `min-w-0`/`min-h-0`, senão o conteúdo estoura a tela no celular.
 - **Nomes de colegas:** `useMemberNames()` (`features/members/api.ts`, sobre `GET /v1/members/directory`, aberto a todos) — use para responsável, remetente e membros de equipe; não use `/v1/members` (exige `members:manage`). O próprio usuário é `useMe().membershipId`.
 - **Equipes** (`features/teams`, rota `/settings/teams`, `teams:manage`): criar, renomear, membros, excluir. A equipe de cada canal é definida na página de Canais.

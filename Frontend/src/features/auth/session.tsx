@@ -49,6 +49,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await authApi.logOut().catch(() => undefined)
         clear()
       },
+      switchAccount: async (tenantId) => {
+        const session = await authApi.switchAccount(tenantId)
+        queryClient.clear() // dados da conta anterior não podem vazar para a próxima
+        setAccessToken(session.accessToken)
+        await loadMe()
+      },
       reload: loadMe,
     }),
     [state, queryClient, loadMe, clear],

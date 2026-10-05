@@ -80,7 +80,7 @@ export function ChannelsPage() {
   return (
     <>
       <PageHeader
-        title="Canais"
+        title="WhatsApp"
         description="Números de WhatsApp conectados ao atendimento."
         actions={
           <Button onClick={() => setCreating(true)}>

@@ -3,12 +3,15 @@ import type { CampaignStatus } from './api'
 
 const STATUS: Record<
   CampaignStatus,
-  { label: string; variant: 'outline' | 'secondary' | 'destructive' | 'default' }
+  {
+    label: string
+    variant: 'outline' | 'secondary' | 'destructive' | 'default' | 'success' | 'warning'
+  }
 > = {
   draft: { label: 'Rascunho', variant: 'outline' },
-  scheduled: { label: 'Agendada', variant: 'secondary' },
+  scheduled: { label: 'Agendada', variant: 'warning' },
   sending: { label: 'Enviando', variant: 'default' },
-  sent: { label: 'Enviada', variant: 'secondary' },
+  sent: { label: 'Enviada', variant: 'success' },
   canceled: { label: 'Cancelada', variant: 'destructive' },
 }
 

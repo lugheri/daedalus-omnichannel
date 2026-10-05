@@ -7,6 +7,7 @@ import {
   type AuthenticatedAccess,
 } from './use-cases/authenticate-access-token/authenticate-access-token.use-case';
 import { RevokeMembershipSessionsUseCase } from './use-cases/revoke-membership-sessions/revoke-membership-sessions.use-case';
+import { RevokeSessionUseCase } from './use-cases/revoke-session/revoke-session.use-case';
 import {
   RegisterUserUseCase,
   type RegisterUserInput,
@@ -37,6 +38,7 @@ export class IdentityFacade {
     private readonly verifyCredentialsUseCase: VerifyCredentialsUseCase,
     private readonly startSessionUseCase: StartSessionUseCase,
     private readonly revokeMembershipSessionsUseCase: RevokeMembershipSessionsUseCase,
+    private readonly revokeSessionUseCase: RevokeSessionUseCase,
     private readonly authenticateAccessTokenUseCase: AuthenticateAccessTokenUseCase,
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
   ) {}
@@ -74,6 +76,11 @@ export class IdentityFacade {
   /** Derruba as sessões de um vínculo desativado (refresh e access tokens). */
   revokeMembershipSessions(membershipId: string): Promise<number> {
     return this.revokeMembershipSessionsUseCase.execute(membershipId);
+  }
+
+  /** Encerra uma sessão (id vindo de um access token validado). Idempotente. */
+  revokeSession(sessionId: string): Promise<void> {
+    return this.revokeSessionUseCase.execute(sessionId);
   }
 
   async registerUser(input: RegisterUserInput): Promise<UserSummary> {

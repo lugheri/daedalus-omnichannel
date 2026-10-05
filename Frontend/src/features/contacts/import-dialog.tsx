@@ -107,7 +107,7 @@ function ImportResult({ report }: { report: ImportReport }) {
   return (
     <div className="flex flex-col gap-3 text-sm" role="status">
       <p className="flex items-center gap-2 font-medium">
-        <CheckCircle2 className="size-5 text-emerald-600" />
+        <CheckCircle2 className="size-5 text-success" />
         {report.created} de {report.total} contatos importados
       </p>
       {report.duplicates > 0 && (

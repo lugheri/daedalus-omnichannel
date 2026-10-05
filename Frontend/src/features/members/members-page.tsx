@@ -152,7 +152,7 @@ export function MembersPage() {
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={member.status === 'active' ? 'secondary' : 'outline'}>
+                    <Badge variant={member.status === 'active' ? 'success' : 'outline'}>
                       {member.status === 'active' ? 'Ativo' : 'Desativado'}
                     </Badge>
                   </TableCell>
