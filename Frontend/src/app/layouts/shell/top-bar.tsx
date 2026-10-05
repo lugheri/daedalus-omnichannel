@@ -1,9 +1,10 @@
 import { Menu, Search } from 'lucide-react'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { AccountSwitcher } from './account-switcher'
 import { Kbd } from './command-palette'
 import { UserMenu } from './user-menu'
 
-/** Barra escura do topo: menu, marca, busca de telas, conta e usuário. */
+/** Barra escura do topo: menu, marca, busca de telas, conta, tema e usuário. */
 export function TopBar({ onMenu, onSearch }: { onMenu: () => void; onSearch: () => void }) {
   return (
     <header className="bg-rail flex h-12 shrink-0 items-center gap-2.5 overflow-hidden pr-2.5 pl-1.5 text-white">
@@ -38,6 +39,7 @@ export function TopBar({ onMenu, onSearch }: { onMenu: () => void; onSearch: () 
 
       <div className="flex shrink-0 items-center gap-1 sm:ml-auto">
         <AccountSwitcher />
+        <ThemeToggle className="text-rail-foreground hover:bg-white/12 hover:text-white" />
         <UserMenu />
       </div>
     </header>
