@@ -1,0 +1,575 @@
+<title>Roteiro de Captação Daedalus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: uma linha de metrô vertical — cada fase é uma estação; o que o produto
+   precisa ter fica ao lado da estação; a jornada do lead abre a página. */
+:root {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --ink: #17221f;
+  --muted: #5b6a65;
+  --line: #d5ddda;
+  --accent: #0f7a5c;      /* verde "placa de rua": a linha das fases */
+  --accent-soft: #dcefe8;
+  --signal: #c2410c;      /* sinal: armadilhas e bloqueios */
+  --signal-soft: #fbe6da;
+  --done: #0f7a5c;
+  --now: #b45309;
+  --now-soft: #fdf0d8;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101614; --surface: #17201d; --ink: #e4ebe8; --muted: #9aaaa4; --line: #2a3632;
+    --accent: #3fbf94; --accent-soft: #163a2f; --signal: #f08a5d; --signal-soft: #3a2116;
+    --done: #3fbf94; --now: #f2b25c; --now-soft: #3a2c14; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101614; --surface: #17201d; --ink: #e4ebe8; --muted: #9aaaa4; --line: #2a3632;
+  --accent: #3fbf94; --accent-soft: #163a2f; --signal: #f08a5d; --signal-soft: #3a2116;
+  --done: #3fbf94; --now: #f2b25c; --now-soft: #3a2c14; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 16px/1.55 var(--font-body);
+  padding-inline: 16px; padding-block: 0 64px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.2rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow {
+  font: 500 0.72rem/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+}
+.muted { color: var(--muted); }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Cabeçalho */
+header { padding-block: 48px 0; display: grid; gap: 20px; }
+.thesis { font-size: 1.2rem; max-width: 60ch; }
+.principle {
+  border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; max-width: 64ch; color: var(--muted);
+}
+.principle strong { color: var(--ink); }
+.decisions { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font: 500 0.78rem/1.2 var(--font-mono); padding: 6px 10px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.chip.open { border-style: dashed; color: var(--now); }
+
+/* Jornada do lead */
+.journey { display: grid; gap: 16px; }
+.flow-scroll { overflow-x: auto; padding-bottom: 6px; }
+.flow { display: flex; align-items: stretch; gap: 0; min-width: 880px; }
+.col { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.node {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; min-width: 128px; display: grid; gap: 4px;
+}
+.node b { font-family: var(--font-display); font-weight: 700; font-size: 1rem; }
+.node .tag { font: 500 0.68rem/1 var(--font-mono); color: var(--accent); letter-spacing: 0.04em; }
+.node.later { border-style: dashed; }
+.node.later .tag { color: var(--muted); }
+.node.core { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.arrow { align-self: center; color: var(--muted); font: 500 1.1rem var(--font-mono); padding: 0 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.9rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 22px; height: 14px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface); display: inline-block; }
+.sw.core { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.sw.later { border-style: dashed; }
+
+/* Linha das fases */
+.line { display: grid; gap: 0; }
+.station { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 20px; }
+.rail { position: relative; display: flex; justify-content: center; }
+.rail::before {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 6px; border-radius: 3px; background: var(--accent);
+}
+.station:first-child .rail::before { top: 30px; }
+.station:last-child .rail::before { bottom: auto; height: 30px; }
+.station.future .rail::before { background: repeating-linear-gradient(to bottom, var(--accent) 0 10px, transparent 10px 18px); }
+.dot {
+  position: relative; margin-top: 18px; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--surface); border: 5px solid var(--accent);
+}
+.station.now .dot { border-color: var(--now); box-shadow: 0 0 0 5px var(--now-soft); }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 22px; margin-bottom: 22px; display: grid; gap: 16px; min-width: 0;
+}
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.card-head .t { display: grid; gap: 6px; }
+.price { font: 500 0.85rem/1.3 var(--font-mono); text-align: right; }
+.price small { display: block; color: var(--muted); font-size: 0.72rem; }
+.status {
+  display: inline-block; font: 500 0.7rem/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 5px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+}
+.status.now { background: var(--now-soft); color: var(--now); }
+.status.idea { background: transparent; border: 1px dashed var(--line); color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 24px; }
+.block { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.block h4 { margin: 0; font: 500 0.72rem/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+li::marker { color: var(--muted); }
+.have { color: var(--accent); font: 500 0.7rem var(--font-mono); white-space: nowrap; }
+.manual { color: var(--now); font: 500 0.7rem var(--font-mono); white-space: nowrap; }
+
+.gate {
+  border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 6px;
+}
+.gate h4 { margin: 0; font: 500 0.72rem/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); }
+.trap {
+  background: var(--signal-soft); border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; font-size: 0.95rem;
+}
+.trap h4 { margin: 0; font: 500 0.72rem/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--signal); }
+
+/* Matriz */
+.matrix-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 0.93rem; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+thead th { font: 500 0.72rem/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: var(--bg); }
+thead th.ph { text-align: center; }
+tbody th { font-weight: 600; }
+tbody tr.group th { font: 500 0.7rem/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); background: var(--accent-soft); }
+td.c { text-align: center; font: 500 0.85rem var(--font-mono); font-variant-numeric: tabular-nums; }
+.m-new { color: var(--accent); }
+.m-man { color: var(--now); }
+.m-has { color: var(--muted); }
+.m-no { color: var(--line); }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; gap: 12px; align-content: start; }
+footer { color: var(--muted); font-size: 0.9rem; display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 20px; }
+
+@media (max-width: 560px) {
+  .station { grid-template-columns: 30px minmax(0, 1fr); gap: 0 12px; }
+  .dot { width: 20px; height: 20px; border-width: 4px; }
+  .rail::before { width: 4px; }
+  .card { padding: 16px; }
+  .price { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Daedalus OminiChannel · produto para negócios locais · 05/10/2026</span>
+  <h1>Roteiro de captação para negócios locais</h1>
+  <p class="thesis">Encontramos empresas sem site ou com site fraco, vendemos um site hospedado por nós e já ligado ao CRM. O site é o gancho. O negócio é a mensalidade, que cresce conforme o cliente passa a enxergar de onde vêm os clientes dele.</p>
+  <p class="principle"><strong>As fases são possibilidades, não um compromisso.</strong> Cada uma só começa se os clientes pedirem ou se os números da fase anterior justificarem. O critério para avançar está no fim de cada fase.</p>
+  <div class="decisions" aria-label="Decisões tomadas">
+    <span class="chip">Daedalus hospeda os sites</span>
+    <span class="chip">R$ 59/mês com hospedagem</span>
+    <span class="chip">Site por faixa: R$ 497 · R$ 697 · sob medida</span>
+    <span class="chip">Subdomínio nosso no teste</span>
+    <span class="chip">Abordagem manual, WhatsApp de número separado</span>
+    <span class="chip">Receita Federal primeiro, Google depois</span>
+    <span class="chip open">Escada de planos: a decidir</span>
+    <span class="chip open">Nichos: depende da Fase 0</span>
+  </div>
+</header>
+
+<section class="journey" aria-labelledby="j-title">
+  <span class="eyebrow">A jornada de um cliente do nosso cliente</span>
+  <h2 id="j-title">Da busca no Google até a venda</h2>
+  <p class="muted">Cada etapa mostra em que fase ela entra no produto. A promessa ao empresário é aumentar a chance de ser encontrado e converter quem já chega. Não prometemos número de leads.</p>
+  <div class="flow-scroll">
+    <div class="flow" role="list">
+      <div class="col" role="listitem">
+        <div class="node"><span class="tag">F1 · serviço</span><b>Perfil do Google</b><span class="muted">configurado à mão</span></div>
+        <div class="node later"><span class="tag">F3–F4</span><b>Instagram</b><span class="muted">conteúdo e posts</span></div>
+        <div class="node later"><span class="tag">F5</span><b>Anúncios</b><span class="muted">Meta e Google Ads</span></div>
+      </div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="col" role="listitem">
+        <div class="node core"><span class="tag">F1</span><b>Site</b><span class="muted">hospedado, por nicho</span></div>
+      </div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="col" role="listitem">
+        <div class="node core"><span class="tag">F1</span><b>Formulário</b><span class="muted">vira lead na hora</span></div>
+        <div class="node core"><span class="tag">F1</span><b>Botão WhatsApp</b><span class="muted">clique registrado</span></div>
+      </div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="col" role="listitem">
+        <div class="node core"><span class="tag">F1</span><b>Lead com origem</b><span class="muted">Google, Instagram, anúncio</span></div>
+      </div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="col" role="listitem">
+        <div class="node"><span class="tag">F1 · já existe</span><b>CRM / kanban</b><span class="muted">funil por nicho</span></div>
+      </div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="col" role="listitem">
+        <div class="node"><span class="tag">F1</span><b>Atender</b><span class="muted">leads não tratados</span></div>
+        <div class="node"><span class="tag">F2</span><b>Follow-up</b><span class="muted">alerta e automação</span></div>
+        <div class="node later"><span class="tag">F4</span><b>Recuperar</b><span class="muted">reativar antigos</span></div>
+      </div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="col" role="listitem">
+        <div class="node"><span class="tag">F2</span><b>Venda medida</b><span class="muted">relatório mensal</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="sw core"></i>peça central do MVP</span>
+    <span><i class="sw"></i>entra cedo, já existe ou é serviço</span>
+    <span><i class="sw later"></i>fase posterior</span>
+  </div>
+</section>
+
+<section aria-labelledby="f-title" style="display:grid;gap:24px">
+  <div style="display:grid;gap:8px">
+    <span class="eyebrow">Fases</span>
+    <h2 id="f-title">O que o produto precisa ter em cada fase</h2>
+  </div>
+
+  <div class="line">
+
+    <!-- Fase 0 -->
+    <div class="station now" id="fase-0">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t">
+            <span class="eyebrow">Fase 0 · alguns dias</span>
+            <h3>Descobrir onde vender</h3>
+            <span class="status now">Em andamento</span>
+          </div>
+          <div class="price">sem receita<small>custo: só tempo</small></div>
+        </div>
+        <p>Medir, antes de abordar alguém, quais nichos têm mais empresas ativas sem site. Primeira cidade: Sorocaba. Depois São Paulo (por bairro) e outras cidades do interior.</p>
+        <div class="grid">
+          <div class="block">
+            <h4>O que precisa existir</h4>
+            <ul>
+              <li>Script da base de CNPJ da Receita: empresas ativas por nicho e cidade <span class="have">feito</span></li>
+              <li>Sinais grátis: celular, tipo de e-mail (gratuito, contador, domínio próprio), idade</li>
+              <li>Consulta ao Google só para as empresas filtradas: site, nota, avaliações</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>No produto</h4>
+            <ul><li>Nada. É uma ferramenta interna, fora do Daedalus.</li></ul>
+          </div>
+        </div>
+        <div class="trap">
+          <h4>Cuidado</h4>
+          <p>O e-mail cadastrado na Receita costuma ser do contador. Corretor de imóveis autônomo muitas vezes não tem CNPJ e não aparece na base. No Google, cada busca traz no máximo 60 resultados.</p>
+        </div>
+        <div class="gate">
+          <h4>Para avançar</h4>
+          <p>3 nichos escolhidos pela proporção de empresas ativas sem site, e uma lista de cerca de 90 empresas para abordar.</p>
+        </div>
+      </article>
+    </div>
+
+    <!-- Fase 1 -->
+    <div class="station" id="fase-1">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t">
+            <span class="eyebrow">Fase 1 · MVP</span>
+            <h3>Vender o primeiro site</h3>
+            <span class="status idea">Planejada</span>
+          </div>
+          <div class="price">R$ 497 / R$ 697 + R$ 59/mês<small>WhatsApp não oficial + R$ 29,90/mês</small></div>
+        </div>
+        <p>O mínimo para fechar uma venda: um site bonito do nicho, que cai no CRM, e uma tela que mostra ao dono quem ainda não foi atendido.</p>
+        <div class="grid">
+          <div class="block">
+            <h4>Precisa construir</h4>
+            <ul>
+              <li>Módulo de sites: templates por nicho, seções por faixa de preço</li>
+              <li>HTML gerado ao publicar, guardado no S3, servido no subdomínio</li>
+              <li>Formulário público por conta, com anti-spam, sem chave de API</li>
+              <li>Origem do lead: de onde veio a visita e o clique no WhatsApp</li>
+              <li>Tela de leads não tratados</li>
+              <li>Contagem de visitas e de leads por site</li>
+              <li>Plano R$ 59 e complemento de WhatsApp na conta</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Já existe</h4>
+            <ul>
+              <li>Entrada de leads com origem <code>web_form</code> <span class="have">existe</span></li>
+              <li>Kanban com automações e tabulações <span class="have">existe</span></li>
+              <li>WhatsApp não oficial (Baileys) <span class="have">existe</span></li>
+              <li>E-mail e SMS com descadastro <span class="have">existe</span></li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Feito à mão por nós</h4>
+            <ul>
+              <li>Prévia do site da empresa abordada <span class="manual">manual</span></li>
+              <li>Configuração inicial do Perfil do Google <span class="manual">manual</span></li>
+              <li>Cobrança <span class="manual">manual</span></li>
+              <li>Funil de venda num tenant nosso do Daedalus</li>
+            </ul>
+          </div>
+        </div>
+        <div class="trap">
+          <h4>Cuidado</h4>
+          <p>O Google lê mal o app em React: o site do cliente precisa ser HTML pronto. O clique no botão do WhatsApp perde a origem se não passar por um link nosso.</p>
+        </div>
+        <div class="gate">
+          <h4>Para avançar</h4>
+          <p>Cerca de 90 abordagens: 5 vendas é sinal interessante, 10 é excelente. E os assinantes continuam pagando no 2º mês.</p>
+        </div>
+      </article>
+    </div>
+
+    <!-- Fase 2 -->
+    <div class="station future" id="fase-2">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t">
+            <span class="eyebrow">Fase 2</span>
+            <h3>Provar o valor e reter</h3>
+            <span class="status idea">Possibilidade</span>
+          </div>
+          <div class="price">R$ 59/mês<small>mesmo preço, menos cancelamento</small></div>
+        </div>
+        <p>O cliente só continua pagando se enxergar que o site traz gente e que nenhum contato ficou sem resposta.</p>
+        <div class="grid">
+          <div class="block">
+            <h4>Precisa construir</h4>
+            <ul>
+              <li>Relatório mensal: visitas, leads por origem, tempo de resposta</li>
+              <li>Alerta de lead parado sem resposta</li>
+              <li>Follow-up automático pelo kanban</li>
+              <li>Páginas por serviço para o Google local ("Troca de óleo em Sorocaba")</li>
+              <li>Editor simples para o cliente trocar texto, preço e fotos</li>
+              <li>Cobrança automática</li>
+              <li>Domínio próprio do cliente, com certificado sob demanda</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Decisões pendentes</h4>
+            <ul>
+              <li>Domínio próprio: em nome de quem, e o que acontece se o cliente cancelar</li>
+              <li>Limites do plano: usuários, contatos, leads por mês</li>
+            </ul>
+          </div>
+        </div>
+        <div class="trap">
+          <h4>Cuidado</h4>
+          <p>O Traefik atual não emite bem certificado para domínios que entram a qualquer momento. Caddy ou Cloudflare for SaaS resolvem.</p>
+        </div>
+        <div class="gate">
+          <h4>Para avançar</h4>
+          <p>Cancelamento baixo nos primeiros meses, e clientes pedindo ajuda com o que postar.</p>
+        </div>
+      </article>
+    </div>
+
+    <!-- Fase 3 -->
+    <div class="station future" id="fase-3">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t">
+            <span class="eyebrow">Fase 3</span>
+            <h3>Conteúdo com IA</h3>
+            <span class="status idea">Possibilidade</span>
+          </div>
+          <div class="price">R$ 129/mês<small>se a escada de planos for adotada</small></div>
+        </div>
+        <p>Ajudar o empresário a postar sem virar refém de "digite seu prompt". A IA escreve; a identidade visual é nossa e fica sempre consistente.</p>
+        <div class="grid">
+          <div class="block">
+            <h4>Precisa construir</h4>
+            <ul>
+              <li>Perfil da marca: logo, cores, fontes, tom de voz, serviços, fotos</li>
+              <li>Texto por modelo de linguagem: legenda, chamada, roteiro de story</li>
+              <li>Templates de post por nicho, montados com as fotos do cliente</li>
+              <li>Geração da imagem final (PNG) a partir do template</li>
+              <li>Calendário de posts</li>
+              <li>Cota de posts por plano</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Fica de fora por enquanto</h4>
+            <ul>
+              <li>Publicar direto no Instagram: o cliente baixa e posta</li>
+              <li>Imagem gerada por IA: upgrade, para o custo não engolir a margem</li>
+            </ul>
+          </div>
+        </div>
+        <div class="gate">
+          <h4>Para avançar</h4>
+          <p>Clientes usando os posts toda semana, e a origem "Instagram" aparecendo nos leads.</p>
+        </div>
+      </article>
+    </div>
+
+    <!-- Fase 4 -->
+    <div class="station future" id="fase-4">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t">
+            <span class="eyebrow">Fase 4</span>
+            <h3>Campanhas e canais oficiais</h3>
+            <span class="status idea">Possibilidade</span>
+          </div>
+          <div class="price">R$ 249/mês<small>se a escada de planos for adotada</small></div>
+        </div>
+        <p>O empresário escolhe um objetivo ("mais agendamentos esta semana") e o sistema monta a campanha inteira: posts, story, página do site, mensagem no WhatsApp e follow-up no CRM.</p>
+        <div class="grid">
+          <div class="block">
+            <h4>Precisa construir</h4>
+            <ul>
+              <li>Campanha por objetivo, ligando conteúdo, site e CRM</li>
+              <li>Publicação direta no Instagram</li>
+              <li>Gestão do Perfil do Google e o "apareceu X vezes este mês"</li>
+              <li>WhatsApp oficial (Cloud API)</li>
+              <li>Reativação de clientes antigos</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Depende de terceiros</h4>
+            <ul>
+              <li>Aprovação de app pela Meta, aproveitando o processo de Tech Provider</li>
+              <li>Pedido de acesso aprovado à API do Perfil da Empresa no Google</li>
+              <li>Autorização de cada cliente nas contas dele</li>
+            </ul>
+          </div>
+        </div>
+        <div class="gate">
+          <h4>Para avançar</h4>
+          <p>Clientes satisfeitos com o orgânico e perguntando como crescer mais rápido.</p>
+        </div>
+      </article>
+    </div>
+
+    <!-- Fase 5 -->
+    <div class="station future" id="fase-5">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t">
+            <span class="eyebrow">Fase 5</span>
+            <h3>Escala</h3>
+            <span class="status idea">Possibilidade</span>
+          </div>
+          <div class="price">anúncios e novos públicos<small>produto separado ou serviço</small></div>
+        </div>
+        <p>O funil não muda. Entram novas fontes no topo, e cresce a nossa própria máquina de prospecção.</p>
+        <div class="grid">
+          <div class="block">
+            <h4>No produto do cliente</h4>
+            <ul>
+              <li>Anúncios Meta e Google como mais uma origem de lead</li>
+              <li>Relatório "orgânico × Instagram × Google × anúncios"</li>
+              <li>Enriquecimento dos contatos pela base da Receita (só nome e contato, nunca CPF)</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Para nós</h4>
+            <ul>
+              <li>Prospecção automatizada com pontuação de oportunidade</li>
+              <li>Corretores autônomos e, depois, imobiliárias como produto próprio</li>
+            </ul>
+          </div>
+        </div>
+        <div class="trap">
+          <h4>Cuidado</h4>
+          <p>Dados do Google não podem ser guardados nem revendidos. Lista de prospecção somada a WhatsApp não oficial vira disparo em massa, e precisa de travas.</p>
+        </div>
+      </article>
+    </div>
+
+  </div>
+</section>
+
+<section aria-labelledby="m-title" style="display:grid;gap:16px">
+  <span class="eyebrow">Visão de conjunto</span>
+  <h2 id="m-title">Capacidades por fase</h2>
+  <p class="muted">Quando cada coisa entra no produto. As fases se acumulam: o que entra numa fase continua nas seguintes.</p>
+  <div class="matrix-wrap">
+    <table>
+      <thead>
+        <tr><th scope="col">Capacidade</th><th class="ph" scope="col">F0</th><th class="ph" scope="col">F1</th><th class="ph" scope="col">F2</th><th class="ph" scope="col">F3</th><th class="ph" scope="col">F4</th><th class="ph" scope="col">F5</th></tr>
+      </thead>
+      <tbody>
+        <tr class="group"><th colspan="7" scope="rowgroup">Captação</th></tr>
+        <tr><th scope="row">Levantamento Receita + Google</th><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-new">auto</td></tr>
+        <tr><th scope="row">Prévia do site para a abordagem</th><td class="c m-no">–</td><td class="c m-man">mão</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-new">auto</td></tr>
+        <tr class="group"><th colspan="7" scope="rowgroup">Site</th></tr>
+        <tr><th scope="row">Site por template, no subdomínio</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Formulário e botão de WhatsApp com origem</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Páginas por serviço e editor do cliente</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Domínio próprio</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr class="group"><th colspan="7" scope="rowgroup">CRM e atendimento</th></tr>
+        <tr><th scope="row">Kanban, tabulações, WhatsApp não oficial</th><td class="c m-no">–</td><td class="c m-has">existe</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Leads não tratados e contagem por site</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Alerta, follow-up e relatório mensal</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">WhatsApp oficial e reativação</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td></tr>
+        <tr class="group"><th colspan="7" scope="rowgroup">Presença e conteúdo</th></tr>
+        <tr><th scope="row">Perfil do Google</th><td class="c m-no">–</td><td class="c m-man">mão</td><td class="c m-man">mão</td><td class="c m-man">mão</td><td class="c m-new">API</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Posts com IA e templates</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Publicação no Instagram e campanhas</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Anúncios como origem</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td></tr>
+        <tr class="group"><th colspan="7" scope="rowgroup">Negócio</th></tr>
+        <tr><th scope="row">Plano e complementos</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-new">R$ 129</td><td class="c m-new">R$ 249</td><td class="c m-has">·</td></tr>
+        <tr><th scope="row">Cobrança</th><td class="c m-no">–</td><td class="c m-man">mão</td><td class="c m-new">auto</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="legend">
+    <span><b class="m-new">●</b>&nbsp;entra nesta fase</span>
+    <span><b class="m-man">mão</b>&nbsp;feito à mão por nós</span>
+    <span><b class="m-has">·</b>&nbsp;continua</span>
+    <span><b class="m-has">existe</b>&nbsp;já está no Daedalus</span>
+  </div>
+</section>
+
+<section class="two" aria-label="Pendências e o que medir">
+  <div class="panel">
+    <span class="eyebrow">Em aberto</span>
+    <h3>Decisões que faltam</h3>
+    <ul>
+      <li><b>Escada de planos:</b> manter R$ 59 com complementos, ou adotar R$ 59 / 129 / 249. Sugestão: R$ 59 no teste e a escada só quando o conteúdo existir.</li>
+      <li><b>Nichos:</b> saem do levantamento da Fase 0. Hipótese: oficinas, clínicas de estética e autônomos de serviço.</li>
+      <li><b>Capital × interior:</b> comparar a região num nicho só, ou aumentar o teste.</li>
+      <li><b>Conteúdo dos sites:</b> quem produz textos e fotos, e em quanto tempo.</li>
+      <li><b>Preço do WhatsApp oficial:</b> depende do custo por conversa da Meta.</li>
+    </ul>
+  </div>
+  <div class="panel">
+    <span class="eyebrow">Como medir</span>
+    <h3>O funil do teste</h3>
+    <ul>
+      <li>Abordagens que responderam</li>
+      <li>Sites vendidos, e em quantos dias</li>
+      <li>Sites que viraram assinatura</li>
+      <li>Assinantes ainda pagando no 2º e no 3º mês</li>
+      <li>Leads por site por mês, por origem</li>
+    </ul>
+    <p class="muted">Com 30 empresas por nicho, a diferença entre nichos ainda é sorte. O teste mostra se vende e por quê.</p>
+  </div>
+</section>
+
+<footer>
+  <p>Nada além do levantamento da Fase 0 foi construído, e nenhum número de conversão é real ainda.</p>
+  <p>Detalhes, armadilhas e o porquê de cada decisão: <code>docs/produto/captacao-negocios-sem-site.md</code> no repositório do Daedalus.</p>
+</footer>
+
+</div>
