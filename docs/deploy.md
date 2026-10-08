@@ -77,8 +77,11 @@ openssl rand -base64 48 | tr -d '\n' | docker secret create jwt_secret -
 openssl rand -base64 32 | tr -d '\n' | docker secret create encryption_key -
 read -rs S3_KEY;    printf '%s' "$S3_KEY"    | docker secret create s3_access_key -
 read -rs S3_SECRET; printf '%s' "$S3_SECRET" | docker secret create s3_secret_key -
-unset PG_PASS REDIS_PASS S3_KEY S3_SECRET
+read -rs CF_TOKEN;  printf '%s' "$CF_TOKEN"  | docker secret create cf_dns_api_token -
+unset PG_PASS REDIS_PASS S3_KEY S3_SECRET CF_TOKEN
 ```
+
+> `cf_dns_api_token` é o token da API da Cloudflare usado pelo Traefik para emitir o certificado curinga dos sites dos clientes ([ADR 0008](adr/0008-hospedagem-sites-clientes.md)). Crie em *My Profile → API Tokens* com a permissão **Zone → DNS → Edit** só na zona do `SITES_DOMAIN`. O Traefik exige o secret mesmo que os sites ainda não estejam no ar.
 
 > A senha do Postgres/Redis com caracteres especiais (`@`, `/`, `:`) precisa ser *URL-encoded* na URL. As geradas acima (`tr -d '/+='` no Redis) evitam isso; no Postgres, se tiver `/` ou `+`, gere de novo ou codifique.
 >
@@ -107,6 +110,54 @@ docker service logs -f omnichannel_api     # logs em JSON
 ```
 
 O primeiro acesso a `https://app.<domínio>` pode levar alguns segundos: o Traefik emite o certificado do Let's Encrypt.
+
+## Sites dos clientes
+
+Os sites estáticos dos clientes rodam numa stack separada (`Docker/sites`), atrás do mesmo Traefik. Decisão e motivos: [ADR 0008](adr/0008-hospedagem-sites-clientes.md).
+
+```
+visitante → Cloudflare → Traefik (*.SITES_DOMAIN, certificado curinga)
+          → sites (nginx ×2, cache local) → bucket S3 público: <slug>/index.html
+```
+
+### Uma vez
+
+1. **Domínio dos sites** (separado do painel) com o DNS na **Cloudflare**:
+   - registro `A` de `*.SITES_DOMAIN` para o IP público do manager, com proxy ligado (nuvem laranja);
+   - *SSL/TLS → Overview*: modo **Full (strict)**.
+2. **Bucket público de sites** (`SITES_BUCKET`) no provedor de S3, com leitura pública dos objetos e **sem listagem**, e uma chave de acesso própria (escrita só nesse bucket). Nada privado vai para esse bucket.
+3. Preencha `SITES_DOMAIN`, `SITES_BUCKET`, `SITES_ORIGIN` e `SITES_PUBLIC_ACL` no `Docker/.env.prod`.
+4. Com a stack principal no ar:
+
+```bash
+cd daedalus-omnichannel/Docker
+./sites/deploy-sites.sh
+```
+
+O primeiro acesso pode levar até 2 minutos: o Traefik emite o certificado curinga pelo DNS da Cloudflare (`docker service logs omnichannel_traefik` mostra o andamento).
+
+### Publicar o site de um cliente
+
+```bash
+./sites/publish.sh barbearia-x /caminho/da/pasta/do/site
+```
+
+- A pasta precisa de um `index.html` na raiz. `servicos/index.html` vira `https://barbearia-x.SITES_DOMAIN/servicos`.
+- O slug aceita letras minúsculas, números e hífen.
+- As chaves do bucket são pedidas na hora (ou vêm de `SITES_S3_ACCESS_KEY` / `SITES_S3_SECRET_KEY`); nunca as grave em arquivo.
+- Republicar a mesma pasta atualiza o site; arquivo apagado da pasta some do site. A mudança aparece em até 1 minuto.
+
+### Tirar um site do ar
+
+Apague a pasta do slug no bucket (`aws s3 rm s3://SITES_BUCKET/<slug>/ --recursive`). O cache local expira em minutos; na Cloudflare, use *Caching → Purge*.
+
+### Conferir
+
+```bash
+curl -sI https://barbearia-x.SITES_DOMAIN/            # 200, com X-Cache
+curl -sI https://barbearia-x.SITES_DOMAIN/nao-existe  # 404
+docker service logs omnichannel-sites_sites
+```
 
 ## Publicar uma versão
 

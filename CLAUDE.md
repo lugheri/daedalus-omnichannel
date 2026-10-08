@@ -45,6 +45,7 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 - **Deploy** ([ADR 0007](docs/adr/0007-deploy-swarm.md), passo a passo em [docs/deploy.md](docs/deploy.md)):
   - Imagens: `Backend/Dockerfile` (alvos `runtime` e `migrate`) e `Frontend/Dockerfile` (nginx; URL da API em runtime via `API_URL` → `/config.js`). Publicadas no GHCR pelo `.github/workflows/release.yml` a cada tag `v*`; o `ci.yml` roda lint, tipos, testes (inclusive e2e com Postgres/Redis/MinIO) e build a cada push.
   - `Docker/stack.prod.yaml` (Swarm) + `Docker/deploy.sh` (migrations num job único, depois a stack). `Docker/data/compose.yaml`: VM de dados (Postgres, Redis com `noeviction`, backup diário para S3).
+  - **Sites dos clientes** ([ADR 0008](docs/adr/0008-hospedagem-sites-clientes.md)): stack separada em `Docker/sites` (nginx sem estado lendo de um bucket S3 **público** dedicado, `<slug>.SITES_DOMAIN` num domínio próprio, certificado curinga pelo DNS da Cloudflare). Publicação manual por `Docker/sites/publish.sh` até o módulo de sites existir. O Traefik da stack principal exige o secret `cf_dns_api_token`.
   - **Toda migration precisa ser compatível com a versão anterior do código**: o rolling update roda as duas versões juntas por instantes, e rollback não desfaz migration.
 
 ## Ambiente de desenvolvimento

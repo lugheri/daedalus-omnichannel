@@ -12,6 +12,8 @@ ADRs não são editados depois de aceitos: quando uma decisão muda, cria-se um 
 | [0004](0004-autenticacao.md)            | Autenticação própria com JWT e refresh token rotativo    | Aceito |
 | [0005](0005-refresh-token-em-cookie.md) | Refresh token em cookie HttpOnly e frontend SPA          | Aceito |
 | [0006](0006-canais-whatsapp.md)         | Canais de WhatsApp: API oficial e Baileys (conector)     | Aceito |
+| [0007](0007-deploy-swarm.md)            | Deploy em Docker Swarm com dados fora do cluster         | Aceito |
+| [0008](0008-hospedagem-sites-clientes.md) | Hospedagem dos sites dos clientes na própria infraestrutura | Aceito |
 
 ## Modelo
 

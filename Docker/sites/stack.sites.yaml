@@ -1,0 +1,56 @@
+# Stack dos sites dos clientes (ADR 0008). Separada da stack principal: publicar
+# ou atualizar o servidor de sites não toca na API nem no painel, e vice-versa.
+#
+# Deploy pelo Docker/sites/deploy-sites.sh (ele calcula SITES_DOMAIN_RE e
+# SITES_CONFIG_VERSION). Usa o Traefik da stack principal, pela rede edge.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+services:
+  sites:
+    image: nginxinc/nginx-unprivileged:1.29-alpine
+    environment:
+      SITES_DOMAIN: ${SITES_DOMAIN}
+      # URL base do bucket público, já com o bucket: https://s3.provedor.com/omnichannel-sites
+      SITES_ORIGIN: ${SITES_ORIGIN}
+    configs:
+      - source: sites_nginx
+        target: /etc/nginx/templates/default.conf.template
+    networks: [edge]
+    logging: *logging
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/health']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy:
+      replicas: 2
+      update_config: { order: start-first, failure_action: rollback }
+      labels:
+        - traefik.enable=true
+        # Qualquer <slug>.SITES_DOMAIN. O $$ é o $ literal (escape do compose).
+        - traefik.http.routers.sites.rule=HostRegexp(`^[a-z0-9-]+\.${SITES_DOMAIN_RE}$$`)
+        - traefik.http.routers.sites.entrypoints=websecure
+        # Certificado curinga (*.SITES_DOMAIN) pelo desafio de DNS da Cloudflare:
+        # com HostRegexp o Traefik não sabe os nomes, então o certificado é declarado.
+        - traefik.http.routers.sites.tls.certresolver=lesites
+        - traefik.http.routers.sites.tls.domains[0].main=${SITES_DOMAIN}
+        - traefik.http.routers.sites.tls.domains[0].sans=*.${SITES_DOMAIN}
+        - traefik.http.services.sites.loadbalancer.server.port=8080
+        - traefik.swarm.lbswarm=true
+
+configs:
+  # Configs do Swarm são imutáveis: o nome leva o hash do arquivo, e mudar o
+  # template cria uma config nova (o deploy-sites.sh calcula o hash).
+  sites_nginx:
+    name: sites_nginx_${SITES_CONFIG_VERSION}
+    file: ./nginx.conf.template
+
+networks:
+  edge:
+    external: true
+    name: omnichannel_edge

@@ -1,0 +1,92 @@
+# Servidor dos sites dos clientes (ADR 0008).
+#
+# Template do entrypoint do nginx: ao subir, ${SITES_DOMAIN} e ${SITES_ORIGIN}
+# viram os valores do ambiente (só variáveis definidas são trocadas; as do
+# nginx, como $host, ficam intactas).
+#
+# Cada site é uma pasta no bucket público de sites: <slug>/index.html etc.
+# O slug é o primeiro rótulo do host: barbearia-x.<SITES_DOMAIN> → barbearia-x/.
+# Nada fica no disco do container além do cache, que é descartável.
+
+# Cache local: se o S3 ficar fora do ar, o último conteúdo continua sendo servido.
+proxy_cache_path /tmp/sites-cache levels=1:2 keys_zone=sites:10m max_size=1g inactive=7d use_temp_path=off;
+
+map $host $site_slug {
+    "~^(?<slug>[a-z0-9-]+)\.(?<rest>.+)$" $slug;
+    default "";
+}
+map $host $site_rest {
+    "~^[a-z0-9-]+\.(?<rest>.+)$" $rest;
+    default "";
+}
+# O Traefik já só manda para cá o que é *.SITES_DOMAIN; isto é defesa extra
+# (comparação exata de texto, sem regex: o domínio não precisa de escape).
+map $site_rest $site_ok {
+    "${SITES_DOMAIN}" 1;
+    default 0;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    server_tokens off;
+
+    # DNS interno do Docker, que repassa nomes externos (o endpoint do S3).
+    resolver 127.0.0.11 valid=30s ipv6=off;
+    resolver_timeout 5s;
+
+    location = /health {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location / {
+        if ($site_ok = 0) { return 404; }
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+
+        # /            → /index.html
+        # /servicos/   → /servicos/index.html
+        # /servicos    → /servicos/index.html (URL sem extensão = página)
+        set $obj $uri;
+        if ($obj ~ /$) { set $obj "${obj}index.html"; }
+        if ($obj !~ "\.[A-Za-z0-9]+$") { set $obj "$obj/index.html"; }
+
+        proxy_pass ${SITES_ORIGIN}/$site_slug$obj;
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        # Nada do visitante vai para o S3, e nada do S3 que não seja o arquivo volta.
+        proxy_set_header Cookie "";
+        proxy_set_header Authorization "";
+        proxy_hide_header Set-Cookie;
+        proxy_hide_header x-amz-request-id;
+        proxy_hide_header x-amz-id-2;
+        proxy_hide_header x-amz-meta-s3cmd-attrs;
+        proxy_ignore_headers Set-Cookie;
+
+        # Bucket público sem permissão de listagem devolve 403 para arquivo
+        # inexistente: os dois viram "não encontrado".
+        proxy_intercept_errors on;
+        error_page 403 404 = @nao_encontrado;
+
+        # O tempo de cache vem do Cache-Control gravado na publicação
+        # (publish.sh: HTML 60 s, demais arquivos 1 dia); isto é o mínimo.
+        proxy_cache sites;
+        proxy_cache_key $site_slug$obj;
+        proxy_cache_valid 200 1m;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+        proxy_cache_lock on;
+
+        add_header X-Cache $upstream_cache_status always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header X-Frame-Options SAMEORIGIN always;
+    }
+
+    location @nao_encontrado {
+        default_type text/html;
+        return 404 '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Página não encontrada</title><body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;color:#334"><p>Página não encontrada.</p></body>';
+    }
+}

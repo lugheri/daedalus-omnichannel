@@ -55,6 +55,12 @@ services:
       - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.le.acme.tlschallenge=true
+      # Certificado curinga dos sites dos clientes (*.SITES_DOMAIN, ADR 0008):
+      # curinga só sai pelo desafio de DNS, feito na Cloudflare.
+      - --certificatesresolvers.lesites.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.lesites.acme.storage=/letsencrypt/acme-sites.json
+      - --certificatesresolvers.lesites.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.lesites.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53
       - --accesslog=true
       - --log.level=INFO
     ports:
@@ -68,6 +74,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
+    environment:
+      # Token da API da Cloudflare (permissão Zone:DNS:Edit só na zona dos
+      # sites). O lego lê qualquer variável com sufixo _FILE do arquivo.
+      CF_DNS_API_TOKEN_FILE: /run/secrets/cf_dns_api_token
+    secrets: [cf_dns_api_token]
     networks: [edge]
     logging: *logging
     deploy:
@@ -192,3 +203,4 @@ secrets:
   encryption_key: { external: true }
   s3_access_key: { external: true }
   s3_secret_key: { external: true }
+  cf_dns_api_token: { external: true }
