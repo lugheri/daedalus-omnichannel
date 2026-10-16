@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppConfigModule } from './config/app-config.module';
 import { HealthModule } from './health/health.module';
 import { AccountsModule } from './modules/accounts';
+import { CatalogModule } from './modules/catalog';
 import { ChannelsModule } from './modules/channels';
 import { ContactsModule } from './modules/contacts';
 import { ConversationsModule } from './modules/conversations';
@@ -30,6 +31,7 @@ import { SharedInfraModule } from './shared/infra/shared-infra.module';
     ConversationsModule,
     KanbanModule,
     MessagingModule,
+    CatalogModule,
     ChannelsModule,
     RealtimeModule,
   ],

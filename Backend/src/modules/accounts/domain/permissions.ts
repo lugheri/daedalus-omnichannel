@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   'conversations:assign', //    atribuir e transferir conversas
   'messaging:send', //          enviar e-mail/SMS a um contato (pela ficha)
   'campaigns:manage', //        campanhas de e-mail/SMS
+  'catalog:manage', //          serviços e profissionais (preços, quem atende)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

@@ -1,4 +1,6 @@
 import {
+  BriefcaseBusiness,
+  CalendarDays,
   Contact,
   Headset,
   Home,
@@ -12,6 +14,7 @@ import {
   Settings,
   SquareKanban,
   Tags,
+  UserRound,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -66,6 +69,31 @@ export const NAV_MODULES: NavModule[] = [
           { to: '/conversations', label: 'Conversas', icon: Inbox, anyOf: CONVERSATION_SCOPES },
           { to: '/boards', label: 'Quadros', icon: SquareKanban, anyOf: CONVERSATION_SCOPES },
           { to: '/contacts', label: 'Contatos', icon: Contact, anyOf: ['contacts:view'] },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'schedule',
+    label: 'Agenda',
+    icon: CalendarDays,
+    description: 'Serviços e profissionais',
+    groups: [
+      {
+        label: null,
+        items: [
+          {
+            to: '/services',
+            label: 'Serviços',
+            icon: BriefcaseBusiness,
+            anyOf: ['catalog:manage'],
+          },
+          {
+            to: '/professionals',
+            label: 'Profissionais',
+            icon: UserRound,
+            anyOf: ['catalog:manage'],
+          },
         ],
       },
     ],

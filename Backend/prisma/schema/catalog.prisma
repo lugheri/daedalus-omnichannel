@@ -1,0 +1,57 @@
+// Módulo catalog. O que o negócio oferece (serviços) e quem atende
+// (profissionais) — base da agenda e do site. O profissional pode ser um
+// membro da conta (vínculo do accounts; só o id) ou só um cadastro.
+
+model Offering {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  name            String
+  description     String?
+  durationMinutes Int      @map("duration_minutes")
+  // Em centavos; null = "sob consulta".
+  priceCents      Int?     @map("price_cents")
+  showOnSite      Boolean  @map("show_on_site")
+  active          Boolean
+  createdAt       DateTime @map("created_at") @db.Timestamptz(3)
+
+  professionals ProfessionalOffering[]
+
+  @@unique([tenantId, name])
+  @@map("services")
+  @@schema("catalog")
+}
+
+model Professional {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  name         String
+  title        String?
+  bio          String?
+  // Membro da conta que é este profissional (opcional).
+  membershipId String?  @map("membership_id") @db.Uuid
+  showOnSite   Boolean  @map("show_on_site")
+  active       Boolean
+  createdAt    DateTime @map("created_at") @db.Timestamptz(3)
+
+  offerings ProfessionalOffering[]
+
+  // Um membro é no máximo um profissional (vários null são permitidos).
+  @@unique([tenantId, membershipId])
+  @@index([tenantId, name])
+  @@map("professionals")
+  @@schema("catalog")
+}
+
+model ProfessionalOffering {
+  professionalId String       @map("professional_id") @db.Uuid
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  offeringId     String       @map("service_id") @db.Uuid
+  offering       Offering     @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  tenantId       String       @map("tenant_id") @db.Uuid
+
+  @@id([professionalId, offeringId])
+  // "Quem faz este serviço?" — agenda e site.
+  @@index([tenantId, offeringId])
+  @@map("professional_services")
+  @@schema("catalog")
+}

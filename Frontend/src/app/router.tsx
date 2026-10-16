@@ -97,6 +97,19 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['catalog:manage']} />,
+            children: [
+              {
+                path: '/services',
+                ...page(() => import('@/features/catalog/services-page'), 'ServicesPage'),
+              },
+              {
+                path: '/professionals',
+                ...page(() => import('@/features/catalog/professionals-page'), 'ProfessionalsPage'),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['campaigns:manage']} />,
             children: [
               {
