@@ -4,16 +4,16 @@ import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/i
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../shared/application/unit-of-work';
 import { DomainError } from '../../../../shared/domain/domain-error';
 import type { AutomationAction, AutomationRule } from '../../domain/automation-rule.entity';
-import type { BoardCard } from '../../domain/board-card.entity';
+import type { Deal } from '../../domain/deal.entity';
 import { positionBetween } from '../../domain/card-position';
 import { renderTemplate } from '../../../../shared/domain/message-template';
-import { BOARD_CARD_REPOSITORY, type BoardCardRepository } from '../ports/board-card.repository';
 import {
   AUTOMATION_RUN_REPOSITORY,
   type ActionResult,
   type AutomationRunRepository,
 } from '../ports/automation-run.repository';
 import { CONVERSATION_ACTIONS, type ConversationActions } from '../ports/conversation-actions';
+import { DEAL_REPOSITORY, type DealRepository } from '../ports/deal.repository';
 
 /**
  * Executa as regras. Cada disparo (regra + `dedupeKey`) é registrado ANTES
@@ -23,7 +23,8 @@ import { CONVERSATION_ACTIONS, type ConversationActions } from '../ports/convers
  * não é refeito (preferimos não enviar a enviar duas vezes).
  *
  * Uma ação que falha (canal desconectado, equipe excluída) não impede as
- * seguintes; o resultado de cada uma fica na execução.
+ * seguintes; o resultado de cada uma fica na execução. Ação de conversa num
+ * negócio sem conversa é pulada (com o motivo).
  */
 @Injectable()
 export class AutomationRunner {
@@ -31,7 +32,7 @@ export class AutomationRunner {
 
   constructor(
     @Inject(AUTOMATION_RUN_REPOSITORY) private readonly runs: AutomationRunRepository,
-    @Inject(BOARD_CARD_REPOSITORY) private readonly cards: BoardCardRepository,
+    @Inject(DEAL_REPOSITORY) private readonly deals: DealRepository,
     @Inject(CONVERSATION_ACTIONS) private readonly conversations: ConversationActions,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(EVENT_BUS) private readonly events: EventBus,
@@ -39,26 +40,26 @@ export class AutomationRunner {
   ) {}
 
   /** Ações da regra (gatilhos de entrada e de tempo parado). */
-  run(rule: AutomationRule, card: BoardCard, dedupeKey: string): Promise<void> {
-    return this.once(rule, card, dedupeKey, async () => {
+  run(rule: AutomationRule, deal: Deal, dedupeKey: string): Promise<void> {
+    return this.once(rule, deal, dedupeKey, async () => {
       const results: ActionResult[] = [];
       for (const action of rule.actions) {
-        results.push(await this.attempt(action.type, () => this.execute(action, rule, card)));
+        results.push(await this.attempt(action.type, () => this.execute(action, rule, deal)));
       }
       return results;
     });
   }
 
-  /** Gatilhos de evento da conversa: leva o card para a coluna da regra. */
-  moveInto(rule: AutomationRule, card: BoardCard, dedupeKey: string): Promise<void> {
-    return this.once(rule, card, dedupeKey, async () => [
-      await this.attempt('move', () => this.moveToTop(card.id, rule.columnId)),
+  /** Gatilhos de evento da conversa: leva o negócio para a etapa da regra. */
+  moveInto(rule: AutomationRule, deal: Deal, dedupeKey: string): Promise<void> {
+    return this.once(rule, deal, dedupeKey, async () => [
+      await this.attempt('move', () => this.moveToTop(deal.id, rule.columnId)),
     ]);
   }
 
   private async once(
     rule: AutomationRule,
-    card: BoardCard,
+    deal: Deal,
     dedupeKey: string,
     work: () => Promise<ActionResult[]>,
   ): Promise<void> {
@@ -67,8 +68,8 @@ export class AutomationRunner {
       id: runId,
       tenantId: rule.tenantId,
       ruleId: rule.id,
-      cardId: card.id,
-      conversationId: card.conversationId,
+      dealId: deal.id,
+      conversationId: deal.conversationId,
       dedupeKey,
       status: 'running',
       results: [],
@@ -81,7 +82,7 @@ export class AutomationRunner {
     const ok = results.every((r) => r.ok);
     await this.runs.finish(runId, ok ? 'succeeded' : 'failed', results);
     if (!ok) {
-      this.logger.warn(`Automação ${rule.id} no card ${card.id}: ${JSON.stringify(results)}`);
+      this.logger.warn(`Automação ${rule.id} no negócio ${deal.id}: ${JSON.stringify(results)}`);
     }
   }
 
@@ -98,39 +99,55 @@ export class AutomationRunner {
   private async execute(
     action: AutomationAction,
     rule: AutomationRule,
-    card: BoardCard,
+    deal: Deal,
   ): Promise<void | string> {
     switch (action.type) {
       case 'send_message': {
-        const name = await this.conversations.contactName(card.conversationId);
+        if (!deal.conversationId) return 'DEAL_WITHOUT_CONVERSATION';
+        const name = await this.conversations.contactName(deal.conversationId);
         const text = renderTemplate(action.text, { name });
-        await this.conversations.sendAutomatedMessage(card.conversationId, text);
+        await this.conversations.sendAutomatedMessage(deal.conversationId, text);
         return;
       }
       case 'assign': {
+        // A pessoa vira responsável pelo negócio E pela conversa (se houver).
         const { teamId, assigneeId } = action;
-        await this.conversations.assign(card.conversationId, { teamId, assigneeId });
+        if (assigneeId !== undefined) await this.setOwner(deal.id, assigneeId);
+        if (!deal.conversationId)
+          return teamId !== undefined ? 'DEAL_WITHOUT_CONVERSATION' : undefined;
+        await this.conversations.assign(deal.conversationId, { teamId, assigneeId });
         return;
       }
       case 'move': {
-        // Alguém moveu o card nesse meio tempo: a regra de "parado" não vale mais.
-        const current = await this.cards.findById(card.id);
-        if (!current || current.columnId !== rule.columnId) return 'CARD_ALREADY_MOVED';
-        return this.moveToTop(card.id, action.columnId);
+        // Alguém moveu o negócio nesse meio tempo: a regra de "parado" não vale mais.
+        const current = await this.deals.findById(deal.id);
+        if (!current || current.columnId !== rule.columnId) return 'DEAL_ALREADY_MOVED';
+        return this.moveToTop(deal.id, action.columnId);
       }
     }
   }
 
-  /** Topo da coluna de destino, "movido pelo sistema" (dispara as regras de entrada dela). */
-  private async moveToTop(cardId: string, columnId: string): Promise<void | string> {
+  private async setOwner(dealId: string, ownerId: string | null): Promise<void> {
+    await this.unitOfWork.run(async () => {
+      const deal = await this.deals.findById(dealId);
+      if (!deal) return;
+      deal.setOwner(ownerId);
+      await this.deals.save(deal);
+      await this.events.publish(deal.pullEvents());
+    });
+  }
+
+  /** Topo da etapa de destino, "movido pelo sistema" (dispara as regras de entrada dela). */
+  private async moveToTop(dealId: string, columnId: string): Promise<void | string> {
     return this.unitOfWork.run(async () => {
-      const card = await this.cards.findById(cardId);
-      if (!card) return 'CARD_REMOVED';
-      if (card.columnId === columnId) return 'ALREADY_IN_COLUMN';
-      const first = await this.cards.first(columnId, card.id);
-      card.moveTo(columnId, positionBetween(null, first?.position ?? null)!, null);
-      await this.cards.save(card);
-      await this.events.publish(card.pullEvents());
+      const deal = await this.deals.findById(dealId);
+      if (!deal) return 'DEAL_REMOVED';
+      if (!deal.isOpen) return 'DEAL_CLOSED';
+      if (deal.columnId === columnId) return 'ALREADY_IN_COLUMN';
+      const first = await this.deals.first(columnId, deal.id);
+      deal.moveTo(columnId, positionBetween(null, first?.position ?? null)!, null);
+      await this.deals.save(deal);
+      await this.events.publish(deal.pullEvents());
     });
   }
 }

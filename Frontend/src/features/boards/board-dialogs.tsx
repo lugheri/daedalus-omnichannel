@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,7 @@ import { useTeams } from '@/features/teams/api'
 import { errorMessage } from '@/lib/api/api-error'
 import { boardKeys, boardsApi, type AutoAdd, type Board, type BoardColumn } from './api'
 
-/** Criar ou renomear uma coluna. */
+/** Criar ou renomear uma etapa. */
 export function ColumnNameDialog({
   board,
   column,
@@ -43,7 +44,7 @@ export function ColumnNameDialog({
   onOpenChange,
 }: {
   board: Board
-  /** Ausente = nova coluna. */
+  /** Ausente = nova etapa. */
   column?: BoardColumn
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -66,9 +67,9 @@ export function ColumnNameDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{column ? 'Renomear coluna' : 'Nova coluna'}</DialogTitle>
+          <DialogTitle>{column ? 'Renomear etapa' : 'Nova etapa'}</DialogTitle>
           <DialogDescription>
-            {column ? 'O novo nome aparece para todos.' : 'A coluna entra no fim do quadro.'}
+            {column ? 'O novo nome aparece para todos.' : 'A etapa entra no fim do funil.'}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -102,7 +103,7 @@ export function ColumnNameDialog({
   )
 }
 
-/** Excluir coluna: os cards dela vão para outra coluna escolhida. */
+/** Excluir etapa: os negócios dela vão para outra etapa escolhida. */
 export function DeleteColumnDialog({
   board,
   column,
@@ -124,7 +125,7 @@ export function DeleteColumnDialog({
     onSuccess: (updated) => {
       queryClient.setQueryData(boardKeys.detail(board.id), updated)
       void queryClient.invalidateQueries({ queryKey: boardKeys.all })
-      toast.success('Coluna excluída.')
+      toast.success('Etapa excluída.')
       onOpenChange(false)
     },
   })
@@ -133,21 +134,21 @@ export function DeleteColumnDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Excluir a coluna {column.name}?</DialogTitle>
+          <DialogTitle>Excluir a etapa {column.name}?</DialogTitle>
           <DialogDescription>
             {others.length === 0
-              ? 'O quadro precisa de ao menos uma coluna.'
+              ? 'O funil precisa de ao menos uma etapa.'
               : hasCards
-                ? 'Os cards desta coluna vão para o fim da coluna escolhida (sem disparar automações).'
-                : 'A coluna está vazia.'}{' '}
+                ? 'Os negócios desta etapa (inclusive os já fechados) vão para o fim da etapa escolhida, sem disparar automações.'
+                : 'A etapa está vazia.'}{' '}
             {others.length > 0 &&
-              'As automações desta coluna, e as que movem cards para ela, também são excluídas.'}
+              'As automações desta etapa, e as que movem negócios para ela, também são excluídas.'}
           </DialogDescription>
         </DialogHeader>
         <FormError error={remove.error} />
         {hasCards && others.length > 0 && (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="move-to">Mover os cards para</Label>
+            <Label htmlFor="move-to">Mover os negócios para</Label>
             <Select value={moveTo} onValueChange={setMoveTo}>
               <SelectTrigger id="move-to" className="w-full">
                 <SelectValue />
@@ -171,7 +172,7 @@ export function DeleteColumnDialog({
             disabled={others.length === 0 || remove.isPending}
             onClick={() => remove.mutate()}
           >
-            Excluir coluna
+            Excluir etapa
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -181,7 +182,7 @@ export function DeleteColumnDialog({
 
 const NO_TEAM = ''
 
-/** Nome, entrada automática e exclusão do quadro. */
+/** Nome, entrada automática (conversas e leads) e exclusão do funil. */
 export function BoardSettingsDialog({
   board,
   open,
@@ -196,6 +197,7 @@ export function BoardSettingsDialog({
   const teams = useTeams(open)
   const [name, setName] = useState(board.name)
   const [mode, setMode] = useState<AutoAdd['mode']>(board.autoAdd.mode)
+  const [leads, setLeads] = useState(board.autoAddLeads)
   const [teamId, setTeamId] = useState(
     board.autoAdd.mode === 'team' ? board.autoAdd.teamId : NO_TEAM,
   )
@@ -204,12 +206,12 @@ export function BoardSettingsDialog({
   const save = useMutation({
     mutationFn: () => {
       const autoAdd: AutoAdd = mode === 'team' ? { mode, teamId } : { mode }
-      return boardsApi.update(board.id, { name, autoAdd })
+      return boardsApi.update(board.id, { name, autoAdd, autoAddLeads: leads })
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(boardKeys.detail(board.id), updated)
       void queryClient.invalidateQueries({ queryKey: boardKeys.list })
-      toast.success('Quadro atualizado.')
+      toast.success('Funil atualizado.')
       onOpenChange(false)
     },
   })
@@ -218,7 +220,7 @@ export function BoardSettingsDialog({
     mutationFn: () => boardsApi.remove(board.id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: boardKeys.all })
-      toast.success('Quadro excluído.')
+      toast.success('Funil excluído.')
       void navigate('/boards')
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -229,9 +231,10 @@ export function BoardSettingsDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Configurar quadro</DialogTitle>
+            <DialogTitle>Configurar funil</DialogTitle>
             <DialogDescription>
-              Com a entrada automática, cada conversa nova entra no topo da primeira coluna.
+              Com a entrada automática, cada conversa nova ou lead do site vira um negócio no topo
+              da primeira etapa — a não ser que o contato já tenha um em aberto aqui.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
@@ -246,13 +249,13 @@ export function BoardSettingsDialog({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="board-auto-add">Entrada automática</Label>
+              <Label htmlFor="board-auto-add">Conversas novas</Label>
               <Select value={mode} onValueChange={(v) => setMode(v as AutoAdd['mode'])}>
                 <SelectTrigger id="board-auto-add" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Nenhuma (cards adicionados à mão)</SelectItem>
+                  <SelectItem value="none">Nenhuma (negócios criados à mão)</SelectItem>
                   <SelectItem value="all">Todas as conversas novas</SelectItem>
                   <SelectItem value="team">Conversas novas de uma equipe</SelectItem>
                 </SelectContent>
@@ -275,6 +278,19 @@ export function BoardSettingsDialog({
                 </Select>
               </div>
             )}
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="board-leads"
+                checked={leads}
+                onCheckedChange={(checked) => setLeads(checked === true)}
+              />
+              <div className="grid gap-0.5">
+                <Label htmlFor="board-leads">Leads do formulário do site</Label>
+                <p className="text-muted-foreground text-xs">
+                  Cada envio do formulário vira um negócio sem responsável (a fila de leads).
+                </p>
+              </div>
+            </div>
           </div>
           <DialogFooter className="sm:justify-between">
             <Button
@@ -282,7 +298,7 @@ export function BoardSettingsDialog({
               className="text-destructive"
               onClick={() => setConfirmDelete(true)}
             >
-              Excluir quadro
+              Excluir funil
             </Button>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -302,9 +318,10 @@ export function BoardSettingsDialog({
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir o quadro {board.name}?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir o funil {board.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              As colunas e os cards somem. As conversas continuam na caixa de entrada.
+              As etapas e os negócios somem (também os ganhos e perdidos). Contatos e conversas
+              continuam.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -29,6 +29,7 @@ export class PrismaBoardRepository implements BoardRepository {
       name: board.name,
       autoAddMode: board.autoAdd.mode,
       autoAddTeamId: board.autoAdd.mode === 'team' ? board.autoAdd.teamId : null,
+      autoAddLeads: board.autoAddLeads,
     };
     try {
       await this.txHost.withTransaction(async () => {
@@ -84,8 +85,20 @@ export class PrismaBoardRepository implements BoardRepository {
   }
 
   async delete(board: Board): Promise<void> {
-    // Colunas e cards saem junto (ON DELETE CASCADE).
+    // Etapas e negócios saem junto (ON DELETE CASCADE).
     await this.db.board.deleteMany({ where: { id: board.id, tenantId: this.tenant.tenantId } });
+  }
+
+  count(): Promise<number> {
+    return this.db.board.count({ where: { tenantId: this.tenant.tenantId } });
+  }
+
+  async listAcceptingLeads(): Promise<Board[]> {
+    const rows = await this.db.board.findMany({
+      where: { tenantId: this.tenant.tenantId, autoAddLeads: true },
+      include: withColumns,
+    });
+    return rows.map(toDomain);
   }
 
   async listAcceptingNewConversations(teamId: string | null): Promise<Board[]> {
@@ -122,6 +135,7 @@ function toDomain(row: BoardRow): Board {
     name: row.name,
     columns: row.columns.map((c) => ({ id: c.id, name: c.name })),
     autoAdd,
+    autoAddLeads: row.autoAddLeads,
     createdAt: row.createdAt,
   });
 }

@@ -22,9 +22,9 @@ function plural(n: number, one: string, many: string) {
 export function describeTrigger(trigger: AutomationTrigger, names: Names): string {
   switch (trigger.type) {
     case 'card_entered':
-      return 'Quando o card entrar nesta coluna'
+      return 'Quando o negócio entrar nesta etapa'
     case 'card_idle':
-      return `Quando o card ficar parado aqui por ${durationLabel(trigger.minutes)}`
+      return `Quando o negócio ficar parado aqui por ${durationLabel(trigger.minutes)}`
     case 'disposition_set':
       return `Quando a conversa for tabulada como “${names.disposition(trigger.dispositionId) ?? 'tabulação removida'}”, mover para cá`
     case 'conversation_resolved':
@@ -39,7 +39,7 @@ export function describeAction(action: AutomationAction, names: Names): string {
     case 'send_message':
       return `Enviar mensagem: “${action.text.length > 60 ? `${action.text.slice(0, 60)}…` : action.text}”`
     case 'move':
-      return `Mover para “${names.column(action.columnId) ?? 'coluna removida'}”`
+      return `Mover para “${names.column(action.columnId) ?? 'etapa removida'}”`
     case 'assign': {
       const parts: string[] = []
       if (action.teamId !== undefined) {
@@ -63,8 +63,13 @@ export function describeAction(action: AutomationAction, names: Names): string {
 
 /** Motivos de uma ação que falhou ou foi pulada (códigos do backend). */
 export const RESULT_LABELS: Record<string, string> = {
-  CARD_ALREADY_MOVED: 'pulada: o card já tinha saído da coluna',
-  ALREADY_IN_COLUMN: 'pulada: o card já estava na coluna',
-  CARD_REMOVED: 'pulada: o card foi removido do quadro',
+  DEAL_ALREADY_MOVED: 'pulada: o negócio já tinha saído da etapa',
+  ALREADY_IN_COLUMN: 'pulada: o negócio já estava na etapa',
+  DEAL_REMOVED: 'pulada: o negócio foi excluído',
+  DEAL_CLOSED: 'pulada: o negócio já tinha sido ganho ou perdido',
+  DEAL_WITHOUT_CONVERSATION: 'pulada: o negócio ainda não tem conversa',
+  // Execuções antigas (antes dos funis).
+  CARD_ALREADY_MOVED: 'pulada: já tinha saído da etapa',
+  CARD_REMOVED: 'pulada: foi removido do funil',
   UNEXPECTED: 'erro inesperado',
 }

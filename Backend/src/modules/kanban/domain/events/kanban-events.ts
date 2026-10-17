@@ -2,60 +2,71 @@ import { DomainEvent } from '../../../../shared/domain/domain-event';
 
 /**
  * Eventos públicos do módulo kanban (exportados no index.ts). O tempo real
- * os repassa às telas; as automações das colunas reagem à entrada de cards.
+ * os repassa às telas; as automações das etapas reagem à entrada de negócios.
  */
 
 /**
- * Card entrou numa coluna: foi adicionado ao quadro (`previousColumnId` null)
- * ou movido de outra coluna. Gatilho das automações "ao entrar na coluna".
+ * Negócio entrou numa etapa: foi aberto no funil (`previousColumnId` null) ou
+ * movido de outra etapa. Gatilho das automações "ao entrar na etapa".
  */
-export class BoardCardEnteredColumnEvent extends DomainEvent {
-  static readonly eventName = 'kanban.card.entered-column.v1';
-  readonly eventName = BoardCardEnteredColumnEvent.eventName;
+export class DealEnteredColumnEvent extends DomainEvent {
+  static readonly eventName = 'kanban.deal.entered-column.v1';
+  readonly eventName = DealEnteredColumnEvent.eventName;
 
   constructor(
-    cardId: string,
+    dealId: string,
     readonly tenantId: string,
     readonly boardId: string,
-    readonly conversationId: string,
+    readonly contactId: string,
+    readonly conversationId: string | null,
     readonly columnId: string,
     readonly previousColumnId: string | null,
     /** Quem moveu (membership); null = o sistema (entrada automática, automação). */
     readonly movedBy: string | null,
   ) {
-    super(cardId);
+    super(dealId);
   }
 }
 
-/** Card mudou de lugar dentro da mesma coluna (só para as telas). */
-export class BoardCardRepositionedEvent extends DomainEvent {
-  static readonly eventName = 'kanban.card.repositioned.v1';
-  readonly eventName = BoardCardRepositionedEvent.eventName;
+/**
+ * Negócio mudou de um jeito que as telas precisam ver: posição na mesma
+ * etapa, título, valor, responsável, conversa, reaberto ou removido.
+ */
+export class DealChangedEvent extends DomainEvent {
+  static readonly eventName = 'kanban.deal.changed.v1';
+  readonly eventName = DealChangedEvent.eventName;
 
   constructor(
-    cardId: string,
+    dealId: string,
     readonly tenantId: string,
     readonly boardId: string,
+    readonly contactId: string,
+    readonly removed: boolean,
   ) {
-    super(cardId);
+    super(dealId);
   }
 }
 
-export class BoardCardRemovedEvent extends DomainEvent {
-  static readonly eventName = 'kanban.card.removed.v1';
-  readonly eventName = BoardCardRemovedEvent.eventName;
+/** Negócio ganho ou perdido (sai do funil; base dos relatórios de vendas). */
+export class DealClosedEvent extends DomainEvent {
+  static readonly eventName = 'kanban.deal.closed.v1';
+  readonly eventName = DealClosedEvent.eventName;
 
   constructor(
-    cardId: string,
+    dealId: string,
     readonly tenantId: string,
     readonly boardId: string,
-    readonly conversationId: string,
+    readonly contactId: string,
+    readonly status: 'won' | 'lost',
+    readonly valueCents: number | null,
+    /** Quem fechou (membership); null = o sistema. */
+    readonly closedBy: string | null,
   ) {
-    super(cardId);
+    super(dealId);
   }
 }
 
-/** Quadro criado, renomeado, com colunas alteradas ou excluído. */
+/** Funil criado, renomeado, com etapas alteradas ou excluído. */
 export class BoardChangedEvent extends DomainEvent {
   static readonly eventName = 'kanban.board.changed.v1';
   readonly eventName = BoardChangedEvent.eventName;

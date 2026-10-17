@@ -1,26 +1,13 @@
-const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+import { formatMoney, moneyToInput, parseMoney } from '@/lib/money'
 
 /** "R$ 50,00"; sem preço = "Sob consulta". */
 export function formatPrice(cents: number | null): string {
-  return cents === null ? 'Sob consulta' : currency.format(cents / 100)
+  return cents === null ? 'Sob consulta' : formatMoney(cents)
 }
 
-/** Centavos → texto do campo ("50,00"); vazio quando sob consulta. */
-export function priceToInput(cents: number | null): string {
-  return cents === null ? '' : (cents / 100).toFixed(2).replace('.', ',')
-}
-
-/**
- * Texto do campo → centavos. Aceita "50", "50,5", "1.234,56" e "R$ 50,00";
- * vazio = sob consulta (null); `undefined` = não dá para entender.
- */
-export function parsePrice(text: string): number | null | undefined {
-  const clean = text.replace(/R\$|\s/g, '')
-  if (!clean) return null
-  if (!/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+(,\d{1,2})?$/.test(clean)) return undefined
-  const [reais, centavos = ''] = clean.replace(/\./g, '').split(',')
-  return Number(reais) * 100 + Number(centavos.padEnd(2, '0'))
-}
+/** Preço do serviço no campo: vazio = sob consulta. */
+export const priceToInput = moneyToInput
+export const parsePrice = parseMoney
 
 /** 30 → "30 min"; 90 → "1h30"; 120 → "2h". */
 export function formatDuration(minutes: number): string {

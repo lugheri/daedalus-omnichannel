@@ -1,14 +1,9 @@
-import { BoardCard } from './board-card.entity';
 import { Board, MAX_COLUMNS } from './board.entity';
 import { positionBetween } from './card-position';
 import { ColumnNameTakenError } from './errors/column-name-taken.error';
 import { ColumnNotFoundError } from './errors/column-not-found.error';
 import { InvalidBoardError } from './errors/invalid-board.error';
-import {
-  BoardCardEnteredColumnEvent,
-  BoardCardRepositionedEvent,
-  BoardChangedEvent,
-} from './events/kanban-events';
+import { BoardChangedEvent } from './events/kanban-events';
 
 /** O código do erro de domínio que a função lança. */
 function codeOf(fn: () => unknown): string | undefined {
@@ -92,42 +87,5 @@ describe('positionBetween', () => {
     expect(positionBetween(5, null)).toBe(6);
     expect(positionBetween(1, 2)).toBe(1.5);
     expect(positionBetween(1, 1 + 1e-7)).toBeNull();
-  });
-});
-
-describe('BoardCard', () => {
-  const place = () =>
-    BoardCard.place(
-      'card-1',
-      { tenantId: 't-1', boardId: 'b-1', columnId: 'col-1', conversationId: 'conv-1', position: 0 },
-      'agent-1',
-    );
-
-  it('entering the board counts as entering the column', () => {
-    expect(place().pullEvents()).toEqual([
-      expect.objectContaining({
-        eventName: BoardCardEnteredColumnEvent.eventName,
-        columnId: 'col-1',
-        previousColumnId: null,
-        movedBy: 'agent-1',
-      }),
-    ]);
-  });
-
-  it('another column restarts the time in the column; the same column only repositions', () => {
-    const card = place();
-    card.pullEvents();
-    const entered = card.enteredColumnAt;
-
-    card.moveTo('col-1', 3, 'agent-1');
-    expect(card.enteredColumnAt).toBe(entered);
-    expect(card.pullEvents()).toEqual([expect.any(BoardCardRepositionedEvent)]);
-
-    card.moveTo('col-2', 0, null);
-    expect(card.columnId).toBe('col-2');
-    expect(card.enteredColumnAt).not.toBe(entered);
-    expect(card.pullEvents()).toEqual([
-      expect.objectContaining({ columnId: 'col-2', previousColumnId: 'col-1', movedBy: null }),
-    ]);
   });
 });

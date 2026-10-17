@@ -27,7 +27,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useMe, usePermissions } from '@/features/auth/session-context'
 import { useMemberNames } from '@/features/members/api'
-import { AddToBoardDialog, PlacementLinks } from '@/features/boards/conversation-boards'
+import { DealLinks } from '@/features/boards/conversation-deals'
+import { NewDealDialog } from '@/features/boards/deal-dialogs'
 import { useDispositionLookup, useDispositions } from '@/features/dispositions/api'
 import { DispositionBadge } from '@/features/dispositions/disposition-badge'
 import { ApiError, errorMessage } from '@/lib/api/api-error'
@@ -214,7 +215,7 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
                   className="mt-0.5"
                 />
               )}
-              <PlacementLinks conversationId={data.id} />
+              <DealLinks conversationId={data.id} />
             </div>
             {!data.assigneeId && (
               <Button
@@ -241,8 +242,8 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Adicionar ao quadro"
-              title="Adicionar ao quadro"
+              aria-label="Criar negócio"
+              title="Criar negócio"
               onClick={() => setAddingToBoard(true)}
             >
               <SquareKanban />
@@ -353,8 +354,13 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
       {data && transferring && (
         <TransferDialog conversation={data} open onOpenChange={setTransferring} />
       )}
-      {addingToBoard && (
-        <AddToBoardDialog conversationId={id} open onOpenChange={setAddingToBoard} />
+      {addingToBoard && data && (
+        <NewDealDialog
+          conversationId={id}
+          contact={{ ...data.contact, email: null }}
+          open
+          onOpenChange={setAddingToBoard}
+        />
       )}
       <TabulateDialog
         conversationId={id}

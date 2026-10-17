@@ -1,6 +1,6 @@
 import type { Board } from '../../domain/board.entity';
 
-/** Quadros (com as colunas). Tudo restrito ao tenant atual (TenantContext). */
+/** Funis (com as etapas). Tudo restrito ao tenant atual (TenantContext). */
 export interface BoardRepository {
   /** Quadro e colunas juntos (colunas fora da lista são apagadas). */
   save(board: Board): Promise<void>;
@@ -9,11 +9,15 @@ export interface BoardRepository {
   findByName(name: string): Promise<Board | null>;
   /** Por nome. */
   list(): Promise<Board[]>;
-  /** Apaga o quadro com colunas e cards. */
+  /** Quantos funis a conta tem (o funil padrão só é criado em conta sem nenhum). */
+  count(): Promise<number>;
+  /** Apaga o funil com etapas e negócios. */
   delete(board: Board): Promise<void>;
-  /** Quadros com entrada automática para conversas novas desta equipe (null = fila geral). */
+  /** Funis que recebem os leads do formulário do site. */
+  listAcceptingLeads(): Promise<Board[]>;
+  /** Funis com entrada automática para conversas novas desta equipe (null = fila geral). */
   listAcceptingNewConversations(teamId: string | null): Promise<Board[]>;
-  /** Equipe excluída: quadros que recebiam as conversas dela param de receber. */
+  /** Equipe excluída: funis que recebiam as conversas dela param de receber. */
   clearAutoAddTeam(teamId: string): Promise<void>;
 }
 

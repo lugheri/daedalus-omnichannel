@@ -19,8 +19,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { boardKeys, boardsApi } from './api'
 
 const schema = z.object({
-  name: z.string().trim().min(1, 'Dê um nome ao quadro').max(60, 'Máximo de 60 caracteres'),
-  /** Uma coluna por linha. */
+  name: z.string().trim().min(1, 'Dê um nome ao funil').max(60, 'Máximo de 60 caracteres'),
+  /** Uma etapa por linha. */
   columns: z.string(),
 })
 type BoardForm = z.infer<typeof schema>
@@ -68,9 +68,9 @@ export function CreateBoardDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Novo quadro</DialogTitle>
+          <DialogTitle>Novo funil</DialogTitle>
           <DialogDescription>
-            Ex.: “Funil de vendas”, “Pós-venda”. Colunas podem ser mudadas depois.
+            Ex.: “Vendas”, “Pós-venda”. As etapas podem ser mudadas depois.
           </DialogDescription>
         </DialogHeader>
         <form id="board-form" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
@@ -78,7 +78,7 @@ export function CreateBoardDialog({
             <FormError error={create.error} />
             <TextField form={form} name="name" label="Nome" autoFocus />
             <Field>
-              <FieldLabel htmlFor="board-columns">Colunas (uma por linha)</FieldLabel>
+              <FieldLabel htmlFor="board-columns">Etapas (uma por linha)</FieldLabel>
               <Textarea id="board-columns" rows={4} {...form.register('columns')} />
             </Field>
           </FieldGroup>
@@ -88,7 +88,7 @@ export function CreateBoardDialog({
             Cancelar
           </Button>
           <Button type="submit" form="board-form" disabled={create.isPending}>
-            {create.isPending ? 'Criando…' : 'Criar quadro'}
+            {create.isPending ? 'Criando…' : 'Criar funil'}
           </Button>
         </DialogFooter>
       </DialogContent>

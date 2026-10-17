@@ -1,6 +1,8 @@
 import type { TenantContext } from '../../../shared/application/tenant-context';
-import type { BoardCardRepository, CardKey } from '../application/ports/board-card.repository';
 import type { BoardRepository } from '../application/ports/board.repository';
+import type { ContactDirectory, DealContact } from '../application/ports/contact-directory';
+import type { DealAccess, DealViewer } from '../application/ports/deal-access';
+import type { DealKey, DealRepository } from '../application/ports/deal.repository';
 import type { AutomationRuleRepository } from '../application/ports/automation-rule.repository';
 import {
   idleDedupeKey,
@@ -17,8 +19,8 @@ import type {
   ConversationDirectory,
 } from '../application/ports/conversation-directory';
 import type { TeamDirectory } from '../application/ports/team-directory';
-import { BoardCard } from '../domain/board-card.entity';
 import { Board } from '../domain/board.entity';
+import { Deal } from '../domain/deal.entity';
 
 /** Cópia do agregado: salvar e carregar não compartilham a instância (como no banco). */
 const copyBoard = (b: Board) =>
@@ -27,6 +29,7 @@ const copyBoard = (b: Board) =>
     name: b.name,
     columns: b.columns.map((c) => ({ ...c })),
     autoAdd: { ...b.autoAdd },
+    autoAddLeads: b.autoAddLeads,
     createdAt: b.createdAt,
   });
 
@@ -35,8 +38,8 @@ export class InMemoryBoardRepository implements BoardRepository {
 
   constructor(
     private readonly tenant: TenantContext,
-    /** Apagar o quadro leva os cards (como o CASCADE). */
-    private readonly cards?: InMemoryBoardCardRepository,
+    /** Apagar o funil leva os negócios (como o CASCADE). */
+    private readonly deals?: InMemoryDealRepository,
   ) {}
 
   private ofTenant() {
@@ -68,8 +71,20 @@ export class InMemoryBoardRepository implements BoardRepository {
 
   delete(board: Board): Promise<void> {
     this.items = this.items.filter((b) => b.id !== board.id);
-    this.cards?.removeBoard(board.id);
+    this.deals?.removeBoard(board.id);
     return Promise.resolve();
+  }
+
+  count(): Promise<number> {
+    return Promise.resolve(this.ofTenant().length);
+  }
+
+  listAcceptingLeads(): Promise<Board[]> {
+    return Promise.resolve(
+      this.ofTenant()
+        .filter((b) => b.autoAddLeads)
+        .map(copyBoard),
+    );
   }
 
   listAcceptingNewConversations(teamId: string | null): Promise<Board[]> {
@@ -88,119 +103,163 @@ export class InMemoryBoardRepository implements BoardRepository {
   }
 }
 
-const copyCard = (c: BoardCard) =>
-  BoardCard.restore(c.id, {
-    tenantId: c.tenantId,
-    boardId: c.boardId,
-    columnId: c.columnId,
-    conversationId: c.conversationId,
-    position: c.position,
-    enteredColumnAt: c.enteredColumnAt,
-    createdAt: c.createdAt,
+const copyDeal = (d: Deal, changes: Partial<{ columnId: string; position: number }> = {}) =>
+  Deal.restore(d.id, {
+    tenantId: d.tenantId,
+    boardId: d.boardId,
+    columnId: changes.columnId ?? d.columnId,
+    contactId: d.contactId,
+    conversationId: d.conversationId,
+    title: d.title,
+    valueCents: d.valueCents,
+    ownerId: d.ownerId,
+    status: d.status,
+    lostReason: d.lostReason,
+    closedAt: d.closedAt,
+    position: changes.position ?? d.position,
+    enteredColumnAt:
+      changes.columnId && changes.columnId !== d.columnId ? new Date() : d.enteredColumnAt,
+    createdAt: d.createdAt,
   });
 
-const byKey = (a: CardKey, b: CardKey) => a.position - b.position || a.id.localeCompare(b.id);
-const isAfter = (c: CardKey, key: CardKey) => byKey(c, key) > 0;
+const byKey = (a: DealKey, b: DealKey) => a.position - b.position || a.id.localeCompare(b.id);
+const isAfter = (d: DealKey, key: DealKey) => byKey(d, key) > 0;
 
-export class InMemoryBoardCardRepository implements BoardCardRepository {
-  items: BoardCard[] = [];
+/** Reproduz o repositório real: isolado por tenant; a etapa só lista os em aberto. */
+export class InMemoryDealRepository implements DealRepository {
+  items: Deal[] = [];
 
   constructor(private readonly tenant: TenantContext) {}
 
   private ofTenant() {
-    return this.items.filter((c) => c.tenantId === this.tenant.tenantId);
+    return this.items.filter((d) => d.tenantId === this.tenant.tenantId);
   }
 
-  private column(columnId: string) {
+  private openIn(columnId: string) {
+    return this.inColumn(columnId).filter((d) => d.isOpen);
+  }
+
+  /** Todos da etapa, inclusive fechados. */
+  private inColumn(columnId: string) {
     return this.ofTenant()
-      .filter((c) => c.columnId === columnId)
+      .filter((d) => d.columnId === columnId)
       .sort(byKey);
   }
 
+  private replace(deal: Deal) {
+    this.items = [...this.items.filter((d) => d.id !== deal.id), deal];
+  }
+
   removeBoard(boardId: string) {
-    this.items = this.items.filter((c) => c.boardId !== boardId);
+    this.items = this.items.filter((d) => d.boardId !== boardId);
   }
 
-  save(card: BoardCard): Promise<void> {
-    this.items = [...this.items.filter((c) => c.id !== card.id), copyCard(card)];
+  save(deal: Deal): Promise<void> {
+    this.replace(copyDeal(deal));
     return Promise.resolve();
   }
 
-  delete(card: BoardCard): Promise<void> {
-    this.items = this.items.filter((c) => c.id !== card.id);
+  delete(deal: Deal): Promise<void> {
+    this.items = this.items.filter((d) => d.id !== deal.id);
     return Promise.resolve();
   }
 
-  findById(id: string): Promise<BoardCard | null> {
-    const card = this.ofTenant().find((c) => c.id === id);
-    return Promise.resolve(card ? copyCard(card) : null);
+  findById(id: string): Promise<Deal | null> {
+    const deal = this.ofTenant().find((d) => d.id === id);
+    return Promise.resolve(deal ? copyDeal(deal) : null);
   }
 
-  findOnBoard(boardId: string, conversationId: string): Promise<BoardCard | null> {
-    const card = this.ofTenant().find(
-      (c) => c.boardId === boardId && c.conversationId === conversationId,
-    );
-    return Promise.resolve(card ? copyCard(card) : null);
+  findOpenOnBoard(boardId: string, contactId: string): Promise<Deal | null> {
+    const deal = this.ofTenant()
+      .filter((d) => d.boardId === boardId && d.contactId === contactId && d.isOpen)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+    return Promise.resolve(deal ? copyDeal(deal) : null);
   }
 
-  listByConversation(conversationId: string): Promise<BoardCard[]> {
+  listOpenByConversation(conversationId: string): Promise<Deal[]> {
     return Promise.resolve(
       this.ofTenant()
-        .filter((c) => c.conversationId === conversationId)
-        .map(copyCard),
+        .filter((d) => d.conversationId === conversationId && d.isOpen)
+        .map((d) => copyDeal(d)),
     );
   }
 
-  listColumn(columnId: string, { after, limit }: { after?: CardKey; limit: number }) {
+  listByContact(contactId: string): Promise<Deal[]> {
     return Promise.resolve(
-      this.column(columnId)
-        .filter((c) => !after || isAfter(c, after))
-        .slice(0, limit)
-        .map(copyCard),
+      this.ofTenant()
+        .filter((d) => d.contactId === contactId)
+        .reverse()
+        .map((d) => copyDeal(d)),
     );
   }
 
-  first(columnId: string, excludeId?: string): Promise<BoardCard | null> {
-    const card = this.column(columnId).find((c) => c.id !== excludeId);
-    return Promise.resolve(card ? copyCard(card) : null);
+  listColumn(columnId: string, { after, limit }: { after?: DealKey; limit: number }) {
+    return Promise.resolve(
+      this.openIn(columnId)
+        .filter((d) => !after || isAfter(d, after))
+        .slice(0, limit)
+        .map((d) => copyDeal(d)),
+    );
   }
 
-  last(columnId: string): Promise<BoardCard | null> {
-    const card = this.column(columnId).at(-1);
-    return Promise.resolve(card ? copyCard(card) : null);
+  first(columnId: string, excludeId?: string): Promise<Deal | null> {
+    const deal = this.openIn(columnId).find((d) => d.id !== excludeId);
+    return Promise.resolve(deal ? copyDeal(deal) : null);
   }
 
-  next(columnId: string, key: CardKey, excludeId?: string): Promise<BoardCard | null> {
-    const card = this.column(columnId).find((c) => c.id !== excludeId && isAfter(c, key));
-    return Promise.resolve(card ? copyCard(card) : null);
+  last(columnId: string): Promise<Deal | null> {
+    const deal = this.inColumn(columnId).at(-1);
+    return Promise.resolve(deal ? copyDeal(deal) : null);
+  }
+
+  next(columnId: string, key: DealKey, excludeId?: string): Promise<Deal | null> {
+    const deal = this.openIn(columnId).find((d) => d.id !== excludeId && isAfter(d, key));
+    return Promise.resolve(deal ? copyDeal(deal) : null);
   }
 
   countInColumn(columnId: string): Promise<number> {
-    return Promise.resolve(this.column(columnId).length);
+    return Promise.resolve(this.inColumn(columnId).length);
   }
 
   renumber(columnId: string): Promise<void> {
-    this.column(columnId).forEach((c, index) => this.reposition(c, columnId, index));
+    this.inColumn(columnId).forEach((d, index) => this.replace(copyDeal(d, { position: index })));
     return Promise.resolve();
   }
 
   async moveAll(fromColumnId: string, toColumnId: string): Promise<void> {
     const start = ((await this.last(toColumnId))?.position ?? -1) + 1;
-    this.column(fromColumnId).forEach((c, index) => this.reposition(c, toColumnId, start + index));
+    // Sem eventos: as operações em massa não disparam automações.
+    this.inColumn(fromColumnId).forEach((d, index) =>
+      this.replace(copyDeal(d, { columnId: toColumnId, position: start + index })),
+    );
+  }
+}
+
+/** Contatos que existem (por id). */
+export class FakeContactDirectory implements ContactDirectory {
+  readonly contacts = new Map<string, DealContact>();
+
+  add(id: string, name: string | null = `Cliente ${id}`): DealContact {
+    const contact = { id, name, phone: '+5511999990000', email: null };
+    this.contacts.set(id, contact);
+    return contact;
   }
 
-  /** Grava sem eventos (as operações em massa não disparam automações). */
-  private reposition(card: BoardCard, columnId: string, position: number) {
-    const moved = BoardCard.restore(card.id, {
-      tenantId: card.tenantId,
-      boardId: card.boardId,
-      columnId,
-      conversationId: card.conversationId,
-      position,
-      enteredColumnAt: columnId === card.columnId ? card.enteredColumnAt : new Date(),
-      createdAt: card.createdAt,
-    });
-    this.items = [...this.items.filter((c) => c.id !== card.id), moved];
+  findById(id: string): Promise<DealContact | null> {
+    return Promise.resolve(this.contacts.get(id) ?? null);
+  }
+
+  findByIds(ids: string[]): Promise<DealContact[]> {
+    return Promise.resolve(ids.flatMap((id) => this.contacts.get(id) ?? []));
+  }
+}
+
+/** O membro da requisição; `seesAll` = supervisão. */
+export class FakeDealAccess implements DealAccess {
+  viewer: DealViewer = { membershipId: 'me', seesAll: true };
+
+  current(): Promise<DealViewer> {
+    return Promise.resolve(this.viewer);
   }
 }
 
@@ -226,6 +285,7 @@ export function conversation(id: string): CardConversation {
     unreadCount: 0,
     lastMessageAt: new Date('2030-01-01T10:00:00Z'),
     lastMessagePreview: 'Oi',
+    // A conversa "x" é do contato "contact-x".
     contact: { id: `contact-${id}`, name: `Cliente ${id}`, phone: null },
     channel: { id: 'ch-1', name: 'Comercial' },
     team: null,
@@ -320,13 +380,13 @@ export class InMemoryAutomationRuleRepository implements AutomationRuleRepositor
   }
 }
 
-/** Execuções; "vencidos" reproduz a consulta do banco sobre os cards informados. */
+/** Execuções; "vencidos" reproduz a consulta do banco sobre os negócios em aberto. */
 export class InMemoryAutomationRunRepository implements AutomationRunRepository {
   items: AutomationRun[] = [];
 
   constructor(
     private readonly tenant: TenantContext,
-    private readonly cards: InMemoryBoardCardRepository,
+    private readonly deals: InMemoryDealRepository,
   ) {}
 
   start(run: AutomationRun): Promise<boolean> {
@@ -352,10 +412,10 @@ export class InMemoryAutomationRunRepository implements AutomationRunRepository 
     );
   }
 
-  async dueIdleCards(rule: AutomationRule, now: Date, limit: number): Promise<BoardCard[]> {
+  async dueIdleDeals(rule: AutomationRule, now: Date, limit: number): Promise<Deal[]> {
     if (rule.trigger.type !== 'card_idle') return [];
     const before = now.getTime() - rule.trigger.minutes * 60_000;
-    const inColumn = await this.cards.listColumn(rule.columnId, { limit: 10_000 });
+    const inColumn = await this.deals.listColumn(rule.columnId, { limit: 10_000 });
     return inColumn
       .filter((c) => Math.max(c.enteredColumnAt.getTime(), rule.activeSince.getTime()) <= before)
       .filter(

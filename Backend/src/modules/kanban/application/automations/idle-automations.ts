@@ -23,7 +23,7 @@ export const IdleSweepJob = defineJob<Record<string, never>>(
 /** Uma regra de tempo parado, no tenant dela. */
 export const IdleRuleJob = defineJob<{ ruleId: string }>(KANBAN_AUTOMATIONS_QUEUE, 'idle-rule');
 
-/** Cards por regra a cada rodada (o resto fica para o próximo minuto). */
+/** Negócios por regra a cada rodada (o resto fica para o próximo minuto). */
 const BATCH = 100;
 
 /**
@@ -54,7 +54,7 @@ export class IdleSweepUseCase {
   }
 }
 
-/** Dispara a regra para os cards que passaram do tempo na coluna. */
+/** Dispara a regra para os negócios que passaram do tempo na etapa. */
 @Injectable()
 export class RunIdleRuleUseCase {
   constructor(
@@ -66,8 +66,8 @@ export class RunIdleRuleUseCase {
   async execute(ruleId: string, now = new Date()): Promise<void> {
     const rule = await this.rules.findById(ruleId);
     if (!rule?.enabled || rule.trigger.type !== 'card_idle') return;
-    for (const card of await this.runs.dueIdleCards(rule, now, BATCH)) {
-      await this.runner.run(rule, card, idleDedupeKey(card));
+    for (const deal of await this.runs.dueIdleDeals(rule, now, BATCH)) {
+      await this.runner.run(rule, deal, idleDedupeKey(deal));
     }
   }
 }

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePermissions } from '@/features/auth/session-context'
+import { ContactDeals } from '@/features/boards/contact-deals'
 import { errorMessage } from '@/lib/api/api-error'
 import { formatPhone } from '@/lib/phone'
 import { ContactMessages, ContactSendButtons } from '@/features/messaging/contact-messaging'
@@ -17,7 +18,7 @@ import { LEAD_SOURCE_LABELS } from './lead-source'
 
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' })
 
-/** Ficha do contato: dados e origem, histórico de atendimentos e notas da equipe. */
+/** Ficha do contato: dados e origem, negócios, histórico de atendimentos e notas da equipe. */
 export function ContactPage() {
   const { id = '' } = useParams()
   const contact = useContact(id)
@@ -80,6 +81,7 @@ export function ContactPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {data && <ContactDeals contact={data} />}
         <ContactHistory contactId={id} />
         <ContactNotes contactId={id} />
         <ContactMessages contactId={id} />

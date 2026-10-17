@@ -22,41 +22,29 @@ import {
   UpdateBoardUseCase,
   UpdateColumnUseCase,
 } from '../application/use-cases/boards.use-cases';
+import { ListBoardDealsUseCase } from '../application/use-cases/deals.use-cases';
 import {
-  AddCardUseCase,
-  ListBoardCardsUseCase,
-  ListConversationPlacementsUseCase,
-  MoveCardUseCase,
-  RemoveCardUseCase,
-} from '../application/use-cases/cards.use-cases';
-import {
-  addCardSchema,
   columnNameSchema,
   createBoardSchema,
   deleteColumnQuerySchema,
-  listCardsQuerySchema,
-  moveCardSchema,
-  placementsQuerySchema,
+  listDealsQuerySchema,
   updateBoardSchema,
   updateColumnSchema,
-  type AddCardDto,
   type ColumnNameDto,
   type CreateBoardDto,
   type DeleteColumnQuery,
-  type ListCardsQuery,
-  type MoveCardDto,
-  type PlacementsQuery,
+  type ListDealsQuery,
   type UpdateBoardDto,
   type UpdateColumnDto,
 } from './dto/kanban.dto';
-import { BoardPresenter, CardPresenter } from './kanban.presenter';
+import { BoardPresenter, DealPresenter } from './kanban.presenter';
 
 const idParam = new ZodValidationPipe(z.uuid());
 
 /**
- * Quadros kanban. Ver e mover cards: qualquer escopo de conversas (os cards
- * são filtrados pelas conversas que o membro vê). Estrutura do quadro:
- * `boards:manage`.
+ * Funis de vendas. Ver: qualquer escopo de conversas (os negócios são
+ * filtrados pelo que o membro vê). Estrutura do funil: `boards:manage`.
+ * Os negócios em si ficam em `/v1/deals`.
  */
 @RequireAnyPermission('conversations:view:own', 'conversations:view:team', 'conversations:view:all')
 @Controller('v1/boards')
@@ -69,24 +57,12 @@ export class BoardsController {
     private readonly addColumn: AddColumnUseCase,
     private readonly updateColumn: UpdateColumnUseCase,
     private readonly deleteColumn: DeleteColumnUseCase,
-    private readonly listCards: ListBoardCardsUseCase,
-    private readonly addCard: AddCardUseCase,
-    private readonly moveCard: MoveCardUseCase,
-    private readonly removeCard: RemoveCardUseCase,
-    private readonly placements: ListConversationPlacementsUseCase,
+    private readonly listDeals: ListBoardDealsUseCase,
   ) {}
 
   @Get()
   async list() {
     return (await this.reader.list()).map(BoardPresenter.toHttp);
-  }
-
-  /** Em que quadros (e colunas) está uma conversa. */
-  @Get('placements')
-  async conversationPlacements(
-    @Query(new ZodValidationPipe(placementsQuerySchema)) query: PlacementsQuery,
-  ) {
-    return (await this.placements.execute(query.conversationId)).map(CardPresenter.placement);
   }
 
   @Get(':id')
@@ -100,7 +76,7 @@ export class BoardsController {
     return BoardPresenter.toHttp(await this.createBoard.execute(body));
   }
 
-  /** Renomear e/ou configurar a entrada automática. */
+  /** Renomear e/ou configurar a entrada automática (conversas e leads). */
   @RequirePermissions('boards:manage')
   @Patch(':id')
   async update(
@@ -136,7 +112,7 @@ export class BoardsController {
     return BoardPresenter.toHttp(await this.updateColumn.execute(id, columnId, body));
   }
 
-  /** Coluna com cards: `?moveTo=<outra coluna>` leva os cards para o fim dela. */
+  /** Etapa com negócios: `?moveTo=<outra etapa>` leva os negócios para o fim dela. */
   @RequirePermissions('boards:manage')
   @Delete(':id/columns/:columnId')
   async removeColumn(
@@ -147,34 +123,12 @@ export class BoardsController {
     return BoardPresenter.toHttp(await this.deleteColumn.execute(id, columnId, query.moveTo));
   }
 
-  @Get(':id/cards')
-  async cards(
+  /** Negócios em aberto, por etapa. */
+  @Get(':id/deals')
+  async deals(
     @Param('id', idParam) id: string,
-    @Query(new ZodValidationPipe(listCardsQuerySchema)) query: ListCardsQuery,
+    @Query(new ZodValidationPipe(listDealsQuerySchema)) query: ListDealsQuery,
   ) {
-    return (await this.listCards.execute(id, query)).map(CardPresenter.page);
-  }
-
-  @Post(':id/cards')
-  async createCard(
-    @Param('id', idParam) id: string,
-    @Body(new ZodValidationPipe(addCardSchema)) body: AddCardDto,
-  ) {
-    return CardPresenter.toHttp(await this.addCard.execute({ boardId: id, ...body }));
-  }
-
-  @Post(':id/cards/:cardId/move')
-  async move(
-    @Param('id', idParam) id: string,
-    @Param('cardId', idParam) cardId: string,
-    @Body(new ZodValidationPipe(moveCardSchema)) body: MoveCardDto,
-  ) {
-    return CardPresenter.toHttp(await this.moveCard.execute({ boardId: id, cardId, ...body }));
-  }
-
-  @Delete(':id/cards/:cardId')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteCard(@Param('id', idParam) id: string, @Param('cardId', idParam) cardId: string) {
-    await this.removeCard.execute({ boardId: id, cardId });
+    return (await this.listDeals.execute(id, query)).map(DealPresenter.page);
   }
 }

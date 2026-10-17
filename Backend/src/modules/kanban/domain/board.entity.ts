@@ -13,7 +13,7 @@ export interface BoardColumn {
   name: string;
 }
 
-/** Entrada automática de conversas novas na primeira coluna. */
+/** Entrada automática de conversas novas na primeira etapa. */
 export type AutoAdd = { mode: 'none' } | { mode: 'all' } | { mode: 'team'; teamId: string };
 
 export const AUTO_ADD_MODES = ['none', 'all', 'team'] as const;
@@ -24,13 +24,16 @@ export interface BoardProps {
   /** Na ordem de exibição (esquerda → direita). */
   columns: BoardColumn[];
   autoAdd: AutoAdd;
+  /** Leads do formulário do site entram na primeira etapa. */
+  autoAddLeads: boolean;
   createdAt: Date;
 }
 
 /**
- * Quadro kanban da conta. As colunas fazem parte do agregado (poucas, e as
- * regras envolvem todas: nomes únicos, ordem, mínimo de uma). Os cards são
- * um agregado à parte (muitos, e mudam o tempo todo).
+ * Funil de vendas da conta (o "quadro"; as colunas são as etapas). As
+ * etapas fazem parte do agregado (poucas, e as regras envolvem todas: nomes
+ * únicos, ordem, mínimo de uma). Os negócios são um agregado à parte
+ * (muitos, e mudam o tempo todo).
  */
 export class Board extends AggregateRoot<BoardProps> {
   static create(
@@ -42,6 +45,7 @@ export class Board extends AggregateRoot<BoardProps> {
       name: validName(input.name),
       columns: [],
       autoAdd: { mode: 'none' },
+      autoAddLeads: false,
       createdAt: new Date(),
     });
     for (const column of input.columns) board.pushColumn(column.id, column.name);
@@ -65,6 +69,11 @@ export class Board extends AggregateRoot<BoardProps> {
       throw new InvalidBoardError('BOARD_INVALID_AUTO_ADD');
     }
     this.props.autoAdd = autoAdd;
+    this.changed();
+  }
+
+  setAutoAddLeads(enabled: boolean): void {
+    this.props.autoAddLeads = enabled;
     this.changed();
   }
 
@@ -137,6 +146,9 @@ export class Board extends AggregateRoot<BoardProps> {
   }
   get autoAdd(): AutoAdd {
     return this.props.autoAdd;
+  }
+  get autoAddLeads(): boolean {
+    return this.props.autoAddLeads;
   }
   get createdAt() {
     return this.props.createdAt;

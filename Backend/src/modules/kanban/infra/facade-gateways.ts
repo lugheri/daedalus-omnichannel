@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { AccountsFacade } from '../../accounts';
+import { ContactsFacade } from '../../contacts';
 import { ConversationsFacade } from '../../conversations';
 import { TeamsFacade } from '../../teams';
 import type {
   CardConversation,
   ConversationDirectory,
 } from '../application/ports/conversation-directory';
+import type { ContactDirectory, DealContact } from '../application/ports/contact-directory';
 import type { ConversationActions } from '../application/ports/conversation-actions';
+import type { DealAccess, DealViewer } from '../application/ports/deal-access';
 import type { MemberDirectory } from '../application/ports/member-directory';
 import type { TeamDirectory } from '../application/ports/team-directory';
 
@@ -65,5 +68,32 @@ export class AccountsFacadeMembers implements MemberDirectory {
 
   async isActive(membershipId: string): Promise<boolean> {
     return (await this.accounts.activeMemberIds([membershipId])).length > 0;
+  }
+}
+
+@Injectable()
+export class ContactsFacadeContacts implements ContactDirectory {
+  constructor(private readonly contacts: ContactsFacade) {}
+
+  findById(id: string): Promise<DealContact | null> {
+    return this.contacts.findById(id);
+  }
+
+  findByIds(ids: string[]): Promise<DealContact[]> {
+    return this.contacts.findByIds(ids);
+  }
+}
+
+/** Supervisão (`view:all` ou `view:team`) vê todos os negócios. */
+@Injectable()
+export class AccountsDealAccess implements DealAccess {
+  constructor(private readonly accounts: AccountsFacade) {}
+
+  async current(): Promise<DealViewer> {
+    const { membershipId, permissions } = await this.accounts.currentMember();
+    const seesAll =
+      permissions.includes('conversations:view:all') ||
+      permissions.includes('conversations:view:team');
+    return { membershipId, seesAll };
   }
 }

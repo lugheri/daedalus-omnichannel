@@ -1,6 +1,15 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowRight, ExternalLink, GripVertical, MoreHorizontal, Trash2 } from 'lucide-react'
+import {
+  ArrowRight,
+  ExternalLink,
+  GripVertical,
+  MessageCircle,
+  MoreHorizontal,
+  Pencil,
+  Trophy,
+  X,
+} from 'lucide-react'
 import type { KeyboardEventHandler, ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
@@ -13,121 +22,132 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useDispositionLookup } from '@/features/dispositions/api'
-import { DispositionBadge } from '@/features/dispositions/disposition-badge'
-import { contactLabel } from '@/features/conversations/format'
 import { useMemberNames } from '@/features/members/api'
+import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
-import type { BoardCard, BoardColumn } from './api'
-
-const STATUS_LABEL = { pending: 'Aguardando cliente', resolved: 'Resolvida' } as const
-
-/** "há 5 min", "há 3 h", "há 2 d" — tempo na coluna atual. */
-function since(iso: string): string {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000))
-  if (minutes < 60) return `há ${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `há ${hours} h`
-  return `há ${Math.floor(hours / 24)} d`
-}
+import type { BoardColumn, DealView } from './api'
+import { dealContactLabel, since } from './deal-format'
 
 const fullDate = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
-/** Conteúdo do card (também usado no "fantasma" que acompanha o arraste). */
-export function CardContent({
-  card,
+export interface DealActions {
+  open: () => void
+  move: (columnId: string) => void
+  win: () => void
+  lose: () => void
+}
+
+/** Conteúdo do card do negócio (também usado no "fantasma" que acompanha o arraste). */
+export function DealCardContent({
+  deal,
   columns,
-  onMove,
-  onRemove,
+  actions,
   handle,
 }: {
-  card: BoardCard
-  /** Alça de arraste pelo teclado (só no card do quadro). */
+  deal: DealView
+  /** Alça de arraste pelo teclado (só no card do funil). */
   handle?: ReactNode
   columns?: BoardColumn[]
-  onMove?: (columnId: string) => void
-  onRemove?: () => void
+  actions?: DealActions
 }) {
   const nameOf = useMemberNames()
-  const dispositionOf = useDispositionLookup()
-  const { conversation } = card
-  const disposition = dispositionOf(conversation.dispositionId)
+  const { conversation } = deal
+  const contact = dealContactLabel(deal.contact)
 
   return (
     <div className="bg-card flex flex-col gap-1.5 rounded-md border p-2.5 text-sm shadow-xs">
       <div className="flex items-start justify-between gap-2">
         {handle}
-        <Link
-          to={`/conversations/${conversation.id}?status=${conversation.status}`}
-          className="min-w-0 flex-1 truncate font-medium hover:underline"
+        <button
+          type="button"
+          onClick={actions?.open}
+          className="min-w-0 flex-1 truncate text-left font-medium hover:underline"
         >
-          {contactLabel(conversation.contact)}
-        </Link>
+          {deal.title}
+        </button>
         <div className="flex shrink-0 items-center gap-1">
-          {conversation.unreadCount > 0 && (
-            <Badge className="h-5 min-w-5 rounded-full px-1.5">{conversation.unreadCount}</Badge>
+          {conversation && conversation.unreadCount > 0 && (
+            <Badge className="h-5 min-w-5 rounded-full px-1.5" title="Mensagens não lidas">
+              {conversation.unreadCount}
+            </Badge>
           )}
-          {onMove && columns && (
+          {actions && columns && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="size-6"
-                  aria-label={`Ações do card de ${contactLabel(conversation.contact)}`}
+                  aria-label={`Ações do negócio ${deal.title}`}
                 >
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link to={`/conversations/${conversation.id}?status=${conversation.status}`}>
-                    <ExternalLink />
-                    Abrir conversa
-                  </Link>
+                <DropdownMenuItem onSelect={actions.open}>
+                  <Pencil />
+                  Abrir negócio
+                </DropdownMenuItem>
+                {conversation && (
+                  <DropdownMenuItem asChild>
+                    <Link to={`/conversations/${conversation.id}?status=${conversation.status}`}>
+                      <ExternalLink />
+                      Abrir conversa
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={actions.win}>
+                  <Trophy />
+                  Ganhou
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={actions.lose}>
+                  <X />
+                  Perdeu…
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Mover para</DropdownMenuLabel>
                 {columns
-                  .filter((c) => c.id !== card.columnId)
+                  .filter((c) => c.id !== deal.columnId)
                   .map((column) => (
-                    <DropdownMenuItem key={column.id} onSelect={() => onMove(column.id)}>
+                    <DropdownMenuItem key={column.id} onSelect={() => actions.move(column.id)}>
                       <ArrowRight />
                       {column.name}
                     </DropdownMenuItem>
                   ))}
-                {onRemove && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onSelect={onRemove}>
-                      <Trash2 />
-                      Remover do quadro
-                    </DropdownMenuItem>
-                  </>
-                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
         </div>
       </div>
-      <p className="text-muted-foreground line-clamp-2 text-xs">
-        {conversation.lastMessagePreview ?? '—'}
-      </p>
-      {(disposition || conversation.status !== 'open') && (
-        <div className="flex flex-wrap gap-1">
-          {disposition && <DispositionBadge disposition={disposition} />}
-          {conversation.status !== 'open' && (
-            <Badge variant="outline">{STATUS_LABEL[conversation.status]}</Badge>
-          )}
-        </div>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <Link
+          to={`/contacts/${deal.contactId}`}
+          className="text-muted-foreground truncate hover:underline"
+        >
+          {deal.title === contact ? 'Ver contato' : contact}
+        </Link>
+        {deal.valueCents !== null && (
+          <span className="shrink-0 font-semibold tabular-nums">
+            {formatMoney(deal.valueCents)}
+          </span>
+        )}
+      </div>
+      {conversation?.lastMessagePreview && (
+        <p className="text-muted-foreground flex items-start gap-1 text-xs">
+          <MessageCircle className="mt-0.5 size-3 shrink-0" />
+          <span className="line-clamp-2">{conversation.lastMessagePreview}</span>
+        </p>
       )}
       <div className="text-muted-foreground flex justify-between gap-2 text-xs">
-        <span className="truncate">{nameOf(conversation.assigneeId) ?? 'Sem responsável'}</span>
+        <span className={cn('truncate', !deal.ownerId && 'text-warning font-medium')}>
+          {deal.ownerId ? (nameOf(deal.ownerId) ?? 'Membro desativado') : 'Sem responsável'}
+        </span>
         <span
           className="shrink-0"
-          title={`Nesta coluna desde ${fullDate.format(new Date(card.enteredColumnAt))}`}
+          title={`Nesta etapa desde ${fullDate.format(new Date(deal.enteredColumnAt))}`}
         >
-          {since(card.enteredColumnAt)}
+          {since(deal.enteredColumnAt)}
         </span>
       </div>
     </div>
@@ -137,19 +157,17 @@ export function CardContent({
 /**
  * Card arrastável. Mouse e toque: arraste o card por qualquer ponto. Teclado:
  * a alça (botão) pega o card com espaço, as setas movem, espaço solta e Esc
- * cancela. A alça é o único elemento com papel de botão — o card continua
- * sendo um item de lista com link e menu dentro.
+ * cancela. A alça é o único elemento com papel de botão de arraste — o card
+ * continua sendo um item de lista com links e menu dentro.
  */
-export function SortableCard({
-  card,
+export function SortableDealCard({
+  deal,
   columns,
-  onMove,
-  onRemove,
+  actions,
 }: {
-  card: BoardCard
+  deal: DealView
   columns: BoardColumn[]
-  onMove: (columnId: string) => void
-  onRemove: () => void
+  actions: DealActions
 }) {
   const {
     attributes,
@@ -159,30 +177,28 @@ export function SortableCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: card.id })
+  } = useSortable({ id: deal.id })
   const { onKeyDown, ...pointer } = listeners ?? {}
-  const name = contactLabel(card.conversation.contact)
 
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn('touch-manipulation list-none', isDragging && 'opacity-40')}
-      aria-label={`Card de ${name}`}
+      aria-label={`Negócio ${deal.title}`}
       {...pointer}
     >
-      <CardContent
-        card={card}
+      <DealCardContent
+        deal={deal}
         columns={columns}
-        onMove={onMove}
-        onRemove={onRemove}
+        actions={actions}
         handle={
           <button
             ref={setActivatorNodeRef}
             type="button"
             {...attributes}
             onKeyDown={onKeyDown as KeyboardEventHandler | undefined}
-            aria-label={`Mover card de ${name}`}
+            aria-label={`Mover negócio ${deal.title}`}
             className="text-muted-foreground hover:bg-accent focus-visible:ring-ring -ml-1 cursor-grab rounded p-0.5 focus-visible:ring-2 focus-visible:outline-none"
           >
             <GripVertical className="size-4" />

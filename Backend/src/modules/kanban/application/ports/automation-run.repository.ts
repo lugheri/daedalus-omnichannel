@@ -1,4 +1,4 @@
-import type { BoardCard } from '../../domain/board-card.entity';
+import type { Deal } from '../../domain/deal.entity';
 import type { AutomationRule } from '../../domain/automation-rule.entity';
 
 export type RunStatus = 'running' | 'succeeded' | 'failed';
@@ -14,8 +14,8 @@ export interface AutomationRun {
   id: string;
   tenantId: string;
   ruleId: string;
-  cardId: string;
-  conversationId: string;
+  dealId: string;
+  conversationId: string | null;
   /** Único por regra: o mesmo disparo nunca roda duas vezes. */
   dedupeKey: string;
   status: RunStatus;
@@ -32,15 +32,16 @@ export interface AutomationRunRepository {
   /** Mais recentes primeiro. */
   listByRule(ruleId: string, limit: number): Promise<AutomationRun[]>;
   /**
-   * Cards da coluna da regra parados há `minutes` ou mais (contando a partir
-   * de quando a regra ficou ativa) e ainda sem execução nesta entrada.
+   * Negócios em aberto da etapa da regra parados há `minutes` ou mais
+   * (contando a partir de quando a regra ficou ativa) e ainda sem execução
+   * nesta entrada.
    */
-  dueIdleCards(rule: AutomationRule, now: Date, limit: number): Promise<BoardCard[]>;
+  dueIdleDeals(rule: AutomationRule, now: Date, limit: number): Promise<Deal[]>;
 }
 
 export const AUTOMATION_RUN_REPOSITORY = Symbol('AutomationRunRepository');
 
-/** Chave do disparo por tempo parado: uma vez por entrada do card na coluna. */
-export function idleDedupeKey(card: { id: string; enteredColumnAt: Date }): string {
-  return `${card.id}:${card.enteredColumnAt.getTime()}`;
+/** Chave do disparo por tempo parado: uma vez por entrada do negócio na etapa. */
+export function idleDedupeKey(deal: { id: string; enteredColumnAt: Date }): string {
+  return `${deal.id}:${deal.enteredColumnAt.getTime()}`;
 }

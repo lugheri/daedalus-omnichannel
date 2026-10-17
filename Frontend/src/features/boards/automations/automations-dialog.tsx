@@ -25,7 +25,7 @@ import { RuleForm } from './rule-form'
 
 const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
-/** Automações de uma coluna: lista, ativar/desativar, criar, editar, execuções. */
+/** Automações de uma etapa: lista, ativar/desativar, criar, editar, execuções. */
 export function AutomationsDialog({
   board,
   column,
@@ -35,7 +35,7 @@ export function AutomationsDialog({
 }: {
   board: Board
   column: BoardColumn
-  /** Regras desta coluna. */
+  /** Regras desta etapa. */
   rules: Automation[]
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -78,7 +78,8 @@ export function AutomationsDialog({
         <DialogHeader>
           <DialogTitle>Automações de “{column.name}”</DialogTitle>
           <DialogDescription>
-            O que acontece sozinho com os cards desta coluna. Mensagens saem uma vez só por disparo.
+            O que acontece sozinho com os negócios desta etapa. Mensagens saem uma vez só por
+            disparo (e só em negócio com conversa).
           </DialogDescription>
         </DialogHeader>
 
@@ -93,7 +94,7 @@ export function AutomationsDialog({
         ) : (
           <div className="flex flex-col gap-3">
             {rules.length === 0 && (
-              <p className="text-muted-foreground text-sm">Nenhuma automação nesta coluna.</p>
+              <p className="text-muted-foreground text-sm">Nenhuma automação nesta etapa.</p>
             )}
             <ul className="flex flex-col gap-2">
               {rules.map((rule) => (

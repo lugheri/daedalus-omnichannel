@@ -9,21 +9,21 @@ import {
   type RealtimeNotifier,
 } from '../../../../shared/application/realtime';
 import {
-  BoardCardEnteredColumnEvent,
-  BoardCardRemovedEvent,
-  BoardCardRepositionedEvent,
   BoardChangedEvent,
+  DealChangedEvent,
+  DealClosedEvent,
+  DealEnteredColumnEvent,
 } from '../../domain/events/kanban-events';
 
-/** Nome do aviso no Socket.IO; o front recarrega o quadro. */
+/** Nome do aviso no Socket.IO; o front recarrega o funil e os negócios do contato. */
 export const BOARD_CHANGED = 'board.changed';
 
-/** Quem vê quadros: todo membro com algum escopo de conversas. */
+/** Quem vê funis: todo membro com algum escopo de conversas. */
 const SCOPES = ['conversations:view:own', 'conversations:view:team', 'conversations:view:all'];
 
 /**
- * Leva as mudanças dos quadros às telas. Só o sinal `{ boardId }`: a tela
- * busca os cards pela API, que filtra as conversas que cada um pode ver.
+ * Leva as mudanças dos funis às telas. Só o sinal `{ boardId, contactId? }`:
+ * a tela busca os negócios pela API, que filtra o que cada um pode ver.
  */
 @Injectable()
 export class KanbanRealtimeHandler {
@@ -34,26 +34,26 @@ export class KanbanRealtimeHandler {
     return this.notify(event.tenantId, event.aggregateId);
   }
 
-  @HandlesDomainEvent(BoardCardEnteredColumnEvent)
-  onEntered(event: DeliveredEvent<BoardCardEnteredColumnEvent>) {
-    return this.notify(event.tenantId, event.boardId);
+  @HandlesDomainEvent(DealEnteredColumnEvent)
+  onEntered(event: DeliveredEvent<DealEnteredColumnEvent>) {
+    return this.notify(event.tenantId, event.boardId, event.contactId);
   }
 
-  @HandlesDomainEvent(BoardCardRepositionedEvent)
-  onRepositioned(event: DeliveredEvent<BoardCardRepositionedEvent>) {
-    return this.notify(event.tenantId, event.boardId);
+  @HandlesDomainEvent(DealChangedEvent)
+  onChanged(event: DeliveredEvent<DealChangedEvent>) {
+    return this.notify(event.tenantId, event.boardId, event.contactId);
   }
 
-  @HandlesDomainEvent(BoardCardRemovedEvent)
-  onRemoved(event: DeliveredEvent<BoardCardRemovedEvent>) {
-    return this.notify(event.tenantId, event.boardId);
+  @HandlesDomainEvent(DealClosedEvent)
+  onClosed(event: DeliveredEvent<DealClosedEvent>) {
+    return this.notify(event.tenantId, event.boardId, event.contactId);
   }
 
-  private notify(tenantId: string, boardId: string) {
+  private notify(tenantId: string, boardId: string, contactId?: string) {
     return this.notifier.emit(
       SCOPES.map((scope) => RealtimeRooms.permission(tenantId, scope)),
       BOARD_CHANGED,
-      { boardId },
+      { boardId, contactId },
     );
   }
 }

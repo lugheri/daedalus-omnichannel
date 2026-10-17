@@ -4,10 +4,10 @@ import { randomUUID } from 'node:crypto';
 import { AppConfigModule } from '../../src/config/app-config.module';
 import { idleDedupeKey } from '../../src/modules/kanban/application/ports/automation-run.repository';
 import { AutomationRule } from '../../src/modules/kanban/domain/automation-rule.entity';
-import { BoardCard } from '../../src/modules/kanban/domain/board-card.entity';
 import { Board } from '../../src/modules/kanban/domain/board.entity';
-import { PrismaBoardCardRepository } from '../../src/modules/kanban/infra/prisma-board-card.repository';
+import { Deal } from '../../src/modules/kanban/domain/deal.entity';
 import { PrismaBoardRepository } from '../../src/modules/kanban/infra/prisma-board.repository';
+import { PrismaDealRepository } from '../../src/modules/kanban/infra/prisma-deal.repository';
 import {
   PrismaAutomationRuleRepository,
   PrismaAutomationRunRepository,
@@ -18,15 +18,15 @@ import { PrismaService } from '../../src/shared/infra/prisma/prisma.service';
 import { SharedInfraModule } from '../../src/shared/infra/shared-infra.module';
 
 /**
- * Repositórios do kanban contra o Postgres real: o que só o banco garante
+ * Repositórios dos funis contra o Postgres real: o que só o banco garante
  * (SQL de renumerar/mover em massa, isolamento por tenant, cascata ao apagar
- * o quadro com as FKs escolhidas).
+ * o funil com as FKs escolhidas, negócios fechados fora da etapa).
  */
 describe('Kanban (Postgres real)', () => {
   let app: TestingModule;
   let prisma: PrismaService;
   let boards: PrismaBoardRepository;
-  let cards: PrismaBoardCardRepository;
+  let cards: PrismaDealRepository;
   let rules: PrismaAutomationRuleRepository;
   let runs: PrismaAutomationRunRepository;
   const tenantId = randomUUID();
@@ -37,7 +37,7 @@ describe('Kanban (Postgres real)', () => {
       imports: [AppConfigModule, PrismaModule, SharedInfraModule],
       providers: [
         PrismaBoardRepository,
-        PrismaBoardCardRepository,
+        PrismaDealRepository,
         PrismaAutomationRuleRepository,
         PrismaAutomationRunRepository,
       ],
@@ -45,7 +45,7 @@ describe('Kanban (Postgres real)', () => {
     await app.init();
     prisma = app.get(PrismaService);
     boards = app.get(PrismaBoardRepository);
-    cards = app.get(PrismaBoardCardRepository);
+    cards = app.get(PrismaDealRepository);
     rules = app.get(PrismaAutomationRuleRepository);
     runs = app.get(PrismaAutomationRunRepository);
   });
@@ -74,23 +74,35 @@ describe('Kanban (Postgres real)', () => {
     });
     await boards.save(board);
     const [a] = board.columns;
-    const placed: BoardCard[] = [];
+    const placed: Deal[] = [];
     for (const position of positions) {
-      const card = BoardCard.place(
-        randomUUID(),
-        {
-          tenantId: tenant,
-          boardId: board.id,
-          columnId: a.id,
-          conversationId: randomUUID(),
-          position,
-        },
-        null,
-      );
+      const card = deal({ tenant, boardId: board.id, columnId: a.id, position });
       await cards.save(card);
       placed.push(card);
     }
     return { board, placed };
+  }
+
+  function deal(input: {
+    tenant: string;
+    boardId: string;
+    columnId: string;
+    position: number;
+    contactId?: string;
+  }): Deal {
+    return Deal.open(
+      randomUUID(),
+      {
+        tenantId: input.tenant,
+        boardId: input.boardId,
+        columnId: input.columnId,
+        contactId: input.contactId ?? randomUUID(),
+        conversationId: randomUUID(),
+        title: 'Negócio',
+        position: input.position,
+      },
+      null,
+    );
   }
 
   const order = async (columnId: string) =>
@@ -119,11 +131,7 @@ describe('Kanban (Postgres real)', () => {
     await inTenant(tenantId, async () => {
       const { board, placed } = await boardWithCards(tenantId, [0, 1, 2]);
       const [a, b] = board.columns;
-      const existing = BoardCard.place(
-        randomUUID(),
-        { tenantId, boardId: board.id, columnId: b.id, conversationId: randomUUID(), position: 7 },
-        null,
-      );
+      const existing = deal({ tenant: tenantId, boardId: board.id, columnId: b.id, position: 7 });
       await cards.save(existing);
 
       await cards.moveAll(a.id, b.id);
@@ -147,7 +155,7 @@ describe('Kanban (Postgres real)', () => {
       ).rejects.toThrow();
 
       await boards.delete(board);
-      expect(await prisma.boardCard.count({ where: { boardId: board.id } })).toBe(0);
+      expect(await prisma.deal.count({ where: { boardId: board.id } })).toBe(0);
       expect(await prisma.boardColumn.count({ where: { boardId: board.id } })).toBe(0);
     });
   });
@@ -184,15 +192,15 @@ describe('Kanban (Postgres real)', () => {
 
       const at = (min: number) => new Date(rule.activeSince.getTime() + min * 60_000);
       // Cards acabaram de entrar e a regra é nova: nada antes de 60 min.
-      expect(await runs.dueIdleCards(rule, at(59), 10)).toEqual([]);
-      const due = await runs.dueIdleCards(rule, at(61), 10);
+      expect(await runs.dueIdleDeals(rule, at(59), 10)).toEqual([]);
+      const due = await runs.dueIdleDeals(rule, at(61), 10);
       expect(due.map((c) => c.id).sort()).toEqual(placed.map((c) => c.id).sort());
 
       const run = {
         id: randomUUID(),
         tenantId,
         ruleId: rule.id,
-        cardId: due[0].id,
+        dealId: due[0].id,
         conversationId: due[0].conversationId,
         dedupeKey: idleDedupeKey(due[0]),
         status: 'running' as const,
@@ -205,11 +213,69 @@ describe('Kanban (Postgres real)', () => {
       await runs.finish(run.id, 'succeeded', [{ type: 'move', ok: true }]);
 
       // A chave do SQL bate com a do código: o card que rodou sai da lista.
-      expect((await runs.dueIdleCards(rule, at(61), 10)).map((c) => c.id)).toEqual([due[1].id]);
+      expect((await runs.dueIdleDeals(rule, at(61), 10)).map((c) => c.id)).toEqual([due[1].id]);
       expect((await runs.listByRule(rule.id, 5))[0]).toMatchObject({
         status: 'succeeded',
         results: [{ type: 'move', ok: true }],
       });
+    });
+  });
+
+  it('closed deals leave the stage listing and the idle sweep, but still live in the stage', async () => {
+    await inTenant(tenantId, async () => {
+      const contactId = randomUUID();
+      const { board, placed } = await boardWithCards(tenantId, [0, 1]);
+      const [a, b] = board.columns;
+      const won = deal({
+        tenant: tenantId,
+        boardId: board.id,
+        columnId: a.id,
+        position: 2,
+        contactId,
+      });
+      won.win(null);
+      await cards.save(won);
+      const open = deal({
+        tenant: tenantId,
+        boardId: board.id,
+        columnId: a.id,
+        position: 3,
+        contactId,
+      });
+      await cards.save(open);
+
+      expect((await cards.listColumn(a.id, { limit: 50 })).map((d) => d.id)).toEqual([
+        placed[0].id,
+        placed[1].id,
+        open.id,
+      ]);
+      expect(await cards.countInColumn(a.id)).toBe(4);
+      expect((await cards.findOpenOnBoard(board.id, contactId))?.id).toBe(open.id);
+      expect((await cards.listByContact(contactId)).map((d) => [d.id, d.status])).toEqual(
+        expect.arrayContaining([
+          [won.id, 'won'],
+          [open.id, 'open'],
+        ]),
+      );
+      const saved = await cards.findById(won.id);
+      expect(saved).toMatchObject({ status: 'won', title: 'Negócio' });
+      expect(saved?.closedAt).toBeInstanceOf(Date);
+
+      const rule = AutomationRule.create(randomUUID(), {
+        tenantId,
+        boardId: board.id,
+        columnId: a.id,
+        trigger: { type: 'card_idle', minutes: 1 },
+        actions: [{ type: 'move', columnId: b.id }],
+      });
+      await rules.save(rule);
+      const due = await runs.dueIdleDeals(rule, new Date(Date.now() + 10 * 60_000), 10);
+      expect(due.map((d) => d.id)).not.toContain(won.id);
+
+      // Excluir a etapa leva também os fechados (senão a FK barraria).
+      await cards.moveAll(a.id, b.id);
+      expect(await cards.countInColumn(a.id)).toBe(0);
+      expect((await cards.findById(won.id))?.columnId).toBe(b.id);
     });
   });
 });

@@ -4,7 +4,7 @@ import { io } from 'socket.io-client'
 import { getAccessToken, refreshSession } from '@/lib/api/client'
 import { env } from '@/lib/env'
 import { conversationKeys } from '@/features/conversations/api'
-import { boardKeys } from '@/features/boards/api'
+import { boardKeys, dealKeys } from '@/features/boards/api'
 import { RealtimeContext, type RealtimeStatus } from './realtime-context'
 
 interface ConversationChanged {
@@ -66,17 +66,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       if (error.message === 'unauthorized') renewAndReconnect()
     })
 
-    // Quadro mudou (cards movidos, colunas): recarrega o que estiver na tela.
+    // Funil mudou (negócios movidos, ganhos, etapas): recarrega o funil e os
+    // negócios fora dele (ficha do contato, chat, detalhe).
     socket.on('board.changed', ({ boardId }: { boardId: string }) => {
       void queryClient.invalidateQueries({ queryKey: boardKeys.detail(boardId) })
-      void queryClient.invalidateQueries({ queryKey: boardKeys.cards(boardId) })
+      void queryClient.invalidateQueries({ queryKey: boardKeys.deals(boardId) })
       void queryClient.invalidateQueries({ queryKey: boardKeys.list })
-      void queryClient.invalidateQueries({ queryKey: ['boards', 'placements'] })
+      void queryClient.invalidateQueries({ queryKey: dealKeys.all })
     })
 
     socket.on('conversation.changed', ({ conversationId, reason }: ConversationChanged) => {
-      // Os cards mostram dados da conversa (responsável, tabulação, prévia).
-      void queryClient.invalidateQueries({ queryKey: boardKeys.allCards })
+      // Os negócios mostram dados da conversa (não lidas, prévia).
+      void queryClient.invalidateQueries({ queryKey: boardKeys.allDeals })
       void queryClient.invalidateQueries({ queryKey: ['conversations', 'list'] })
       void queryClient.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) })
       if (reason === 'message' || reason === 'message-status') {

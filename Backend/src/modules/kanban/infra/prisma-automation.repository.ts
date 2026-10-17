@@ -6,7 +6,7 @@ import { Prisma } from '../../../shared/infra/prisma/generated/client';
 import type {
   AutomationRuleModel,
   AutomationRunModel,
-  BoardCardModel,
+  DealModel,
 } from '../../../shared/infra/prisma/generated/models';
 import type { PrismaService } from '../../../shared/infra/prisma/prisma.service';
 import type { AutomationRuleRepository } from '../application/ports/automation-rule.repository';
@@ -22,7 +22,8 @@ import {
   type AutomationTrigger,
   type TriggerType,
 } from '../domain/automation-rule.entity';
-import { BoardCard } from '../domain/board-card.entity';
+import type { Deal } from '../domain/deal.entity';
+import { toDomain as dealToDomain } from './prisma-deal.repository';
 import { isUuid } from './uuid';
 
 @Injectable()
@@ -171,18 +172,21 @@ export class PrismaAutomationRunRepository implements AutomationRunRepository {
     return rows.map(toRun);
   }
 
-  async dueIdleCards(rule: AutomationRule, now: Date, limit: number): Promise<BoardCard[]> {
+  async dueIdleDeals(rule: AutomationRule, now: Date, limit: number): Promise<Deal[]> {
     if (rule.trigger.type !== 'card_idle') return [];
     const before = new Date(now.getTime() - rule.trigger.minutes * 60_000);
     // Conta a partir do que for mais recente: a entrada na coluna ou a
     // ativação da regra. A chave do disparo repete idleDedupeKey().
-    const rows = await this.db.$queryRaw<BoardCardModel[]>`
+    const rows = await this.db.$queryRaw<DealModel[]>`
       SELECT c.id, c.tenant_id AS "tenantId", c.board_id AS "boardId", c.column_id AS "columnId",
-             c.conversation_id AS "conversationId", c.position,
+             c.contact_id AS "contactId", c.conversation_id AS "conversationId", c.title,
+             c.value_cents AS "valueCents", c.owner_id AS "ownerId", c.status,
+             c.lost_reason AS "lostReason", c.closed_at AS "closedAt", c.position,
              c.entered_column_at AS "enteredColumnAt", c.created_at AS "createdAt"
-      FROM kanban.board_cards c
+      FROM kanban.deals c
       WHERE c.tenant_id = ${this.tenant.tenantId}::uuid
         AND c.column_id = ${rule.columnId}::uuid
+        AND c.status = 'open'
         AND greatest(c.entered_column_at, ${rule.activeSince}) <= ${before}
         AND NOT EXISTS (
           SELECT 1 FROM kanban.automation_runs r
@@ -192,7 +196,7 @@ export class PrismaAutomationRunRepository implements AutomationRunRepository {
         )
       ORDER BY c.entered_column_at
       LIMIT ${limit}`;
-    return rows.map((row) => BoardCard.restore(row.id, row));
+    return rows.map(dealToDomain);
   }
 }
 
@@ -222,7 +226,7 @@ function toRun(row: AutomationRunModel): AutomationRun {
     id: row.id,
     tenantId: row.tenantId,
     ruleId: row.ruleId,
-    cardId: row.cardId,
+    dealId: row.dealId,
     conversationId: row.conversationId,
     dedupeKey: row.dedupeKey,
     status: row.status as RunStatus,

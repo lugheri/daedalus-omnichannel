@@ -1,16 +1,19 @@
-// Módulo kanban. Conversa e equipe são de outros módulos: só ids.
+// Módulo kanban: funis de vendas. Contato, conversa, equipe e membro são de
+// outros módulos: só ids.
 
-// Quadro da conta. Entrada automática: novas conversas entram na primeira
-// coluna — todas ("all"), só as de uma equipe ("team") ou nenhuma ("none").
+// Funil (quadro) da conta. Entrada automática na primeira etapa: conversas
+// novas — todas ("all"), só as de uma equipe ("team") ou nenhuma ("none") — e
+// leads do formulário do site (autoAddLeads).
 model Board {
   id            String           @id @db.Uuid
   tenantId      String           @map("tenant_id") @db.Uuid
   name          String
   autoAddMode   String           @default("none") @map("auto_add_mode")
   autoAddTeamId String?          @map("auto_add_team_id") @db.Uuid
+  autoAddLeads  Boolean          @default(false) @map("auto_add_leads")
   createdAt     DateTime         @map("created_at") @db.Timestamptz(3)
   columns       BoardColumn[]
-  cards         BoardCard[]
+  deals         Deal[]
   automations   AutomationRule[]
 
   @@unique([tenantId, name])
@@ -27,7 +30,7 @@ model BoardColumn {
   name        String
   // Ordem da coluna no quadro (0, 1, 2...).
   position    Int
-  cards       BoardCard[]
+  deals       Deal[]
   automations AutomationRule[]
 
   @@index([tenantId, boardId, position])
@@ -35,34 +38,47 @@ model BoardColumn {
   @@schema("kanban")
 }
 
-// Card = uma conversa (atendimento) num quadro — no máximo uma vez por quadro.
-model BoardCard {
+// Negócio (oportunidade) de um contato num funil. A conversa é opcional: o
+// lead do formulário entra sem conversa até alguém falar com ele.
+model Deal {
   id              String      @id @db.Uuid
   tenantId        String      @map("tenant_id") @db.Uuid
   boardId         String      @map("board_id") @db.Uuid
   board           Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  // NoAction (checado no fim do comando): apagar o quadro leva colunas e cards
-  // juntos; apagar só a coluna com cards dentro falha.
+  // NoAction (checado no fim do comando): apagar o funil leva etapas e
+  // negócios juntos; apagar só a etapa com negócios dentro falha.
   columnId        String      @map("column_id") @db.Uuid
   column          BoardColumn @relation(fields: [columnId], references: [id], onDelete: NoAction)
-  conversationId  String      @map("conversation_id") @db.Uuid
-  // Ordem dentro da coluna (menor = mais acima). Fracionária: mover um card
-  // entre dois outros não renumera a coluna.
+  contactId       String      @map("contact_id") @db.Uuid
+  conversationId  String?     @map("conversation_id") @db.Uuid
+  title           String
+  // Em centavos; null = sem valor definido.
+  valueCents      Int?        @map("value_cents")
+  // Responsável (membership); null = ninguém ainda (fila de leads).
+  ownerId         String?     @map("owner_id") @db.Uuid
+  // open | won | lost
+  status          String      @default("open")
+  lostReason      String?     @map("lost_reason")
+  closedAt        DateTime?   @map("closed_at") @db.Timestamptz(3)
+  // Ordem dentro da etapa (menor = mais acima). Fracionária: mover um negócio
+  // entre dois outros não renumera a etapa.
   position        Float
-  // Quando entrou na coluna atual ("parado há X" nas automações).
+  // Quando entrou na etapa atual ("parado há X" nas automações).
   enteredColumnAt DateTime    @map("entered_column_at") @db.Timestamptz(3)
   createdAt       DateTime    @map("created_at") @db.Timestamptz(3)
 
-  @@unique([boardId, conversationId])
   @@index([tenantId, columnId, position])
   @@index([tenantId, conversationId])
-  @@map("board_cards")
+  // "Este contato já tem negócio em aberto neste funil?" e a ficha do contato.
+  @@index([tenantId, contactId, boardId])
+  @@map("deals")
   @@schema("kanban")
 }
 
 // Automação de uma coluna. Gatilho em colunas (para consultar): entrada do
 // card, tempo parado (idleMinutes) ou evento da conversa (move o card PARA
 // esta coluna; dispositionId no gatilho de tabulação). Ações em JSON.
+// Os gatilhos de conversa só valem para negócios com conversa.
 model AutomationRule {
   id            String          @id @db.Uuid
   tenantId      String          @map("tenant_id") @db.Uuid
@@ -95,8 +111,8 @@ model AutomationRun {
   tenantId       String         @map("tenant_id") @db.Uuid
   ruleId         String         @map("rule_id") @db.Uuid
   rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  cardId         String         @map("card_id") @db.Uuid
-  conversationId String         @map("conversation_id") @db.Uuid
+  dealId         String         @map("deal_id") @db.Uuid
+  conversationId String?        @map("conversation_id") @db.Uuid
   dedupeKey      String         @map("dedupe_key")
   // running | succeeded | failed
   status         String

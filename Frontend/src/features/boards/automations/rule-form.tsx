@@ -48,8 +48,8 @@ type Draft =
   | { key: number; type: 'move'; columnId: string }
 
 const TRIGGER_LABELS: Record<TriggerType, string> = {
-  card_entered: 'Quando o card entrar nesta coluna',
-  card_idle: 'Quando o card ficar parado nesta coluna por…',
+  card_entered: 'Quando o negócio entrar nesta etapa',
+  card_idle: 'Quando o negócio ficar parado nesta etapa por…',
   disposition_set: 'Mover para cá quando a conversa for tabulada como…',
   conversation_resolved: 'Mover para cá quando a conversa for resolvida',
   customer_replied: 'Mover para cá quando o cliente responder',
@@ -83,7 +83,7 @@ function splitMinutes(minutes: number): { value: number; unit: Unit } {
   return { value: minutes, unit: 'minutes' }
 }
 
-/** Criar (sem `rule`) ou editar uma regra da coluna. */
+/** Criar (sem `rule`) ou editar uma regra da etapa. */
 export function RuleForm({
   board,
   columnId,
@@ -216,8 +216,8 @@ export function RuleForm({
       )}
       {triggerType === 'card_idle' && (
         <p className="text-muted-foreground -mt-2 text-xs">
-          Conta a partir de quando a regra é ativada: cards que já estavam parados não disparam na
-          hora.
+          Conta a partir de quando a regra é ativada: negócios que já estavam parados não disparam
+          na hora.
         </p>
       )}
 
@@ -241,7 +241,7 @@ export function RuleForm({
 
       {movesInto ? (
         <p className="text-muted-foreground text-sm">
-          O card vai para esta coluna em todo quadro em que a conversa estiver.
+          Os negócios em aberto da conversa vão para esta etapa (em cada funil).
         </p>
       ) : (
         <fieldset className="flex flex-col gap-3">
@@ -258,7 +258,7 @@ export function RuleForm({
                     ? 'Enviar mensagem'
                     : draft.type === 'assign'
                       ? 'Atribuir'
-                      : 'Mover para a coluna'}
+                      : 'Mover para a etapa'}
                 </span>
                 <Button
                   type="button"
@@ -327,7 +327,7 @@ export function RuleForm({
                   value={draft.columnId}
                   onValueChange={(columnId) => update(draft.key, { columnId })}
                 >
-                  <SelectTrigger aria-label={`Coluna da ação ${index + 1}`} className="w-full">
+                  <SelectTrigger aria-label={`Etapa da ação ${index + 1}`} className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -361,7 +361,7 @@ export function RuleForm({
                 {triggerType === 'card_idle' && otherColumns.length > 0 && (
                   <DropdownMenuItem onSelect={() => add('move')}>
                     <MoveRight />
-                    Mover para outra coluna
+                    Mover para outra etapa
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

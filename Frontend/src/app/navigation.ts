@@ -61,13 +61,13 @@ export const NAV_MODULES: NavModule[] = [
     key: 'service',
     label: 'Atendimento',
     icon: Headset,
-    description: 'Conversas, quadros e contatos',
+    description: 'Conversas, funis e contatos',
     groups: [
       {
         label: null,
         items: [
           { to: '/conversations', label: 'Conversas', icon: Inbox, anyOf: CONVERSATION_SCOPES },
-          { to: '/boards', label: 'Quadros', icon: SquareKanban, anyOf: CONVERSATION_SCOPES },
+          { to: '/boards', label: 'Funis', icon: SquareKanban, anyOf: CONVERSATION_SCOPES },
           { to: '/contacts', label: 'Contatos', icon: Contact, anyOf: ['contacts:view'] },
         ],
       },

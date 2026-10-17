@@ -15,7 +15,7 @@ export const AutomationPresenter = {
   }),
   run: (run: AutomationRun) => ({
     id: run.id,
-    cardId: run.cardId,
+    dealId: run.dealId,
     conversationId: run.conversationId,
     status: run.status,
     results: run.results,

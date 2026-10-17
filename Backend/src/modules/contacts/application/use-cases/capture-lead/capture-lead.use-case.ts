@@ -9,6 +9,7 @@ import { UNIT_OF_WORK, type UnitOfWork } from '../../../../../shared/application
 import { Contact } from '../../../domain/contact.entity';
 import { Email } from '../../../domain/email.vo';
 import { ContactWithoutIdentifierError } from '../../../domain/errors/contact-without-identifier.error';
+import { LeadCapturedEvent } from '../../../domain/events/lead-captured.event';
 import { Phone } from '../../../domain/phone.vo';
 import { CONTACT_REPOSITORY, type ContactRepository } from '../../ports/contact.repository';
 
@@ -24,6 +25,7 @@ export interface CaptureLeadInput {
  * Lead vindo do formulário do site (API com chave da conta).
  *
  * - Novo: contato com origem `web_form` e a campanha.
+ * - Sempre publica `LeadCapturedEvent` (os funis abrem o negócio).
  * - Já existe (mesmo telefone ou e-mail): NÃO duplica — completa o que estiver
  *   em branco (se o dado não for de outro contato) e mantém a origem original,
  *   que registra como o lead chegou pela PRIMEIRA vez. Reenviar o formulário
@@ -57,6 +59,7 @@ export class CaptureLeadUseCase {
           email: byEmail && byEmail.id !== existing.id ? null : email,
         });
         if (changed) await this.contacts.save(existing);
+        await this.events.publish([this.captured(existing, input, false)]);
         return { contact: existing, created: false };
       }
 
@@ -69,8 +72,13 @@ export class CaptureLeadUseCase {
         sourceDetail: input.campaign,
       });
       await this.contacts.save(contact);
-      await this.events.publish(contact.pullEvents());
+      await this.events.publish([...contact.pullEvents(), this.captured(contact, input, true)]);
       return { contact, created: true };
     });
+  }
+
+  private captured(contact: Contact, input: CaptureLeadInput, newContact: boolean) {
+    const campaign = input.campaign?.trim() || null;
+    return new LeadCapturedEvent(contact.id, this.tenant.tenantId, campaign, newContact);
   }
 }

@@ -9,20 +9,21 @@ import { BoardNameTakenError } from '../../domain/errors/board-name-taken.error'
 import { BoardNotFoundError } from '../../domain/errors/board-not-found.error';
 import { ColumnNotEmptyError } from '../../domain/errors/column-not-empty.error';
 import { InvalidBoardTeamError } from '../../domain/errors/invalid-board-team.error';
-import { BOARD_CARD_REPOSITORY, type BoardCardRepository } from '../ports/board-card.repository';
 import { BOARD_REPOSITORY, type BoardRepository } from '../ports/board.repository';
+import { DEAL_REPOSITORY, type DealRepository } from '../ports/deal.repository';
 import {
   AUTOMATION_RULE_REPOSITORY,
   type AutomationRuleRepository,
 } from '../ports/automation-rule.repository';
 import { TEAM_DIRECTORY, type TeamDirectory } from '../ports/team-directory';
 
-/** Colunas de um quadro novo, se quem cria não disser outras. */
-export const DEFAULT_COLUMNS = ['Novos', 'Em atendimento', 'Concluídos'];
+/** Etapas de um funil novo, se quem cria não disser outras. */
+export const DEFAULT_COLUMNS = ['Novo', 'Em contato', 'Proposta', 'Fechamento'];
+export const DEFAULT_BOARD_NAME = 'Funil de vendas';
 
 /**
- * Quadros e colunas. Ver é aberto a quem tem escopo de conversas; criar e
- * mudar exige `boards:manage` (checado na rota).
+ * Funis e etapas. Ver é aberto a quem tem escopo de conversas; criar e mudar
+ * exige `boards:manage` (checado na rota).
  */
 @Injectable()
 export class BoardsReader {
@@ -104,7 +105,10 @@ export class UpdateBoardUseCase extends BoardChange {
   }
 
   /** Campo ausente = não muda. */
-  execute(id: string, input: { name?: string; autoAdd?: AutoAdd }): Promise<Board> {
+  execute(
+    id: string,
+    input: { name?: string; autoAdd?: AutoAdd; autoAddLeads?: boolean },
+  ): Promise<Board> {
     return this.change(id, async (board) => {
       if (input.name !== undefined) {
         board.rename(input.name);
@@ -116,6 +120,7 @@ export class UpdateBoardUseCase extends BoardChange {
         }
         board.setAutoAdd(input.autoAdd);
       }
+      if (input.autoAddLeads !== undefined) board.setAutoAddLeads(input.autoAddLeads);
     });
   }
 }
@@ -128,7 +133,7 @@ export class DeleteBoardUseCase {
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
   ) {}
 
-  /** Leva colunas e cards junto (as conversas não são afetadas). */
+  /** Leva etapas e negócios junto (contatos e conversas não são afetados). */
   async execute(id: string): Promise<void> {
     const board = await this.boards.findById(id);
     if (!board) throw new BoardNotFoundError();
@@ -186,29 +191,61 @@ export class DeleteColumnUseCase extends BoardChange {
     @Inject(BOARD_REPOSITORY) boards: BoardRepository,
     @Inject(EVENT_BUS) events: EventBus,
     @Inject(UNIT_OF_WORK) unitOfWork: UnitOfWork,
-    @Inject(BOARD_CARD_REPOSITORY) private readonly cards: BoardCardRepository,
+    @Inject(DEAL_REPOSITORY) private readonly deals: DealRepository,
     @Inject(AUTOMATION_RULE_REPOSITORY) private readonly rules: AutomationRuleRepository,
   ) {
     super(boards, events, unitOfWork);
   }
 
   /**
-   * Coluna com cards precisa de `moveTo` (outra coluna do quadro): eles vão
-   * para o fim dela, sem disparar as automações de entrada. As automações da
-   * coluna e as que movem cards PARA ela saem junto.
+   * Etapa com negócios (inclusive fechados, que guardam a etapa onde
+   * pararam) precisa de `moveTo` (outra etapa do funil): eles vão para o fim
+   * dela, sem disparar as automações de entrada. As automações da etapa e as
+   * que movem negócios PARA ela saem junto.
    */
   execute(boardId: string, columnId: string, moveTo?: string): Promise<Board> {
     return this.change(boardId, async (board) => {
       board.column(columnId);
       if (moveTo !== undefined) board.column(moveTo);
       board.removeColumn(columnId);
-      if ((await this.cards.countInColumn(columnId)) > 0) {
+      if ((await this.deals.countInColumn(columnId)) > 0) {
         if (moveTo === undefined || moveTo === columnId) throw new ColumnNotEmptyError();
-        await this.cards.moveAll(columnId, moveTo);
+        await this.deals.moveAll(columnId, moveTo);
       }
       for (const rule of await this.rules.listByBoard(board.id)) {
         if (rule.dependsOnColumn(columnId)) await this.rules.delete(rule);
       }
+    });
+  }
+}
+
+/**
+ * Conta nova já nasce com um funil: recebe as conversas novas e os leads do
+ * formulário. Só cria em conta sem nenhum funil (evento repetido não duplica).
+ */
+@Injectable()
+export class CreateDefaultBoardUseCase {
+  constructor(
+    @Inject(BOARD_REPOSITORY) private readonly boards: BoardRepository,
+    @Inject(EVENT_BUS) private readonly events: EventBus,
+    @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
+    @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
+    @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+  ) {}
+
+  async execute(): Promise<Board | null> {
+    return this.unitOfWork.run(async () => {
+      if ((await this.boards.count()) > 0) return null;
+      const board = Board.create(this.ids.generate(), {
+        tenantId: this.tenant.tenantId,
+        name: DEFAULT_BOARD_NAME,
+        columns: DEFAULT_COLUMNS.map((name) => ({ id: this.ids.generate(), name })),
+      });
+      board.setAutoAdd({ mode: 'all' });
+      board.setAutoAddLeads(true);
+      await this.boards.save(board);
+      await this.events.publish(board.pullEvents());
+      return board;
     });
   }
 }

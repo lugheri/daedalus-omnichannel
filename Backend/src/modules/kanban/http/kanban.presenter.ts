@@ -1,44 +1,56 @@
-import type { ColumnPage, Placement } from '../application/use-cases/cards.use-cases';
-import type { BoardCard } from '../domain/board-card.entity';
+import type { ColumnPage, DealPlacement, DealView } from '../application/use-cases/deals.use-cases';
 import type { Board } from '../domain/board.entity';
+import type { Deal } from '../domain/deal.entity';
 
-/** Formato público de quadros e cards na API. */
+/** Formato público de funis e negócios na API. */
 export const BoardPresenter = {
   toHttp: (board: Board) => ({
     id: board.id,
     name: board.name,
     columns: board.columns.map((c) => ({ id: c.id, name: c.name })),
     autoAdd: board.autoAdd,
+    autoAddLeads: board.autoAddLeads,
     createdAt: board.createdAt.toISOString(),
   }),
 };
 
-const card = (c: BoardCard) => ({
-  id: c.id,
-  boardId: c.boardId,
-  columnId: c.columnId,
-  conversationId: c.conversationId,
-  enteredColumnAt: c.enteredColumnAt.toISOString(),
-  createdAt: c.createdAt.toISOString(),
+const deal = (d: Deal) => ({
+  id: d.id,
+  boardId: d.boardId,
+  columnId: d.columnId,
+  contactId: d.contactId,
+  conversationId: d.conversationId,
+  title: d.title,
+  valueCents: d.valueCents,
+  ownerId: d.ownerId,
+  status: d.status,
+  lostReason: d.lostReason,
+  closedAt: d.closedAt?.toISOString() ?? null,
+  enteredColumnAt: d.enteredColumnAt.toISOString(),
+  createdAt: d.createdAt.toISOString(),
 });
 
-export const CardPresenter = {
-  toHttp: card,
+const view = ({ deal: d, contact, conversation }: DealView) => ({
+  ...deal(d),
+  contact,
+  /** Só se o membro vê a conversa. */
+  conversation: conversation && {
+    ...conversation,
+    lastMessageAt: conversation.lastMessageAt.toISOString(),
+  },
+});
+
+export const DealPresenter = {
+  toHttp: deal,
+  view,
   page: (page: ColumnPage) => ({
     columnId: page.columnId,
     nextCursor: page.nextCursor,
-    cards: page.cards.map(({ card: c, conversation }) => ({
-      ...card(c),
-      conversation: {
-        ...conversation,
-        lastMessageAt: conversation.lastMessageAt.toISOString(),
-      },
-    })),
+    deals: page.deals.map(view),
   }),
-  placement: ({ card: c, board, column }: Placement) => ({
-    cardId: c.id,
-    board: { id: board.id, name: board.name },
-    column: { id: column.id, name: column.name },
-    enteredColumnAt: c.enteredColumnAt.toISOString(),
+  placed: (p: DealPlacement) => ({
+    ...view(p),
+    board: { id: p.board.id, name: p.board.name },
+    column: { id: p.column.id, name: p.column.name },
   }),
 };

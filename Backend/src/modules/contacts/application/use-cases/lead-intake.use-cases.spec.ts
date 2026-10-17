@@ -9,6 +9,7 @@ import { ImportTooLargeError } from '../../domain/errors/import-too-large.error'
 import { ImportWithoutColumnsError } from '../../domain/errors/import-without-columns.error';
 import { InvalidPhoneError } from '../../domain/errors/invalid-phone.error';
 import { ContactCreatedEvent } from '../../domain/events/contact-created.event';
+import { LeadCapturedEvent } from '../../domain/events/lead-captured.event';
 import { InMemoryContactRepository } from '../../testing/in-memory-contact.repository';
 import { CaptureLeadUseCase } from './capture-lead/capture-lead.use-case';
 import { CreateContactUseCase } from './create-contact/create-contact.use-case';
@@ -47,7 +48,16 @@ describe('Lead intake', () => {
 
       expect(created).toBe(true);
       expect(contact).toMatchObject({ source: 'web_form', sourceDetail: 'Black Friday' });
-      expect(events.published).toEqual([expect.any(ContactCreatedEvent)]);
+      // Contato novo + aviso de lead (os funis abrem o negócio).
+      expect(events.published).toEqual([
+        expect.any(ContactCreatedEvent),
+        expect.objectContaining({
+          eventName: LeadCapturedEvent.eventName,
+          aggregateId: contact.id,
+          campaign: 'Black Friday',
+          newContact: true,
+        }),
+      ]);
     });
 
     it('a resubmission does not duplicate; it fills blanks and keeps the first origin', async () => {
@@ -66,6 +76,13 @@ describe('Lead intake', () => {
       expect(await all()).toHaveLength(1);
       expect(contact).toMatchObject({ name: 'Maria', source: 'manual', sourceDetail: null });
       expect(contact.email?.value).toBe('maria@exemplo.com');
+      // Reenvio também é lead: cada envio é uma nova oportunidade.
+      expect(events.published.at(-1)).toMatchObject({
+        eventName: LeadCapturedEvent.eventName,
+        aggregateId: contact.id,
+        campaign: 'Outra campanha',
+        newContact: false,
+      });
     });
 
     it('does not take an email that belongs to another contact', async () => {

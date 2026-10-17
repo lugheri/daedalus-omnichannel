@@ -24,20 +24,23 @@ import { errorMessage } from '@/lib/api/api-error'
 import {
   boardKeys,
   boardsApi,
+  dealsApi,
   useBoard,
-  useBoardCards,
+  useBoardDeals,
   type Board,
-  type BoardCard,
   type BoardColumn,
   type ColumnPage,
+  type DealView,
 } from './api'
-import { CardContent } from './board-card-item'
+import { DealCardContent, type DealActions } from './board-card-item'
 import { BoardColumnView } from './board-column'
 import { BoardSettingsDialog, ColumnNameDialog, DeleteColumnDialog } from './board-dialogs'
+import { DealDialog, NewDealDialog } from './deal-dialogs'
+import { refreshDeals } from './deal-format'
 import { useAutomations } from './automations/api'
 import { AutomationsDialog } from './automations/automations-dialog'
 
-/** Ids dos cards de cada coluna, na ordem. */
+/** Ids dos negócios de cada etapa, na ordem. */
 type Layout = Record<string, string[]>
 
 type ColumnDialog =
@@ -49,7 +52,7 @@ type ColumnDialog =
 export function BoardPage() {
   const { id = '' } = useParams()
   const board = useBoard(id)
-  const cards = useBoardCards(id)
+  const cards = useBoardDeals(id)
 
   if (board.isError) {
     return (
@@ -77,19 +80,21 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
   const [settings, setSettings] = useState(false)
   const [columnDialog, setColumnDialog] = useState<ColumnDialog | null>(null)
   const [loadingMore, setLoadingMore] = useState<string | null>(null)
+  const [openDeal, setOpenDeal] = useState<{ id: string; losing: boolean } | null>(null)
+  const [newDealIn, setNewDealIn] = useState<string | null>(null)
   const automations = useAutomations(board.id, manage)
   const rulesOf = (columnId: string) =>
     automations.data?.filter((rule) => rule.columnId === columnId) ?? []
 
   const pageOf = useMemo(() => new Map(pages.map((p) => [p.columnId, p])), [pages])
   const cardById = useMemo(
-    () => new Map(pages.flatMap((p) => p.cards).map((c) => [c.id, c])),
+    () => new Map(pages.flatMap((p) => p.deals).map((d) => [d.id, d])),
     [pages],
   )
   const base: Layout = useMemo(
     () =>
       Object.fromEntries(
-        board.columns.map((c) => [c.id, (pageOf.get(c.id)?.cards ?? []).map((card) => card.id)]),
+        board.columns.map((c) => [c.id, (pageOf.get(c.id)?.deals ?? []).map((deal) => deal.id)]),
       ),
     [board.columns, pageOf],
   )
@@ -112,21 +117,18 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: boardKeys.cards(board.id) })
-    void queryClient.invalidateQueries({ queryKey: ['boards', 'placements'] })
-  }
+  const refresh = () => refreshDeals(queryClient)
 
   const move = useMutation({
     mutationFn: (input: { cardId: string; columnId: string; afterCardId: string | null }) =>
-      boardsApi.moveCard(board.id, input.cardId, input.columnId, input.afterCardId),
+      dealsApi.move(input.cardId, input.columnId, input.afterCardId),
     onError: (error) => toast.error(errorMessage(error)),
     onSettled: refresh,
   })
 
-  const removeCard = useMutation({
-    mutationFn: (card: BoardCard) => boardsApi.removeCard(board.id, card.id),
-    onSuccess: () => toast.success('Card removido do quadro.'),
+  const win = useMutation({
+    mutationFn: (deal: DealView) => dealsApi.setStatus(deal.id, { status: 'won' }),
+    onSuccess: (deal) => toast.success(`${deal.title}: negócio ganho!`),
     onError: (error) => toast.error(errorMessage(error)),
     onSettled: refresh,
   })
@@ -140,19 +142,19 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
 
   /** Aplica a nova ordem no cache na hora (a API confirma em seguida). */
   const applyLocally = (next: Layout) => {
-    queryClient.setQueryData<ColumnPage[]>(boardKeys.cards(board.id), (current) =>
+    queryClient.setQueryData<ColumnPage[]>(boardKeys.deals(board.id), (current) =>
       current?.map((page) => ({
         ...page,
-        cards: (next[page.columnId] ?? []).flatMap((cardId) => {
-          const card = cardById.get(cardId)
-          return card ? [{ ...card, columnId: page.columnId }] : []
+        deals: (next[page.columnId] ?? []).flatMap((dealId) => {
+          const deal = cardById.get(dealId)
+          return deal ? [{ ...deal, columnId: page.columnId }] : []
         }),
       })),
     )
   }
 
-  /** Move pelo menu "Mover para": topo da coluna escolhida. */
-  const moveToColumn = (card: BoardCard, columnId: string) => {
+  /** Move pelo menu "Mover para": topo da etapa escolhida. */
+  const moveToColumn = (card: DealView, columnId: string) => {
     const next = { ...layout }
     next[card.columnId] = next[card.columnId].filter((cid) => cid !== card.id)
     next[columnId] = [card.id, ...next[columnId]]
@@ -168,7 +170,7 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
     setDragLayout(base)
   }
 
-  // Passou para outra coluna: o card entra nela na posição do item sob o cursor.
+  // Passou para outra etapa: o negócio entra nela na posição do item sob o cursor.
   const onDragOver = ({ active, over }: DragOverEvent) => {
     const current = dragLayoutRef.current
     if (!over || !current) return
@@ -220,11 +222,11 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
     if (!cursor) return
     setLoadingMore(columnId)
     try {
-      const [more] = await boardsApi.cards(board.id, { columnId, cursor })
-      queryClient.setQueryData<ColumnPage[]>(boardKeys.cards(board.id), (current) =>
+      const [more] = await boardsApi.deals(board.id, { columnId, cursor })
+      queryClient.setQueryData<ColumnPage[]>(boardKeys.deals(board.id), (current) =>
         current?.map((page) =>
           page.columnId === columnId
-            ? { ...page, cards: [...page.cards, ...more.cards], nextCursor: more.nextCursor }
+            ? { ...page, deals: [...page.deals, ...more.deals], nextCursor: more.nextCursor }
             : page,
         ),
       )
@@ -236,27 +238,37 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
   }
 
   const activeCard = activeId ? cardById.get(activeId) : undefined
+  const dealActions = (deal: DealView): DealActions => ({
+    open: () => setOpenDeal({ id: deal.id, losing: false }),
+    move: (columnId) => moveToColumn(deal, columnId),
+    win: () => win.mutate(deal),
+    lose: () => setOpenDeal({ id: deal.id, losing: true }),
+  })
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 md:px-4">
-        <Button asChild variant="ghost" size="icon" aria-label="Voltar aos quadros">
+        <Button asChild variant="ghost" size="icon" aria-label="Voltar aos funis">
           <Link to="/boards">
             <ArrowLeft />
           </Link>
         </Button>
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{board.name}</h1>
+        <Button size="sm" onClick={() => setNewDealIn(board.columns[0].id)}>
+          <Plus />
+          Novo negócio
+        </Button>
         {manage && (
           <>
             <Button variant="outline" size="sm" onClick={() => setColumnDialog({ kind: 'add' })}>
               <Plus />
-              Nova coluna
+              Nova etapa
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Configurar quadro"
-              title="Configurar quadro"
+              aria-label="Configurar funil"
+              title="Configurar funil"
               onClick={() => setSettings(true)}
             >
               <Settings />
@@ -278,7 +290,7 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
         accessibility={{
           screenReaderInstructions: {
             draggable:
-              'Para mover o card, pressione espaço. Use as setas para escolher o lugar e espaço de novo para soltar, ou Esc para cancelar.',
+              'Para mover o negócio, pressione espaço. Use as setas para escolher o lugar e espaço de novo para soltar, ou Esc para cancelar.',
           },
         }}
       >
@@ -288,12 +300,12 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
               key={column.id}
               column={column}
               columns={board.columns}
-              cards={(layout[column.id] ?? []).flatMap((cid) => cardById.get(cid) ?? [])}
+              deals={(layout[column.id] ?? []).flatMap((did) => cardById.get(did) ?? [])}
               hasMore={!!pageOf.get(column.id)?.nextCursor}
               loadingMore={loadingMore === column.id}
               onLoadMore={() => void loadMore(column.id)}
-              onMoveCard={moveToColumn}
-              onRemoveCard={(card) => removeCard.mutate(card)}
+              dealActions={dealActions}
+              onNewDeal={() => setNewDealIn(column.id)}
               actions={
                 manage
                   ? {
@@ -315,8 +327,24 @@ function BoardView({ board, pages }: { board: Board; pages: ColumnPage[] }) {
             />
           ))}
         </div>
-        <DragOverlay>{activeCard && <CardContent card={activeCard} />}</DragOverlay>
+        <DragOverlay>{activeCard && <DealCardContent deal={activeCard} />}</DragOverlay>
       </DndContext>
+
+      {openDeal && (
+        <DealDialog
+          dealId={openDeal.id}
+          losing={openDeal.losing}
+          onOpenChange={() => setOpenDeal(null)}
+        />
+      )}
+      {newDealIn && (
+        <NewDealDialog
+          board={board}
+          columnId={newDealIn}
+          open
+          onOpenChange={() => setNewDealIn(null)}
+        />
+      )}
 
       {settings && <BoardSettingsDialog board={board} open onOpenChange={setSettings} />}
       {columnDialog?.kind === 'add' && (

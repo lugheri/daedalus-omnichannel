@@ -17,20 +17,22 @@ import {
 } from '../../conversations';
 import { DomainError } from '../../../shared/domain/domain-error';
 import type { AutomationAction, AutomationTrigger } from '../domain/automation-rule.entity';
-import { BoardCard } from '../domain/board-card.entity';
+import { Deal } from '../domain/deal.entity';
 import type { Board } from '../domain/board.entity';
 import { AutomationNotFoundError } from '../domain/errors/automation-not-found.error';
 import { ColumnNotFoundError } from '../domain/errors/column-not-found.error';
-import { BoardCardEnteredColumnEvent } from '../domain/events/kanban-events';
+import { DealEnteredColumnEvent } from '../domain/events/kanban-events';
 import {
+  FakeContactDirectory,
   FakeConversationActions,
   FakeConversationDirectory,
+  FakeDealAccess,
   FakeMemberDirectory,
   FakeTeamDirectory,
   InMemoryAutomationRuleRepository,
   InMemoryAutomationRunRepository,
-  InMemoryBoardCardRepository,
   InMemoryBoardRepository,
+  InMemoryDealRepository,
 } from '../testing/fakes';
 import {
   AutomationReferences,
@@ -47,7 +49,12 @@ import {
   CreateBoardUseCase,
   DeleteColumnUseCase,
 } from './use-cases/boards.use-cases';
-import { AddCardUseCase, MoveCardUseCase } from './use-cases/cards.use-cases';
+import {
+  CreateDealUseCase,
+  DealVisibility,
+  MoveDealUseCase,
+  SetDealStatusUseCase,
+} from './use-cases/deals.use-cases';
 
 const delivered = <E extends object>(event: E, eventId = 'evt-1') =>
   ({ ...event, eventId }) as never;
@@ -76,7 +83,7 @@ class ChannelDown extends DomainError {
 describe('Automations', () => {
   let tenant: FakeTenantContext;
   let boards: InMemoryBoardRepository;
-  let cards: InMemoryBoardCardRepository;
+  let deals: InMemoryDealRepository;
   let rules: InMemoryAutomationRuleRepository;
   let runs: InMemoryAutomationRunRepository;
   let actions: FakeConversationActions;
@@ -87,14 +94,17 @@ describe('Automations', () => {
   let triggers: KanbanAutomationTriggersHandler;
   const uow = new ImmediateUnitOfWork();
   const conversations = new FakeConversationDirectory();
+  const contacts = new FakeContactDirectory();
+  contacts.add('contact-conv-1', 'Maria Souza');
+  contacts.add('lead-1', 'Ana Lead');
   let board: Board;
 
   beforeEach(async () => {
     tenant = new FakeTenantContext('tenant-a');
-    cards = new InMemoryBoardCardRepository(tenant);
-    boards = new InMemoryBoardRepository(tenant, cards);
+    deals = new InMemoryDealRepository(tenant);
+    boards = new InMemoryBoardRepository(tenant, deals);
     rules = new InMemoryAutomationRuleRepository(tenant);
-    runs = new InMemoryAutomationRunRepository(tenant, cards);
+    runs = new InMemoryAutomationRunRepository(tenant, deals);
     actions = new FakeConversationActions();
     actions.dispositions.add('disp-sale');
     events = new RecordingEventBus();
@@ -106,8 +116,8 @@ describe('Automations', () => {
       membershipId: 'agent-1',
       sessionId: 's',
     });
-    runner = new AutomationRunner(runs, cards, actions, ids, events, uow);
-    triggers = new KanbanAutomationTriggersHandler(rules, cards, boards, runner);
+    runner = new AutomationRunner(runs, deals, actions, ids, events, uow);
+    triggers = new KanbanAutomationTriggersHandler(rules, deals, boards, runner);
     board = await new CreateBoardUseCase(boards, events, uow, tenant, ids).execute({
       name: 'Vendas',
       columns: ['Lead', 'Proposta', 'Ganho', 'Sem retorno'],
@@ -131,28 +141,40 @@ describe('Automations', () => {
       { columnId: col(column), trigger, actions: ruleActions },
     );
   const reader = () => new BoardsReader(boards);
-  const addCard = (conversationId: string, column = 'Lead') =>
-    new AddCardUseCase(reader(), cards, conversations, actors, tenant, ids, events, uow).execute({
+  const visibility = () => new DealVisibility(new FakeDealAccess(), conversations, contacts);
+  /** Negócio ligado à conversa (ou só do contato, com `{ contactId }`). */
+  const addCard = (from: string | { contactId: string }, column = 'Lead') =>
+    new CreateDealUseCase(
+      reader(),
+      deals,
+      contacts,
+      conversations,
+      new FakeMemberDirectory(),
+      actors,
+      tenant,
+      ids,
+      events,
+      uow,
+    ).execute({
       boardId: board.id,
-      conversationId,
+      ...(typeof from === 'string' ? { conversationId: from } : from),
       columnId: col(column),
     });
-  const moveCard = (cardId: string, column: string) =>
-    new MoveCardUseCase(reader(), cards, conversations, actors, events, uow).execute({
-      boardId: board.id,
-      cardId,
+  const moveCard = (dealId: string, column: string) =>
+    new MoveDealUseCase(reader(), deals, visibility(), actors, events, uow).execute({
+      dealId,
       columnId: col(column),
-      afterCardId: null,
+      afterDealId: null,
     });
   /** Entrega ao handler os eventos de entrada publicados até agora (como o worker faria). */
   const deliverEntries = async () => {
-    const entries = events.published.filter((e) => e instanceof BoardCardEnteredColumnEvent);
+    const entries = events.published.filter((e) => e instanceof DealEnteredColumnEvent);
     events.published.length = 0;
     for (const [i, e] of entries.entries())
-      await triggers.onCardEntered(delivered(e, `entry-${ids.generate()}-${i}`));
+      await triggers.onDealEntered(delivered(e, `entry-${ids.generate()}-${i}`));
   };
-  const columnOf = (cardId: string) =>
-    board.columns.find((c) => c.id === cards.items.find((x) => x.id === cardId)!.columnId)!.name;
+  const columnOf = (dealId: string) =>
+    board.columns.find((c) => c.id === deals.items.find((x) => x.id === dealId)!.columnId)!.name;
 
   describe('rules', () => {
     it('checks references: disposition, team, active person, destination column', async () => {
@@ -209,11 +231,11 @@ describe('Automations', () => {
         { type: 'move', columnId: col('Sem retorno') },
       ]);
       const kept = await create('Ganho', { type: 'conversation_resolved' });
-      await new DeleteColumnUseCase(boards, events, uow, cards, rules).execute(
+      await new DeleteColumnUseCase(boards, events, uow, deals, rules).execute(
         board.id,
         col('Sem retorno'),
       );
-      await new DeleteColumnUseCase(boards, events, uow, cards, rules).execute(
+      await new DeleteColumnUseCase(boards, events, uow, deals, rules).execute(
         board.id,
         col('Lead'),
       );
@@ -221,7 +243,7 @@ describe('Automations', () => {
     });
   });
 
-  describe('when a card enters a column', () => {
+  describe('when a deal enters a stage', () => {
     it('sends the message with the name and assigns — once per entry', async () => {
       await create('Proposta', { type: 'card_entered' }, [
         { type: 'send_message', text: 'Olá {{nome}}, segue a proposta!' },
@@ -231,18 +253,18 @@ describe('Automations', () => {
       const card = await addCard('conv-1');
       await moveCard(card.id, 'Proposta');
       const [entry] = events.published.filter(
-        (e) => e instanceof BoardCardEnteredColumnEvent && e.columnId === col('Proposta'),
+        (e) => e instanceof DealEnteredColumnEvent && e.columnId === col('Proposta'),
       );
 
-      await triggers.onCardEntered(delivered(entry, 'evt-9'));
-      await triggers.onCardEntered(delivered(entry, 'evt-9')); // evento repetido
+      await triggers.onDealEntered(delivered(entry, 'evt-9'));
+      await triggers.onDealEntered(delivered(entry, 'evt-9')); // evento repetido
 
       expect(actions.sent).toEqual([
         { conversationId: 'conv-1', text: 'Olá Maria, segue a proposta!' },
       ]);
       expect(actions.assigned).toEqual([{ conversationId: 'conv-1', teamId: 'team-sales' }]);
       expect(runs.items).toHaveLength(1);
-      expect(runs.items[0]).toMatchObject({ status: 'succeeded', cardId: card.id });
+      expect(runs.items[0]).toMatchObject({ status: 'succeeded', dealId: card.id });
     });
 
     it('a failing action is recorded and does not stop the next one', async () => {
@@ -269,6 +291,38 @@ describe('Automations', () => {
       });
     });
 
+    it('without a conversation: the message is skipped; the person becomes the deal owner', async () => {
+      const rule = await create('Lead', { type: 'card_entered' }, [
+        { type: 'send_message', text: 'Oi' },
+        { type: 'assign', assigneeId: 'agent-9' },
+      ]);
+      const deal = await addCard({ contactId: 'lead-1' });
+      await deliverEntries();
+
+      expect(actions.sent).toEqual([]);
+      expect(actions.assigned).toEqual([]);
+      expect((await deals.findById(deal.id))?.ownerId).toBe('agent-9');
+      const [run] = await new ListAutomationRunsUseCase(reader(), rules, runs).execute(
+        board.id,
+        rule.id,
+      );
+      expect(run).toMatchObject({
+        status: 'succeeded',
+        results: [
+          { type: 'send_message', ok: true, error: 'DEAL_WITHOUT_CONVERSATION' },
+          { type: 'assign', ok: true },
+        ],
+      });
+    });
+
+    it('with a conversation, assigning also makes the person the deal owner', async () => {
+      await create('Lead', { type: 'card_entered' }, [{ type: 'assign', assigneeId: 'agent-9' }]);
+      const deal = await addCard('conv-1');
+      await deliverEntries();
+      expect(actions.assigned).toEqual([{ conversationId: 'conv-1', assigneeId: 'agent-9' }]);
+      expect((await deals.findById(deal.id))?.ownerId).toBe('agent-9');
+    });
+
     it('disabled rules do nothing', async () => {
       const rule = await create('Lead', { type: 'card_entered' }, [
         { type: 'send_message', text: 'Oi' },
@@ -282,7 +336,7 @@ describe('Automations', () => {
     });
   });
 
-  describe('conversation events move the card into the rule column', () => {
+  describe('conversation events move the open deals into the rule stage', () => {
     it('by disposition, on every board the conversation is on (leftmost rule wins)', async () => {
       await create('Ganho', { type: 'disposition_set', dispositionId: 'disp-sale' });
       await create('Sem retorno', { type: 'disposition_set', dispositionId: 'disp-sale' });
@@ -342,21 +396,40 @@ describe('Automations', () => {
       );
       expect(columnOf(card.id)).toBe('Ganho');
     });
+
+    it('a closed deal stays where it was', async () => {
+      await create('Proposta', { type: 'customer_replied' });
+      const deal = await addCard('conv-1');
+      await new SetDealStatusUseCase(deals, visibility(), actors, events, uow).execute(deal.id, {
+        status: 'lost',
+      });
+      await triggers.onMessage(
+        delivered(new ConversationMessageAddedEvent('conv-1', 'tenant-a', 'm-1', 'inbound', null)),
+      );
+      expect(columnOf(deal.id)).toBe('Lead');
+    });
   });
 
-  describe('time stuck in a column', () => {
+  describe('time stuck in a stage', () => {
     const runIdle = (ruleId: string, at: Date) =>
       new RunIdleRuleUseCase(rules, runs, runner).execute(ruleId, at);
 
     it('counts from when the rule was activated, fires once per entry, and moves', async () => {
       // O card entrou na coluna há 3 dias — mas a regra é nova: não dispara na hora.
       const card = await addCard('conv-1');
-      await cards.save(
-        BoardCard.restore(card.id, {
+      await deals.save(
+        Deal.restore(card.id, {
           tenantId: card.tenantId,
           boardId: card.boardId,
           columnId: card.columnId,
+          contactId: card.contactId,
           conversationId: card.conversationId,
+          title: card.title,
+          valueCents: null,
+          ownerId: null,
+          status: 'open',
+          lostReason: null,
+          closedAt: null,
           position: card.position,
           enteredColumnAt: minutes(-3 * 24 * 60),
           createdAt: card.createdAt,

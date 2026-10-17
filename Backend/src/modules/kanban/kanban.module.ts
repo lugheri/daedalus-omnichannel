@@ -1,31 +1,46 @@
 import { Module } from '@nestjs/common';
 import { AccountsModule } from '../accounts';
+import { ContactsModule } from '../contacts';
 import { ConversationsModule } from '../conversations';
 import { TeamsModule } from '../teams';
-import { KanbanAutoAddHandler } from './application/event-handlers/kanban-auto-add.handler';
+import {
+  DealEntry,
+  KanbanConversationEntryHandler,
+  KanbanDefaultBoardHandler,
+  KanbanLeadEntryHandler,
+} from './application/event-handlers/kanban-auto-add.handler';
 import { KanbanRealtimeHandler } from './application/event-handlers/kanban-realtime.handler';
 import { KanbanTeamCleanupHandler } from './application/event-handlers/kanban-team-cleanup.handler';
-import { BOARD_CARD_REPOSITORY } from './application/ports/board-card.repository';
 import { BOARD_REPOSITORY } from './application/ports/board.repository';
+import { CONTACT_DIRECTORY } from './application/ports/contact-directory';
 import { CONVERSATION_DIRECTORY } from './application/ports/conversation-directory';
+import { DEAL_ACCESS } from './application/ports/deal-access';
+import { DEAL_REPOSITORY } from './application/ports/deal.repository';
 import { TEAM_DIRECTORY } from './application/ports/team-directory';
 import {
   AddColumnUseCase,
   BoardsReader,
   CreateBoardUseCase,
+  CreateDefaultBoardUseCase,
   DeleteBoardUseCase,
   DeleteColumnUseCase,
   UpdateBoardUseCase,
   UpdateColumnUseCase,
 } from './application/use-cases/boards.use-cases';
 import {
-  AddCardUseCase,
-  ListBoardCardsUseCase,
-  ListConversationPlacementsUseCase,
-  MoveCardUseCase,
-  RemoveCardUseCase,
-} from './application/use-cases/cards.use-cases';
+  CreateDealUseCase,
+  DealVisibility,
+  DeleteDealUseCase,
+  GetDealUseCase,
+  ListBoardDealsUseCase,
+  ListContactDealsUseCase,
+  ListConversationDealsUseCase,
+  MoveDealUseCase,
+  SetDealStatusUseCase,
+  UpdateDealUseCase,
+} from './application/use-cases/deals.use-cases';
 import { BoardsController } from './http/boards.controller';
+import { DealsController } from './http/deals.controller';
 import { AutomationsController } from './http/automations.controller';
 import { AutomationRunner } from './application/automations/automation-runner';
 import {
@@ -47,35 +62,44 @@ import {
   PrismaAutomationRunRepository,
 } from './infra/prisma-automation.repository';
 import {
+  AccountsDealAccess,
   AccountsFacadeMembers,
+  ContactsFacadeContacts,
   ConversationsFacadeActions,
   ConversationsFacadeDirectory,
   TeamsFacadeDirectory,
 } from './infra/facade-gateways';
-import { PrismaBoardCardRepository } from './infra/prisma-board-card.repository';
 import { PrismaBoardRepository } from './infra/prisma-board.repository';
+import { PrismaDealRepository } from './infra/prisma-deal.repository';
 
 /**
- * Quadros kanban: o card é uma conversa (atendimento). Lê as conversas pela
- * facade do conversations (sempre no escopo do membro) e reage a conversas
- * novas (entrada automática) e a equipes excluídas.
+ * Funis de vendas: o card é um negócio de um contato, com a conversa
+ * opcional. Lê contatos e conversas pelas facades (conversas sempre no escopo
+ * do membro) e reage a conversas novas e leads do site (entrada automática),
+ * a contas novas (funil padrão) e a equipes excluídas.
  */
 @Module({
-  imports: [AccountsModule, ConversationsModule, TeamsModule],
-  controllers: [BoardsController, AutomationsController],
+  imports: [AccountsModule, ContactsModule, ConversationsModule, TeamsModule],
+  controllers: [BoardsController, DealsController, AutomationsController],
   providers: [
     BoardsReader,
     CreateBoardUseCase,
+    CreateDefaultBoardUseCase,
     UpdateBoardUseCase,
     DeleteBoardUseCase,
     AddColumnUseCase,
     UpdateColumnUseCase,
     DeleteColumnUseCase,
-    ListBoardCardsUseCase,
-    AddCardUseCase,
-    MoveCardUseCase,
-    RemoveCardUseCase,
-    ListConversationPlacementsUseCase,
+    DealVisibility,
+    ListBoardDealsUseCase,
+    CreateDealUseCase,
+    GetDealUseCase,
+    UpdateDealUseCase,
+    MoveDealUseCase,
+    SetDealStatusUseCase,
+    DeleteDealUseCase,
+    ListContactDealsUseCase,
+    ListConversationDealsUseCase,
     // Automações
     AutomationReferences,
     ListAutomationsUseCase,
@@ -88,12 +112,17 @@ import { PrismaBoardRepository } from './infra/prisma-board.repository';
     RunIdleRuleUseCase,
     KanbanAutomationTriggersHandler,
     // Worker
-    KanbanAutoAddHandler,
+    DealEntry,
+    KanbanConversationEntryHandler,
+    KanbanLeadEntryHandler,
+    KanbanDefaultBoardHandler,
     KanbanTeamCleanupHandler,
     KanbanRealtimeHandler,
     // Adapters
     { provide: BOARD_REPOSITORY, useClass: PrismaBoardRepository },
-    { provide: BOARD_CARD_REPOSITORY, useClass: PrismaBoardCardRepository },
+    { provide: DEAL_REPOSITORY, useClass: PrismaDealRepository },
+    { provide: CONTACT_DIRECTORY, useClass: ContactsFacadeContacts },
+    { provide: DEAL_ACCESS, useClass: AccountsDealAccess },
     { provide: CONVERSATION_DIRECTORY, useClass: ConversationsFacadeDirectory },
     { provide: TEAM_DIRECTORY, useClass: TeamsFacadeDirectory },
     { provide: AUTOMATION_RULE_REPOSITORY, useClass: PrismaAutomationRuleRepository },

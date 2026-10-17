@@ -11,7 +11,7 @@ export type AutomationTrigger =
 
 export type TriggerType = AutomationTrigger['type']
 
-/** Gatilhos que movem o card PARA a coluna da regra (sem ações próprias). */
+/** Gatilhos que movem o negócio PARA a etapa da regra (sem ações próprias). */
 export const MOVE_INTO_TRIGGERS: TriggerType[] = [
   'disposition_set',
   'conversation_resolved',
@@ -37,7 +37,7 @@ export interface Automation {
 
 export interface AutomationRun {
   id: string
-  cardId: string
+  dealId: string
   conversationId: string
   status: 'running' | 'succeeded' | 'failed'
   /** `error` também traz o motivo de uma ação pulada (ok: true). */
@@ -69,7 +69,7 @@ export const automationKeys = {
   runs: (ruleId: string) => ['boards', 'automation-runs', ruleId] as const,
 }
 
-/** Só quem gerencia quadros vê as automações (`enabled`). */
+/** Só quem gerencia funis vê as automações (`enabled`). */
 export function useAutomations(boardId: string, enabled: boolean) {
   return useQuery({
     queryKey: automationKeys.list(boardId),
