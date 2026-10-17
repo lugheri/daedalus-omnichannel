@@ -104,7 +104,7 @@ describe('Catalog', () => {
       const hidden = await service({ name: 'Interno', showOnSite: false });
       const paused = await service({ name: 'Pausado' });
       await new UpdateOfferingUseCase(offerings).execute(paused.id, { active: false });
-      const facade = new CatalogFacade(offerings);
+      const facade = new CatalogFacade(offerings, professionals);
 
       expect(await facade.siteService(shown.id)).toEqual({
         id: shown.id,
@@ -115,6 +115,28 @@ describe('Catalog', () => {
       expect(await facade.siteService(paused.id)).toBeNull();
       tenant.switchTo('tenant-b');
       expect(await facade.siteService(shown.id)).toBeNull();
+    });
+
+    it('the site lists active services and professionals marked to show there', async () => {
+      await service({ name: 'Corte', description: 'Com lavagem' });
+      await service({ name: 'Interno', showOnSite: false });
+      const paused = await service({ name: 'Pausado' });
+      await new UpdateOfferingUseCase(offerings).execute(paused.id, { active: false });
+      await professional({ name: 'Bia' });
+      const off = await professional({ name: 'Caio' });
+      await new UpdateProfessionalUseCase(professionals, references()).execute(off.id, {
+        showOnSite: false,
+      });
+      const facade = new CatalogFacade(offerings, professionals);
+
+      expect((await facade.siteOfferings()).map((o) => [o.name, o.description])).toEqual([
+        ['Corte', 'Com lavagem'],
+      ]);
+      expect(await facade.siteProfessionals()).toEqual([
+        { name: 'Bia', title: 'Cabeleireira', bio: null },
+      ]);
+      tenant.switchTo('tenant-b');
+      expect(await facade.siteOfferings()).toEqual([]);
     });
 
     it('names are unique per account', async () => {

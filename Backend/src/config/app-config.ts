@@ -97,4 +97,17 @@ export class AppConfig {
   get mediaMaxBytes() {
     return this.env.MEDIA_MAX_MB * 1024 * 1024;
   }
+
+  /** Bucket público e endereço dos sites; null = publicação desligada. */
+  get sites() {
+    const { SITES_BUCKET: bucket, SITES_URL: urlPattern } = this.env;
+    if (!bucket || !urlPattern) return null;
+    return {
+      bucket,
+      urlPattern,
+      publicAcl: this.env.SITES_PUBLIC_ACL,
+      accessKeyId: this.env.SITES_S3_ACCESS_KEY ?? this.env.S3_ACCESS_KEY,
+      secretAccessKey: this.env.SITES_S3_SECRET_KEY ?? this.env.S3_SECRET_KEY,
+    };
+  }
 }

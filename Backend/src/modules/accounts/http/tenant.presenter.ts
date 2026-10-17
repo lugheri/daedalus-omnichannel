@@ -9,6 +9,8 @@ export const TenantPresenter = {
       status: tenant.status,
       /** Revendedor (ou a raiz): pode criar contas abaixo. */
       canCreateChildren: tenant.canCreateChildren,
+      /** A conta da plataforma (mantém os modelos de site, por exemplo). */
+      isRoot: tenant.isRoot,
     };
   },
 };

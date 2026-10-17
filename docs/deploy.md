@@ -135,8 +135,8 @@ visitante → Cloudflare → Traefik (*.SITES_DOMAIN, certificado curinga)
 1. **Domínio dos sites** (separado do painel) com o DNS na **Cloudflare**:
    - registro `A` de `*.SITES_DOMAIN` para o IP público do manager, com proxy ligado (nuvem laranja);
    - *SSL/TLS → Overview*: modo **Full (strict)**.
-2. **Bucket público de sites** (`SITES_BUCKET`) no provedor de S3, com leitura pública dos objetos e **sem listagem**, e uma chave de acesso própria (escrita só nesse bucket). Nada privado vai para esse bucket.
-3. Preencha `SITES_DOMAIN`, `SITES_BUCKET`, `SITES_ORIGIN` e `SITES_PUBLIC_ACL` no `Docker/.env.prod`.
+2. **Bucket público de sites** (`SITES_BUCKET`) no provedor de S3, com leitura pública dos objetos e **sem listagem**. Nada privado vai para esse bucket. O worker publica os sites (e a API grava as imagens) com a **mesma chave do S3 da stack principal** (secrets `s3_access_key`/`s3_secret_key`): ela precisa ler e escrever nos dois buckets. Para o `publish.sh` manual, uma chave própria só desse bucket.
+3. Preencha `SITES_DOMAIN`, `SITES_BUCKET`, `SITES_ORIGIN` e `SITES_PUBLIC_ACL` no `Docker/.env.prod`. O `deploy.sh` da stack principal também exige `SITES_DOMAIN` e `SITES_BUCKET` (a API e o worker publicam os sites: [ADR 0010](adr/0010-modulo-de-sites.md)).
 4. Com a stack principal no ar:
 
 ```bash
@@ -147,6 +147,10 @@ cd daedalus-omnichannel/Docker
 O primeiro acesso pode levar até 2 minutos: o Traefik emite o certificado curinga pelo DNS da Cloudflare (`docker service logs omnichannel_traefik` mostra o andamento).
 
 ### Publicar o site de um cliente
+
+Pelo painel: **Site › Meu site** na conta do cliente (ou entrando nela pela conta-mãe), com um modelo disponível em **Site › Modelos de site** na conta da plataforma. Publicar vai para a fila; o worker grava `<slug>/index.html` no bucket.
+
+Site montado à mão (fora do módulo), pelo script:
 
 ```bash
 ./sites/publish.sh barbearia-x /caminho/da/pasta/do/site
@@ -159,7 +163,7 @@ O primeiro acesso pode levar até 2 minutos: o Traefik emite o certificado curin
 
 ### Tirar um site do ar
 
-Apague a pasta do slug no bucket (`aws s3 rm s3://SITES_BUCKET/<slug>/ --recursive`). O cache local expira em minutos; na Cloudflare, use *Caching → Purge*.
+Pelo painel: **Meu site › ⋯ › Tirar do ar**. Site publicado pelo script: apague a pasta do slug no bucket (`aws s3 rm s3://SITES_BUCKET/<slug>/ --recursive`). O cache local expira em até 1 minuto; na Cloudflare, use *Caching → Purge*.
 
 ### Conferir
 

@@ -1,0 +1,66 @@
+// Módulo sites (ADR 0010). Modelos de site (HTML com marcadores, criados na
+// conta da plataforma), o site de cada conta (conteúdo em JSON, renderizado
+// no modelo ao publicar) e as imagens enviadas para ele. O HTML gerado vai
+// para o bucket público de sites (ADR 0008); aqui fica só o que o gera.
+
+model SiteTemplate {
+  id          String   @id @db.Uuid
+  // Conta que mantém o modelo (hoje, só a raiz cria modelos).
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  niche       String?
+  description String?
+  // Documento HTML inteiro, com marcadores Mustache ({{business.name}}...).
+  html        String
+  // Disponível: as contas podem escolher. Rascunho: só quem mantém vê.
+  available   Boolean
+  createdAt   DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @map("updated_at") @db.Timestamptz(3)
+
+  sites Site[]
+
+  @@index([tenantId, name])
+  @@index([available])
+  @@map("templates")
+  @@schema("sites")
+}
+
+model Site {
+  id            String       @id @db.Uuid
+  // Um site por conta (por enquanto).
+  tenantId      String       @unique @map("tenant_id") @db.Uuid
+  templateId    String       @map("template_id") @db.Uuid
+  template      SiteTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  // Subdomínio: <slug>.SITES_DOMAIN. Único entre todas as contas.
+  slug          String       @unique
+  // Conteúdo do site (domain/site-content.ts), validado no domínio.
+  content       Json
+  // Onde o site está no ar (null = fora do ar). Pode diferir do slug até a
+  // próxima publicação.
+  publishedSlug String?      @map("published_slug")
+  publishedAt   DateTime?    @map("published_at") @db.Timestamptz(3)
+  // publish | unpublish enquanto o worker não termina.
+  pendingAction String?      @map("pending_action")
+  // Motivo da última publicação que falhou (código).
+  lastError     String?      @map("last_error")
+  createdAt     DateTime     @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @map("updated_at") @db.Timestamptz(3)
+
+  @@index([templateId])
+  @@map("sites")
+  @@schema("sites")
+}
+
+model SiteAsset {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  // Nome original (só para mostrar na tela).
+  fileName    String?  @map("file_name")
+  contentType String   @map("content_type")
+  size        Int
+  createdAt   DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("assets")
+  @@schema("sites")
+}

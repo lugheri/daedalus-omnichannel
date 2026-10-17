@@ -7,6 +7,8 @@ export interface Tenant {
   status: 'trial' | 'active' | 'suspended'
   /** Revendedor (ou a raiz): pode criar contas abaixo. */
   canCreateChildren?: boolean
+  /** A conta da plataforma (mantém os modelos de site). */
+  isRoot?: boolean
 }
 
 /** Uma conta citada por id e nome (mãe, origem do acesso). */

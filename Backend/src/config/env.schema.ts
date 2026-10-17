@@ -100,6 +100,22 @@ export const envSchema = z.object({
     .url()
     .default('https://api.twilio.com')
     .transform((url) => url.replace(/\/+$/, '')),
+  // Sites dos clientes (ADR 0008 e 0010): bucket PÚBLICO de sites e o endereço
+  // de cada site, com {slug} no lugar do subdomínio (as imagens ficam em
+  // "media"). Sem os dois, publicar fica desligado (SITES_NOT_CONFIGURED).
+  // Usa o endpoint e a região do S3_*; chaves próprias são opcionais.
+  SITES_BUCKET: z.string().min(3).optional(),
+  SITES_URL: z
+    .string()
+    .regex(
+      /^https?:\/\/\{slug\}\.[^/]+$/,
+      'SITES_URL precisa ser como https://{slug}.meusites.com.br',
+    )
+    .optional(),
+  SITES_S3_ACCESS_KEY: z.string().min(1).optional(),
+  SITES_S3_SECRET_KEY: z.string().min(1).optional(),
+  // Provedor que exige ACL pública por objeto (em vez de política no bucket).
+  SITES_PUBLIC_ACL: z.stringbool().default(false),
 });
 
 export type Env = z.infer<typeof envSchema>;

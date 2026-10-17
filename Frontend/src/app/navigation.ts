@@ -10,9 +10,11 @@ import {
   Home,
   Inbox,
   KeyRound,
+  LayoutTemplate,
   Mail,
   Megaphone,
   MessageCircle,
+  MonitorSmartphone,
   Network,
   Plug,
   Settings,
@@ -108,12 +110,21 @@ export const NAV_MODULES: NavModule[] = [
     key: 'site',
     label: 'Site',
     icon: Globe,
-    description: 'Formulários que levam os contatos do site ao CRM',
+    description: 'O site da empresa e os formulários que levam os contatos ao CRM',
     groups: [
       {
         label: null,
         items: [
+          { to: '/site', label: 'Meu site', icon: MonitorSmartphone, anyOf: ['sites:manage'] },
           { to: '/forms', label: 'Formulários', icon: ClipboardList, anyOf: ['forms:manage'] },
+          {
+            to: '/site-templates',
+            label: 'Modelos de site',
+            icon: LayoutTemplate,
+            anyOf: ['sites:manage'],
+            // Os modelos são mantidos só na conta da plataforma (ADR 0010).
+            when: (me) => !!me.tenant.isRoot,
+          },
         ],
       },
     ],

@@ -9,6 +9,7 @@ import { ConversationsModule } from './modules/conversations';
 import { IdentityModule } from './modules/identity';
 import { KanbanWorkerModule } from './modules/kanban';
 import { MessagingWorkerModule } from './modules/messaging';
+import { SitesWorkerModule } from './modules/sites';
 import { TeamsModule } from './modules/teams';
 import { OutboxWorkerModule } from './shared/infra/events/outbox-worker.module';
 import { PrismaModule } from './shared/infra/prisma/prisma.module';
@@ -38,6 +39,7 @@ import { SharedInfraModule } from './shared/infra/shared-infra.module';
     ConversationsModule,
     KanbanWorkerModule,
     MessagingWorkerModule,
+    SitesWorkerModule,
     // Processors por módulo (<modulo>.worker.module.ts)
     ChannelsWorkerModule,
   ],

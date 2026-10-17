@@ -122,6 +122,20 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['sites:manage']} />,
+            children: [
+              { path: '/site', ...page(() => import('@/features/sites/site-page'), 'SitePage') },
+              {
+                path: '/site-templates',
+                ...page(() => import('@/features/sites/templates-page'), 'TemplatesPage'),
+              },
+              {
+                path: '/site-templates/:id',
+                ...page(() => import('@/features/sites/template-page'), 'TemplatePage'),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['forms:manage']} />,
             children: [
               { path: '/forms', ...page(() => import('@/features/forms/forms-page'), 'FormsPage') },

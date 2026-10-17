@@ -1,7 +1,11 @@
 /**
  * API pública do módulo accounts. Outros módulos só podem importar daqui.
  */
-export { AccountsFacade, type MemberAccess } from './application/accounts.facade';
+export {
+  AccountsFacade,
+  type AccountSummary,
+  type MemberAccess,
+} from './application/accounts.facade';
 export { DesignateRootAccountUseCase } from './application/use-cases/child-accounts/child-accounts.use-cases';
 export { AccountsModule } from './accounts.module';
 export type { SystemRoleKey } from './domain/default-roles';

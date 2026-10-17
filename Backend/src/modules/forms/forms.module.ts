@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AccountsModule } from '../accounts';
 import { CatalogModule } from '../catalog';
 import { ContactsModule } from '../contacts';
+import { FormsFacade } from './application/forms.facade';
 import { FORM_REPOSITORY } from './application/ports/form.repository';
 import { LEAD_GATEWAY } from './application/ports/lead-gateway';
 import { PUBLIC_KEY_GENERATOR } from './application/ports/public-key-generator';
@@ -48,11 +49,13 @@ import {
     AuthenticateFormKeyUseCase,
     SubmitFormUseCase,
     FormKeyGuard,
+    FormsFacade,
     { provide: FORM_REPOSITORY, useClass: PrismaFormRepository },
     { provide: SUBMISSION_REPOSITORY, useClass: PrismaSubmissionRepository },
     { provide: LEAD_GATEWAY, useClass: ContactsLeadGateway },
     { provide: SERVICE_CATALOG, useClass: CatalogServiceGateway },
     { provide: PUBLIC_KEY_GENERATOR, useClass: RandomPublicKeyGenerator },
   ],
+  exports: [FormsFacade],
 })
 export class FormsModule {}

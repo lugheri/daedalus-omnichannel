@@ -25,7 +25,7 @@ set +a
 IMAGE_TAG="${cli_tag:-${IMAGE_TAG:-}}"
 export IMAGE_TAG
 
-for var in APP_DOMAIN API_DOMAIN ACME_EMAIL IMAGE_REGISTRY IMAGE_TAG S3_ENDPOINT S3_REGION S3_BUCKET; do
+for var in APP_DOMAIN API_DOMAIN ACME_EMAIL IMAGE_REGISTRY IMAGE_TAG S3_ENDPOINT S3_REGION S3_BUCKET   SITES_DOMAIN SITES_BUCKET; do
   if [[ -z "${!var:-}" ]]; then
     echo "Defina $var em $ENV_FILE (ou na linha de comando)." >&2
     exit 1

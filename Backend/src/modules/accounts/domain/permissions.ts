@@ -28,6 +28,7 @@ export const PERMISSIONS = [
   'campaigns:manage', //        campanhas de e-mail/SMS
   'catalog:manage', //          serviços e profissionais (preços, quem atende)
   'forms:manage', //            formulários do site (contato e solicitação de serviço)
+  'sites:manage', //            o site da conta (e os modelos, na conta da plataforma)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

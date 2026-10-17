@@ -4,12 +4,22 @@ import { TENANT_CONTEXT, type TenantContext } from '../../../shared/application/
 import type { Permission } from '../domain/permissions';
 import { CurrentAccess } from './current-access';
 import { MEMBERSHIP_REPOSITORY, type MembershipRepository } from './ports/membership.repository';
+import { TENANT_REPOSITORY, type TenantRepository } from './ports/tenant.repository';
 import { ResolveAccessUseCase } from './use-cases/resolve-access/resolve-access.use-case';
 
 /** O membro da requisição atual, como outros módulos o enxergam. */
 export interface MemberAccess {
   membershipId: string;
   permissions: Permission[];
+}
+
+/** A conta da operação atual, como outros módulos a enxergam. */
+export interface AccountSummary {
+  id: string;
+  name: string;
+  slug: string;
+  /** A conta da plataforma (raiz da hierarquia, ADR 0009). */
+  isRoot: boolean;
 }
 
 /**
@@ -23,7 +33,15 @@ export class AccountsFacade {
     private readonly resolveAccess: ResolveAccessUseCase,
     @Inject(MEMBERSHIP_REPOSITORY) private readonly memberships: MembershipRepository,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
+    @Inject(TENANT_REPOSITORY) private readonly tenants: TenantRepository,
   ) {}
+
+  /** A conta do tenant atual (ex.: nome e endereço sugeridos para o site). */
+  async currentAccount(): Promise<AccountSummary> {
+    const tenant = await this.tenants.findById(this.tenant.tenantId);
+    if (!tenant) throw new Error(`Tenant ${this.tenant.tenantId} not found`);
+    return { id: tenant.id, name: tenant.name, slug: tenant.slug.value, isRoot: tenant.isRoot };
+  }
 
   /** Só em requisições autenticadas (usa o cache de acesso do AccessGuard). */
   async currentMember(): Promise<MemberAccess> {

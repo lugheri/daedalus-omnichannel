@@ -20,6 +20,10 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: string; lab
         { key: 'boards:manage', label: 'Criar e configurar quadros (kanban)' },
         { key: 'catalog:manage', label: 'Cadastrar serviços (com preços) e profissionais' },
         { key: 'forms:manage', label: 'Criar e configurar os formulários do site' },
+        {
+          key: 'sites:manage',
+          label: 'Editar e publicar o site da conta (e os modelos, na conta da plataforma)',
+        },
         { key: 'messaging:manage', label: 'Configurar provedores de e-mail e SMS' },
         { key: 'integrations:manage', label: 'Chaves de API (formulário do site e integrações)' },
         { key: 'reports:view', label: 'Ver relatórios' },
