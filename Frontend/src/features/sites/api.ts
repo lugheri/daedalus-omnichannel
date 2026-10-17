@@ -56,6 +56,12 @@ export interface Site {
   pendingAction: 'publish' | 'unpublish' | null
   /** Código do motivo da última publicação que falhou. */
   lastError: string | null
+  /** Domínio próprio (ADR 0011), ex.: www.barbearia.com.br. */
+  customDomain: string | null
+  /** O domínio que está no ar (difere do `customDomain` até publicar de novo). */
+  publishedDomain: string | null
+  domainStatus: 'pending' | 'checking' | 'connected' | 'unreachable' | null
+  domainCheckedAt: string | null
   publishedAt: string | null
   updatedAt: string
 }
@@ -65,6 +71,10 @@ export interface SiteState {
   publishingEnabled: boolean
   /** Ex.: `https://{slug}.meusites.com.br`. */
   addressPattern: string | null
+  /** Para onde o CNAME do domínio próprio aponta (o túnel); null = não configurado. */
+  domainTarget: string | null
+  /** Quem está logado pode definir o domínio próprio (conta-mãe ou plataforma). */
+  canManageDomain: boolean
 }
 
 export interface SiteTemplateSummary {
@@ -92,7 +102,13 @@ export interface SiteAsset {
   createdAt: string
 }
 
-export type SiteChanges = { content?: SiteContent; slug?: string; templateId?: string }
+export type SiteChanges = {
+  content?: SiteContent
+  slug?: string
+  templateId?: string
+  /** null = tira o domínio próprio. */
+  customDomain?: string | null
+}
 
 export const sitesApi = {
   get: () => api<SiteState>('/v1/site'),
@@ -103,6 +119,8 @@ export const sitesApi = {
     api<{ html: string }>('/v1/site/preview', { method: 'POST', body: input }),
   publish: () => api<Site>('/v1/site/publish', { method: 'POST' }),
   unpublish: () => api<Site>('/v1/site/unpublish', { method: 'POST' }),
+  /** Confere de novo se o domínio próprio chega no site. */
+  checkDomain: () => api<Site>('/v1/site/domain/check', { method: 'POST' }),
   assets: () => api<SiteAsset[]>('/v1/site/assets'),
   upload: (file: File) => {
     const form = new FormData()
@@ -137,12 +155,15 @@ export const siteKeys = {
   template: (id: string) => ['site-templates', id] as const,
 }
 
-/** Enquanto o worker publica, consulta de novo a cada 1,5 s. */
+/** Enquanto o worker publica ou verifica o domínio, consulta de novo a cada 1,5 s. */
 export function useSiteState() {
   return useQuery({
     queryKey: siteKeys.site,
     queryFn: sitesApi.get,
-    refetchInterval: (query) => (query.state.data?.site?.pendingAction ? 1500 : false),
+    refetchInterval: (query) => {
+      const site = query.state.data?.site
+      return site?.pendingAction || site?.domainStatus === 'checking' ? 1500 : false
+    },
   })
 }
 

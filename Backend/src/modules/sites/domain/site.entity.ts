@@ -1,5 +1,6 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { normalizeSiteContent, type SiteContent } from './site-content';
+import type { SiteDomainStatus } from './site-domain';
 import { validSiteSlug } from './site-slug';
 
 export type SitePendingAction = 'publish' | 'unpublish';
@@ -16,6 +17,13 @@ export interface SiteProps {
   pendingAction: SitePendingAction | null;
   /** Código do motivo da última publicação que falhou. */
   lastError: string | null;
+  /** Domínio próprio (ADR 0011), já validado; null = só o endereço nosso. */
+  customDomain: string | null;
+  /** O domínio no ar (difere do `customDomain` até publicar de novo). */
+  publishedDomain: string | null;
+  /** Se o domínio já chega no site (null = sem domínio). */
+  domainStatus: SiteDomainStatus | null;
+  domainCheckedAt: Date | null;
   createdAt: Date;
   /** Última edição (conteúdo, endereço ou modelo) — não muda ao publicar. */
   updatedAt: Date;
@@ -40,6 +48,10 @@ export class Site extends AggregateRoot<SiteProps> {
       publishedAt: null,
       pendingAction: null,
       lastError: null,
+      customDomain: null,
+      publishedDomain: null,
+      domainStatus: null,
+      domainCheckedAt: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -56,6 +68,34 @@ export class Site extends AggregateRoot<SiteProps> {
     this.props.updatedAt = new Date();
   }
 
+  /**
+   * Troca o domínio próprio (já validado; null = tira). Domínio novo volta a
+   * "pendente": só fica "conectado" depois de publicado e verificado.
+   */
+  setCustomDomain(domain: string | null): boolean {
+    if (domain === this.props.customDomain) return false;
+    this.props.customDomain = domain;
+    this.props.domainStatus = domain ? 'pending' : null;
+    this.props.domainCheckedAt = null;
+    this.props.updatedAt = new Date();
+    return true;
+  }
+
+  /** Ainda não publicado no domínio: nada a verificar. */
+  markDomainPending(): void {
+    if (this.props.customDomain) this.props.domainStatus = 'pending';
+  }
+
+  markDomainChecking(): void {
+    if (this.props.customDomain) this.props.domainStatus = 'checking';
+  }
+
+  markDomainChecked(connected: boolean, at: Date): void {
+    if (!this.props.customDomain) return;
+    this.props.domainStatus = connected ? 'connected' : 'unreachable';
+    this.props.domainCheckedAt = at;
+  }
+
   requestPublish(): void {
     this.props.pendingAction = 'publish';
     this.props.lastError = null;
@@ -66,8 +106,9 @@ export class Site extends AggregateRoot<SiteProps> {
     this.props.lastError = null;
   }
 
-  markPublished(slug: string, at: Date): void {
+  markPublished(slug: string, domain: string | null, at: Date): void {
     this.props.publishedSlug = slug;
+    this.props.publishedDomain = domain;
     this.props.publishedAt = at;
     this.props.pendingAction = null;
     this.props.lastError = null;
@@ -75,6 +116,7 @@ export class Site extends AggregateRoot<SiteProps> {
 
   markUnpublished(): void {
     this.props.publishedSlug = null;
+    this.props.publishedDomain = null;
     this.props.pendingAction = null;
     this.props.lastError = null;
   }
@@ -107,6 +149,18 @@ export class Site extends AggregateRoot<SiteProps> {
   }
   get lastError() {
     return this.props.lastError;
+  }
+  get customDomain() {
+    return this.props.customDomain;
+  }
+  get publishedDomain() {
+    return this.props.publishedDomain;
+  }
+  get domainStatus() {
+    return this.props.domainStatus;
+  }
+  get domainCheckedAt() {
+    return this.props.domainCheckedAt;
   }
   get createdAt() {
     return this.props.createdAt;

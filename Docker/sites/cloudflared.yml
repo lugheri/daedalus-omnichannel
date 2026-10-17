@@ -1,0 +1,16 @@
+# Túnel da Cloudflare dos domínios próprios dos clientes (ADR 0011).
+#
+# O cloudflared abre conexões de SAÍDA para a Cloudflare; nada novo fica
+# exposto no servidor. Todo host cujo DNS (na conta da Cloudflare da
+# plataforma) aponta para <id-do-túnel>.cfargotunnel.com chega aqui e vai para
+# o nginx dos sites, que escolhe a pasta pelo host. O certificado HTTPS é o da
+# Cloudflare, na borda.
+#
+# O id do túnel vai na linha de comando (stack.sites.yaml); as credenciais,
+# num Docker secret.
+credentials-file: /run/secrets/cf_tunnel_credentials
+no-autoupdate: true
+metrics: 0.0.0.0:2000
+ingress:
+  # Sem hostname = qualquer host: quem decide o site é o nginx.
+  - service: http://sites:8080

@@ -1,8 +1,9 @@
-# Stack dos sites dos clientes (ADR 0008). Separada da stack principal: publicar
+# Stack dos sites dos clientes (ADR 0008; domínio próprio: ADR 0011). Separada da stack principal: publicar
 # ou atualizar o servidor de sites não toca na API nem no painel, e vice-versa.
 #
-# Deploy pelo Docker/sites/deploy-sites.sh (ele calcula SITES_DOMAIN_RE e
-# SITES_CONFIG_VERSION). Usa o Traefik da stack principal, pela rede edge.
+# Deploy pelo Docker/sites/deploy-sites.sh (ele calcula SITES_DOMAIN_RE e as
+# versões das configs). Os subdomínios (*.SITES_DOMAIN) entram pelo Traefik da
+# stack principal, pela rede edge; os domínios próprios, pelo túnel.
 
 x-logging: &logging
   driver: json-file
@@ -43,12 +44,36 @@ services:
         - traefik.http.services.sites.loadbalancer.server.port=8080
         - traefik.swarm.lbswarm=true
 
+  # Domínios próprios dos clientes (ADR 0011): túnel de saída para a Cloudflare,
+  # que entrega qualquer host apontado para ele ao nginx acima.
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    command: ['tunnel', '--config', '/etc/cloudflared/config.yml', 'run', '${SITES_TUNNEL_ID}']
+    configs:
+      - source: sites_tunnel
+        target: /etc/cloudflared/config.yml
+    secrets: [cf_tunnel_credentials]
+    networks: [edge]
+    logging: *logging
+    # Imagem sem shell (distroless): sem healthcheck por comando. Duas réplicas
+    # do mesmo túnel = duas conexões; a Cloudflare reparte entre elas.
+    deploy:
+      replicas: 2
+      update_config: { order: start-first, failure_action: rollback }
+
 configs:
   # Configs do Swarm são imutáveis: o nome leva o hash do arquivo, e mudar o
   # template cria uma config nova (o deploy-sites.sh calcula o hash).
   sites_nginx:
     name: sites_nginx_${SITES_CONFIG_VERSION}
     file: ./nginx.conf.template
+  sites_tunnel:
+    name: sites_tunnel_${SITES_TUNNEL_CONFIG_VERSION}
+    file: ./cloudflared.yml
+
+secrets:
+  # JSON do "cloudflared tunnel create" (docs/deploy.md).
+  cf_tunnel_credentials: { external: true }
 
 networks:
   edge:

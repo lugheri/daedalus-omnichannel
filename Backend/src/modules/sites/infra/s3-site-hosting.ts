@@ -8,7 +8,8 @@ import { SITES_SETTINGS, type SitesSettings } from './sites-settings';
 const MEDIA_PREFIX = 'media';
 
 /**
- * Bucket público de sites (ADR 0008) sobre a API S3: `<slug>/index.html` e
+ * Bucket público de sites (ADR 0008) sobre a API S3: `<pasta>/index.html` (a
+ * pasta é o slug ou o host do domínio próprio, ADR 0011) e
  * `media/<tenant>/<id>.<ext>`, servidos pelo nginx dos sites. Mesmo
  * endpoint e região do bucket privado; bucket e (opcionalmente) chaves
  * próprios. O `Cache-Control` segue o do `publish.sh`: HTML 60 s, imagens 1 dia.
@@ -18,10 +19,21 @@ export class S3SiteHosting implements SiteHosting, OnApplicationShutdown {
   private readonly hosting: NonNullable<SitesSettings['hosting']> | null;
   private readonly client: S3Client | null;
   readonly enabled: boolean;
+  readonly sitesDomain: string | null;
+  readonly domainTarget: string | null;
+  /** Esquema e porta dos endereços (`https://` e "" em produção; `http://` e ":8088" em dev). */
+  private readonly scheme: string;
+  private readonly port: string;
 
   constructor(@Inject(SITES_SETTINGS) settings: SitesSettings) {
     this.hosting = settings.hosting;
     this.enabled = this.hosting !== null;
+    this.domainTarget = settings.domainTarget;
+    // SITES_URL = <esquema>://{slug}.<domínio>[:porta]
+    const match = /^(https?:\/\/)\{slug\}\.([^/:]+)(:\d+)?$/.exec(this.hosting?.urlPattern ?? '');
+    this.scheme = match?.[1] ?? 'https://';
+    this.sitesDomain = match?.[2] ?? null;
+    this.port = match?.[3] ?? '';
     this.client = this.hosting
       ? new S3Client({
           region: this.hosting.region,
@@ -39,19 +51,44 @@ export class S3SiteHosting implements SiteHosting, OnApplicationShutdown {
     return (this.hosting?.urlPattern ?? '').replace('{slug}', slug);
   }
 
+  domainUrl(host: string): string {
+    return `${this.scheme}${host}${this.port}`;
+  }
+
   mediaUrl(key: string): string {
     return `${this.siteUrl(MEDIA_PREFIX)}/${key}`;
   }
 
-  async publishPage(slug: string, html: string): Promise<void> {
-    await this.put(`${slug}/index.html`, Buffer.from(html, 'utf8'), {
+  async publishPage(folder: string, html: string): Promise<void> {
+    await this.put(`${folder}/index.html`, Buffer.from(html, 'utf8'), {
       contentType: 'text/html; charset=utf-8',
       cacheControl: 'public, max-age=60',
     });
   }
 
-  async removePage(slug: string): Promise<void> {
-    await this.remove(`${slug}/index.html`);
+  async removePage(folder: string): Promise<void> {
+    await this.remove(`${folder}/index.html`);
+  }
+
+  /**
+   * Arquivo de controle (a verificação do domínio): sem cache no nginx nem na
+   * Cloudflare — senão, um domínio que passou de um site para outro seria
+   * verificado com o arquivo antigo.
+   */
+  async publishFile(
+    folder: string,
+    path: string,
+    body: string,
+    contentType: string,
+  ): Promise<void> {
+    await this.put(`${folder}/${path}`, Buffer.from(body, 'utf8'), {
+      contentType,
+      cacheControl: 'no-store',
+    });
+  }
+
+  async removeFile(folder: string, path: string): Promise<void> {
+    await this.remove(`${folder}/${path}`);
   }
 
   async putMedia(key: string, body: Buffer, contentType: string): Promise<void> {

@@ -34,6 +34,8 @@ export const SITE_SOURCES = Symbol('SiteSources');
 /** A conta atual, como o site a enxerga. */
 export interface SiteAccount {
   current(): Promise<{ name: string; slug: string; isRoot: boolean }>;
+  /** O ator entrou vindo da conta-mãe (acesso delegado)? */
+  actingFromParentAccount(): Promise<boolean>;
 }
 
 export const SITE_ACCOUNT = Symbol('SiteAccount');

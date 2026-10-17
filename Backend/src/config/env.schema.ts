@@ -116,6 +116,15 @@ export const envSchema = z.object({
   SITES_S3_SECRET_KEY: z.string().min(1).optional(),
   // Provedor que exige ACL pública por objeto (em vez de política no bucket).
   SITES_PUBLIC_ACL: z.stringbool().default(false),
+  // Domínio próprio (ADR 0011): para onde o CNAME aponta (o túnel da
+  // Cloudflare, <id>.cfargotunnel.com), mostrado no painel. Vazio = sem túnel.
+  SITES_DOMAIN_TARGET: z.string().max(255).optional(),
+  // SÓ EM DEV: verificar o domínio próprio conectando neste host:porta (o nginx
+  // dos sites) com o Host do domínio, em vez de resolver o DNS. Ex.: 127.0.0.1:8088
+  SITES_DOMAIN_CHECK_VIA: z
+    .string()
+    .regex(/^[\w.-]+:\d+$/, 'SITES_DOMAIN_CHECK_VIA precisa ser host:porta')
+    .optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

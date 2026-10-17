@@ -3,6 +3,8 @@ import { DomainError } from '../../../../shared/domain/domain-error';
 export type InvalidSiteCode =
   | 'SITE_INVALID_SLUG'
   | 'SITE_RESERVED_SLUG'
+  | 'SITE_INVALID_DOMAIN'
+  | 'SITE_DOMAIN_IS_OURS'
   | 'SITE_INVALID_BUSINESS_NAME'
   | 'SITE_INVALID_COLOR'
   | 'SITE_INVALID_WHATSAPP'

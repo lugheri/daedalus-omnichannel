@@ -6,11 +6,13 @@ import {
 } from '../../../../shared/testing/fakes';
 import { InvalidSiteError } from '../../domain/errors/invalid-site.error';
 import { SiteConflictError } from '../../domain/errors/site-conflict.error';
+import { SiteDomainManagedAboveError } from '../../domain/errors/site-domain-managed-above.error';
 import { SiteNotFoundError } from '../../domain/errors/site-not-found.error';
 import { SiteTemplatesRootOnlyError } from '../../domain/errors/site-templates-root-only.error';
 import type { SiteContent } from '../../domain/site-content';
 import {
   FakeSiteAccount,
+  FakeSiteDomainChecker,
   FakeSiteSources,
   InMemorySiteAssetRepository,
   InMemorySiteHosting,
@@ -19,7 +21,7 @@ import {
   JsonSiteRenderer,
 } from '../../testing/fakes';
 import { SiteComposer } from '../site-composer';
-import { ProcessSiteJob } from '../sites-jobs';
+import { CheckSiteDomainJob, ProcessSiteJob } from '../sites-jobs';
 import type { SiteView } from '../site-view';
 import { STARTER_TEMPLATE_HTML } from '../starter-template';
 import {
@@ -37,11 +39,13 @@ import {
   UpdateSiteTemplateUseCase,
 } from './site-templates.use-cases';
 import {
+  CheckSiteDomainUseCase,
   CreateSiteUseCase,
   GetSiteUseCase,
   GiveUpSiteUseCase,
   PreviewSiteUseCase,
   ProcessSiteUseCase,
+  RequestSiteDomainCheckUseCase,
   RequestSitePublicationUseCase,
   UpdateSiteUseCase,
 } from './site.use-cases';
@@ -99,12 +103,17 @@ describe('Sites', () => {
   };
   const createSite = (templateId: string) =>
     new CreateSiteUseCase(sites, templates, account, tenant, ids).execute({ templateId });
-  const updateSite = () => new UpdateSiteUseCase(sites, templates, assets);
+  const updateSite = () => new UpdateSiteUseCase(sites, templates, assets, account, hosting);
   const request = () => new RequestSitePublicationUseCase(sites, templates, hosting, jobs);
-  const process = () => new ProcessSiteUseCase(sites, templates, hosting, composer());
+  const process = () => new ProcessSiteUseCase(sites, templates, hosting, jobs, composer());
   const runJobs = async () => {
-    for (const { siteId } of jobs.of(ProcessSiteJob).splice(0)) await process().execute(siteId);
-    jobs.jobs.length = 0;
+    const pending = jobs.of(ProcessSiteJob);
+    jobs.jobs.splice(
+      0,
+      jobs.jobs.length,
+      ...jobs.jobs.filter((j) => j.name !== ProcessSiteJob.name),
+    );
+    for (const { siteId } of pending) await process().execute(siteId);
   };
   const upload = (contentType = 'image/png', content = PNG) =>
     new UploadSiteAssetUseCase(assets, hosting, storage, tenant, ids).execute({
@@ -284,7 +293,7 @@ describe('Sites', () => {
       const template = await availableTemplate();
       await createSite(template.id);
       tenant.switchTo('tenant-b');
-      expect(await new GetSiteUseCase(sites, templates).execute()).toBeNull();
+      expect((await new GetSiteUseCase(sites, templates, account).execute()).details).toBeNull();
       await expect(updateSite().execute({ slug: 'outro-nome' })).rejects.toThrow(SiteNotFoundError);
     });
   });
@@ -417,6 +426,132 @@ describe('Sites', () => {
       );
       expect(view.logo).toEqual({ url: `https://media.sites.test/tenant-a/${logo.id}.png` });
       expect(site.content.theme.logoAssetId).toBe(logo.id);
+    });
+  });
+
+  describe('custom domain', () => {
+    let checker: FakeSiteDomainChecker;
+    beforeEach(() => {
+      checker = new FakeSiteDomainChecker(hosting);
+    });
+
+    const ready = async () => {
+      const template = await availableTemplate();
+      await createSite(template.id);
+    };
+    const setDomain = (customDomain: string | null) => updateSite().execute({ customDomain });
+    const runChecks = async () => {
+      const pending = jobs.of(CheckSiteDomainJob);
+      jobs.jobs.length = 0;
+      for (const { siteId } of pending) {
+        await new CheckSiteDomainUseCase(sites, checker).execute(siteId);
+      }
+    };
+
+    it('only whoever manages the account (or the platform) sets it, normalized', async () => {
+      await ready();
+      await expect(setDomain('www.barbearia.com.br')).rejects.toThrow(SiteDomainManagedAboveError);
+
+      account.acting = true;
+      const { site } = await setDomain(' https://WWW.Barbearia.com.br/ ');
+      expect(site.customDomain).toBe('www.barbearia.com.br');
+      expect(site.domainStatus).toBe('pending');
+      expect(site.hasUnpublishedChanges).toBe(false); // ainda nem está no ar
+
+      for (const [domain, code] of [
+        ['barbearia', 'SITE_INVALID_DOMAIN'],
+        ['192.168.0.1', 'SITE_INVALID_DOMAIN'],
+        ['loja.sites.test', 'SITE_DOMAIN_IS_OURS'],
+      ]) {
+        await expect(setDomain(domain)).rejects.toMatchObject({ code });
+      }
+      // A plataforma define no próprio site sem ser acesso delegado.
+      account.acting = false;
+      tenant.switchTo('platform');
+      await createSite((await templates.listAvailable())[0].id);
+      await expect(setDomain('www.daedalus.com.br')).resolves.toBeDefined();
+    });
+
+    it('two sites cannot share a domain, with or without www', async () => {
+      await ready();
+      account.acting = true;
+      await setDomain('www.barbearia.com.br');
+      tenant.switchTo('tenant-b');
+      await createSite((await templates.listAvailable())[0].id);
+      await expect(setDomain('barbearia.com.br')).rejects.toMatchObject({
+        code: 'SITE_DOMAIN_TAKEN',
+      });
+      await expect(setDomain('www.outra.com.br')).resolves.toBeDefined();
+    });
+
+    it('publishing writes the domain folder, the check file and the redirect without www', async () => {
+      await ready();
+      account.acting = true;
+      const { site } = await setDomain('www.barbearia.com.br');
+      await request().execute('publish');
+      await runJobs();
+
+      const html = hosting.pages.get('www.barbearia.com.br')!;
+      expect(viewOf(html).site.url).toBe('https://www.barbearia.com.br');
+      expect(hosting.pages.has('barbearia-do-ze')).toBe(true); // o endereço nosso continua
+      expect(hosting.files.get('www.barbearia.com.br/.well-known/daedalus-site.txt')).toBe(site.id);
+      expect(hosting.pages.get('barbearia.com.br')).toContain('url=https://www.barbearia.com.br/');
+
+      // DNS ainda não aponta: não chega.
+      await runChecks();
+      expect((await sites.findCurrent())?.domainStatus).toBe('unreachable');
+      // Apontou: "verificar de novo".
+      checker.reachable.add('www.barbearia.com.br');
+      const asked = await new RequestSiteDomainCheckUseCase(sites, templates, jobs).execute();
+      expect(asked.site.domainStatus).toBe('checking');
+      await runChecks();
+      const connected = (await sites.findCurrent())!;
+      expect(connected.domainStatus).toBe('connected');
+      expect(connected.domainCheckedAt).toBeInstanceOf(Date);
+    });
+
+    it('changing or removing the domain takes the old one down on the next publication', async () => {
+      await ready();
+      account.acting = true;
+      await setDomain('www.barbearia.com.br');
+      await request().execute('publish');
+      await runJobs();
+
+      await setDomain('www.ze.com.br');
+      await request().execute('publish');
+      await runJobs();
+      expect([...hosting.pages.keys()].sort()).toEqual([
+        'barbearia-do-ze',
+        'www.ze.com.br',
+        'ze.com.br',
+      ]);
+      expect(hosting.files.has('www.barbearia.com.br/.well-known/daedalus-site.txt')).toBe(false);
+
+      await request().execute('unpublish');
+      await runJobs();
+      expect(hosting.pages.size).toBe(0);
+      expect(hosting.files.size).toBe(0);
+    });
+
+    it('a check before publishing stays pending; a check of a replaced domain is discarded', async () => {
+      await ready();
+      account.acting = true;
+      await setDomain('www.barbearia.com.br');
+      checker.reachable.add('www.barbearia.com.br');
+      await new RequestSiteDomainCheckUseCase(sites, templates, jobs).execute();
+      await runChecks();
+      expect((await sites.findCurrent())?.domainStatus).toBe('pending');
+
+      await request().execute('publish');
+      await runJobs();
+      const [{ siteId }] = jobs.of(CheckSiteDomainJob);
+      jobs.jobs.length = 0;
+      // Troca o domínio antes de a verificação do anterior terminar.
+      const stale = (await sites.findById(siteId))!;
+      await setDomain('www.ze.com.br');
+      stale.markDomainChecked(true, new Date());
+      await sites.saveDomainStatus(stale);
+      expect((await sites.findCurrent())?.domainStatus).toBe('pending');
     });
   });
 });

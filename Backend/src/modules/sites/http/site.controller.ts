@@ -28,6 +28,7 @@ import {
   CreateSiteUseCase,
   GetSiteUseCase,
   PreviewSiteUseCase,
+  RequestSiteDomainCheckUseCase,
   RequestSitePublicationUseCase,
   UpdateSiteUseCase,
   type SiteDetails,
@@ -57,6 +58,7 @@ export class SiteController {
     private readonly updateSite: UpdateSiteUseCase,
     private readonly previewSite: PreviewSiteUseCase,
     private readonly requestPublication: RequestSitePublicationUseCase,
+    private readonly requestDomainCheck: RequestSiteDomainCheckUseCase,
     private readonly listAssets: ListSiteAssetsUseCase,
     private readonly uploadAsset: UploadSiteAssetUseCase,
     private readonly deleteAsset: DeleteSiteAssetUseCase,
@@ -71,7 +73,16 @@ export class SiteController {
       templateName: template?.name ?? null,
       slug: site.slug,
       url: url(site.slug),
-      liveUrl: site.publishedSlug ? url(site.publishedSlug) : null,
+      // No ar: o domínio próprio, se publicado nele; senão o endereço nosso.
+      liveUrl: site.publishedDomain
+        ? this.hosting.domainUrl(site.publishedDomain)
+        : site.publishedSlug
+          ? url(site.publishedSlug)
+          : null,
+      customDomain: site.customDomain,
+      publishedDomain: site.publishedDomain,
+      domainStatus: site.domainStatus,
+      domainCheckedAt: site.domainCheckedAt?.toISOString() ?? null,
       content: site.content,
       isLive: site.isLive,
       hasUnpublishedChanges: site.hasUnpublishedChanges,
@@ -82,14 +93,20 @@ export class SiteController {
     };
   }
 
-  /** O site (ou null) e como fica o endereço: `addressPattern` com `{slug}`. */
+  /**
+   * O site (ou null), como fica o endereço (`addressPattern` com `{slug}`) e,
+   * para o domínio próprio, o destino do CNAME e se quem está logado pode
+   * defini-lo.
+   */
   @Get()
   async get() {
-    const details = await this.getSite.execute();
+    const { details, canManageDomain } = await this.getSite.execute();
     return {
       site: details ? this.present(details) : null,
       publishingEnabled: this.hosting.enabled,
       addressPattern: this.hosting.enabled ? this.hosting.siteUrl('{slug}') : null,
+      domainTarget: this.hosting.domainTarget,
+      canManageDomain,
     };
   }
 
@@ -126,6 +143,13 @@ export class SiteController {
   @HttpCode(HttpStatus.ACCEPTED)
   async unpublish() {
     return this.present(await this.requestPublication.execute('unpublish'));
+  }
+
+  /** Confere de novo se o domínio próprio chega no site (`domainStatus` → checking). */
+  @Post('domain/check')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async checkDomain() {
+    return this.present(await this.requestDomainCheck.execute());
   }
 
   @Get('assets')

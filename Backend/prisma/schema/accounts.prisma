@@ -6,17 +6,17 @@
 // `ancestors` = ids do topo até a mãe (vazio na raiz): "está abaixo de X?"
 // vira `X = ANY(ancestors)`, sem consulta recursiva.
 model Tenant {
-  id        String   @id @db.Uuid
-  name      String
-  slug      String   @unique
-  status    String
-  parentId  String?  @map("parent_id") @db.Uuid
-  ancestors String[] @default([]) @db.Uuid
+  id             String   @id @db.Uuid
+  name           String
+  slug           String   @unique
+  status         String
+  parentId       String?  @map("parent_id") @db.Uuid
+  ancestors      String[] @default([]) @db.Uuid
   // A conta da plataforma (Daedalus): topo da árvore, mãe dos cadastros públicos.
-  isRoot    Boolean  @default(false) @map("is_root")
+  isRoot         Boolean  @default(false) @map("is_root")
   // Revendedor: pode criar contas abaixo (a raiz sempre pode). Quem decide é a conta de cima.
-  allowsChildren Boolean @default(false) @map("allows_children")
-  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+  allowsChildren Boolean  @default(false) @map("allows_children")
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
 
   roles       Role[]
   memberships Membership[]

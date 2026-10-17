@@ -1,5 +1,6 @@
 import type { TenantContext } from '../../../shared/application/tenant-context';
 import type { SiteAssetRepository } from '../application/ports/site-asset.repository';
+import type { SiteDomainChecker } from '../application/ports/site-domain-checker';
 import type { SiteHosting } from '../application/ports/site-hosting';
 import type { SiteRenderer } from '../application/ports/site-renderer';
 import type {
@@ -38,6 +39,10 @@ const propsOf = (s: Site): SiteProps => ({
   publishedAt: s.publishedAt,
   pendingAction: s.pendingAction,
   lastError: s.lastError,
+  customDomain: s.customDomain,
+  publishedDomain: s.publishedDomain,
+  domainStatus: s.domainStatus,
+  domainCheckedAt: s.domainCheckedAt,
   createdAt: s.createdAt,
   updatedAt: s.updatedAt,
 });
@@ -112,6 +117,9 @@ export class InMemorySiteRepository implements SiteRepository {
     if (others.some(([, p]) => p.tenantId === site.tenantId)) {
       throw new SiteConflictError('SITE_ALREADY_EXISTS');
     }
+    if (site.customDomain && others.some(([, p]) => p.customDomain === site.customDomain)) {
+      throw new SiteConflictError('SITE_DOMAIN_TAKEN');
+    }
     const current = this.rows.get(site.id);
     const next = propsOf(site);
     this.rows.set(
@@ -122,6 +130,7 @@ export class InMemorySiteRepository implements SiteRepository {
             templateId: next.templateId,
             slug: next.slug,
             content: next.content,
+            customDomain: next.customDomain,
             updatedAt: next.updatedAt,
           }
         : next,
@@ -135,12 +144,35 @@ export class InMemorySiteRepository implements SiteRepository {
       this.rows.set(site.id, {
         ...current,
         publishedSlug: site.publishedSlug,
+        publishedDomain: site.publishedDomain,
         publishedAt: site.publishedAt,
         pendingAction: site.pendingAction,
         lastError: site.lastError,
       });
     }
     return Promise.resolve();
+  }
+
+  saveDomainStatus(site: Site): Promise<void> {
+    const current = this.rows.get(site.id);
+    if (current && current.customDomain === site.customDomain) {
+      this.rows.set(site.id, {
+        ...current,
+        domainStatus: site.domainStatus,
+        domainCheckedAt: site.domainCheckedAt,
+      });
+    }
+    return Promise.resolve();
+  }
+
+  isDomainTaken(domains: string[], exceptSiteId: string): Promise<boolean> {
+    return Promise.resolve(
+      this.all.some(
+        (s) =>
+          s.id !== exceptSiteId &&
+          domains.some((d) => d === s.customDomain || d === s.publishedDomain),
+      ),
+    );
   }
 
   findCurrent(): Promise<Site | null> {
@@ -197,6 +229,10 @@ export class InMemorySiteAssetRepository implements SiteAssetRepository {
 /** Bucket de sites em memória; `failing` simula o S3 fora do ar. */
 export class InMemorySiteHosting implements SiteHosting {
   readonly pages = new Map<string, string>();
+  /** `<pasta>/<caminho>` → conteúdo. */
+  readonly files = new Map<string, string>();
+  readonly sitesDomain = 'sites.test';
+  readonly domainTarget = 'tunel.cfargotunnel.com';
   readonly media = new Map<string, { body: Buffer; contentType: string }>();
   failing = false;
 
@@ -204,6 +240,20 @@ export class InMemorySiteHosting implements SiteHosting {
 
   siteUrl(slug: string): string {
     return `https://${slug}.sites.test`;
+  }
+
+  domainUrl(host: string): string {
+    return `https://${host}`;
+  }
+
+  publishFile(folder: string, path: string, body: string): Promise<void> {
+    this.files.set(`${folder}/${path}`, body);
+    return Promise.resolve();
+  }
+
+  removeFile(folder: string, path: string): Promise<void> {
+    this.files.delete(`${folder}/${path}`);
+    return Promise.resolve();
   }
 
   mediaUrl(key: string): string {
@@ -267,8 +317,25 @@ export class FakeSiteSources implements SiteSources {
   }
 }
 
+/** Domínios que "chegam" no site (o resto não responde). */
+export class FakeSiteDomainChecker implements SiteDomainChecker {
+  constructor(private readonly hosting: InMemorySiteHosting) {}
+
+  /** Como na vida real: chega se o arquivo publicado na pasta do domínio confere. */
+  reachable = new Set<string>();
+
+  reaches(domain: string, path: string, expected: string): Promise<boolean> {
+    return Promise.resolve(
+      this.reachable.has(domain) && this.hosting.files.get(`${domain}/${path}`) === expected,
+    );
+  }
+}
+
 /** Contas do teste por tenant (nome, slug e se é a raiz). */
 export class FakeSiteAccount implements SiteAccount {
+  /** O ator entrou como acesso da conta-mãe. */
+  acting = false;
+
   constructor(
     private readonly tenant: TenantContext,
     readonly accounts: Record<string, { name: string; slug: string; isRoot: boolean }>,
@@ -278,5 +345,9 @@ export class FakeSiteAccount implements SiteAccount {
     const account = this.accounts[this.tenant.tenantId];
     if (!account) throw new Error(`No account ${this.tenant.tenantId}`);
     return Promise.resolve(account);
+  }
+
+  actingFromParentAccount(): Promise<boolean> {
+    return Promise.resolve(this.acting);
   }
 }

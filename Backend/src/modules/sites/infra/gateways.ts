@@ -42,4 +42,8 @@ export class AccountsSiteAccount implements SiteAccount {
   current() {
     return this.accounts.currentAccount();
   }
+
+  actingFromParentAccount() {
+    return this.accounts.actingFromParentAccount();
+  }
 }

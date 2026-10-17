@@ -38,6 +38,8 @@ export function SitePage() {
           site={state.data.site}
           addressPattern={state.data.addressPattern}
           publishingEnabled={state.data.publishingEnabled}
+          domainTarget={state.data.domainTarget}
+          canManageDomain={state.data.canManageDomain}
         />
       )}
     </>

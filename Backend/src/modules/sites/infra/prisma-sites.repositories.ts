@@ -15,6 +15,7 @@ import type { SiteRepository } from '../application/ports/site.repository';
 import { SiteConflictError } from '../domain/errors/site-conflict.error';
 import type { SiteAsset } from '../domain/site-asset';
 import { completeSiteContent, type SiteContent } from '../domain/site-content';
+import type { SiteDomainStatus } from '../domain/site-domain';
 import { SiteTemplate } from '../domain/site-template.entity';
 import { Site, type SitePendingAction } from '../domain/site.entity';
 
@@ -122,6 +123,7 @@ export class PrismaSiteRepository implements SiteRepository {
       templateId: site.templateId,
       slug: site.slug,
       content: site.content as unknown as Prisma.InputJsonValue,
+      customDomain: site.customDomain,
       updatedAt: site.updatedAt,
     };
     try {
@@ -135,6 +137,9 @@ export class PrismaSiteRepository implements SiteRepository {
           publishedAt: site.publishedAt,
           pendingAction: site.pendingAction,
           lastError: site.lastError,
+          publishedDomain: site.publishedDomain,
+          domainStatus: site.domainStatus,
+          domainCheckedAt: site.domainCheckedAt,
           createdAt: site.createdAt,
         },
         // Só o que a pessoa edita: o estado da publicação é do worker.
@@ -142,8 +147,14 @@ export class PrismaSiteRepository implements SiteRepository {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        const taken = JSON.stringify(error.meta ?? {}).includes('slug');
-        throw new SiteConflictError(taken ? 'SITE_SLUG_TAKEN' : 'SITE_ALREADY_EXISTS');
+        const target = JSON.stringify(error.meta ?? {});
+        throw new SiteConflictError(
+          target.includes('custom_domain') || target.includes('customDomain')
+            ? 'SITE_DOMAIN_TAKEN'
+            : target.includes('slug')
+              ? 'SITE_SLUG_TAKEN'
+              : 'SITE_ALREADY_EXISTS',
+        );
       }
       throw error;
     }
@@ -154,10 +165,18 @@ export class PrismaSiteRepository implements SiteRepository {
       where: { id: site.id, tenantId: this.tenant.tenantId },
       data: {
         publishedSlug: site.publishedSlug,
+        publishedDomain: site.publishedDomain,
         publishedAt: site.publishedAt,
         pendingAction: site.pendingAction,
         lastError: site.lastError,
       },
+    });
+  }
+
+  async saveDomainStatus(site: Site): Promise<void> {
+    await this.db.site.updateMany({
+      where: { id: site.id, tenantId: this.tenant.tenantId, customDomain: site.customDomain },
+      data: { domainStatus: site.domainStatus, domainCheckedAt: site.domainCheckedAt },
     });
   }
 
@@ -183,6 +202,18 @@ export class PrismaSiteRepository implements SiteRepository {
     });
     return row !== null;
   }
+
+  async isDomainTaken(domains: string[], exceptSiteId: string): Promise<boolean> {
+    // Sem filtro de tenant DE PROPÓSITO: o domínio é único entre as contas.
+    const row = await this.db.site.findFirst({
+      where: {
+        OR: [{ customDomain: { in: domains } }, { publishedDomain: { in: domains } }],
+        NOT: { id: exceptSiteId },
+      },
+      select: { id: true },
+    });
+    return row !== null;
+  }
 }
 
 function toSite(row: SiteModel): Site {
@@ -195,6 +226,10 @@ function toSite(row: SiteModel): Site {
     publishedAt: row.publishedAt,
     pendingAction: row.pendingAction as SitePendingAction | null,
     lastError: row.lastError,
+    customDomain: row.customDomain,
+    publishedDomain: row.publishedDomain,
+    domainStatus: row.domainStatus as SiteDomainStatus | null,
+    domainCheckedAt: row.domainCheckedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });

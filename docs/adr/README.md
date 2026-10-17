@@ -16,6 +16,7 @@ ADRs não são editados depois de aceitos: quando uma decisão muda, cria-se um 
 | [0008](0008-hospedagem-sites-clientes.md) | Hospedagem dos sites dos clientes na própria infraestrutura | Aceito |
 | [0009](0009-hierarquia-de-contas.md) | Hierarquia de contas: conta-mãe, revendedores e acesso delegado | Aceito |
 | [0010](0010-modulo-de-sites.md) | Módulo de sites: modelos com marcadores e publicação pela fila | Aceito |
+| [0011](0011-dominio-proprio-dos-sites.md) | Domínio próprio dos sites pelo túnel da Cloudflare | Aceito |
 
 ## Modelo
 

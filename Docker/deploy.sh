@@ -32,6 +32,9 @@ for var in APP_DOMAIN API_DOMAIN ACME_EMAIL IMAGE_REGISTRY IMAGE_TAG S3_ENDPOINT
   fi
 done
 
+# Destino do CNAME dos domínios próprios, mostrado no painel (ADR 0011).
+export SITES_DOMAIN_TARGET="${SITES_TUNNEL_ID:+${SITES_TUNNEL_ID}.cfargotunnel.com}"
+
 STACK="${STACK_NAME:-omnichannel}"
 echo "▶ Deploy de ${IMAGE_REGISTRY} @ ${IMAGE_TAG} na stack '${STACK}'"
 

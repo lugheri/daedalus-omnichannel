@@ -36,6 +36,9 @@ x-backend-env: &backend-env
   SITES_BUCKET: ${SITES_BUCKET}
   SITES_URL: https://{slug}.${SITES_DOMAIN}
   SITES_PUBLIC_ACL: ${SITES_PUBLIC_ACL:-false}
+  # Domínio próprio (ADR 0011): o CNAME que o painel manda criar (o deploy.sh
+  # monta a partir de SITES_TUNNEL_ID; vazio = sem túnel ainda).
+  SITES_DOMAIN_TARGET: ${SITES_DOMAIN_TARGET:-}
 
 x-backend-secrets: &backend-secrets
   - database_url

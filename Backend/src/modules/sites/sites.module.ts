@@ -5,6 +5,7 @@ import { AccountsModule } from '../accounts';
 import { CatalogModule } from '../catalog';
 import { FormsModule } from '../forms';
 import { SITE_ASSET_REPOSITORY } from './application/ports/site-asset.repository';
+import { SITE_DOMAIN_CHECKER } from './application/ports/site-domain-checker';
 import { SITE_HOSTING } from './application/ports/site-hosting';
 import { SITE_RENDERER } from './application/ports/site-renderer';
 import { SITE_ACCOUNT, SITE_SOURCES } from './application/ports/site-sources';
@@ -28,17 +29,20 @@ import {
   UpdateSiteTemplateUseCase,
 } from './application/use-cases/site-templates.use-cases';
 import {
+  CheckSiteDomainUseCase,
   CreateSiteUseCase,
   GetSiteUseCase,
   GiveUpSiteUseCase,
   PreviewSiteUseCase,
   ProcessSiteUseCase,
+  RequestSiteDomainCheckUseCase,
   RequestSitePublicationUseCase,
   UpdateSiteUseCase,
 } from './application/use-cases/site.use-cases';
 import { SiteTemplatesController } from './http/site-templates.controller';
 import { SiteController } from './http/site.controller';
 import { AccountsSiteAccount, FacadeSiteSources } from './infra/gateways';
+import { HttpSiteDomainChecker } from './infra/http-site-domain-checker';
 import { MustacheSiteRenderer } from './infra/mustache-site-renderer';
 import {
   PrismaSiteAssetRepository,
@@ -77,6 +81,8 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
     RequestSitePublicationUseCase,
     ProcessSiteUseCase,
     GiveUpSiteUseCase,
+    RequestSiteDomainCheckUseCase,
+    CheckSiteDomainUseCase,
     ListSiteAssetsUseCase,
     UploadSiteAssetUseCase,
     DeleteSiteAssetUseCase,
@@ -86,6 +92,7 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
     { provide: SITE_ASSET_REPOSITORY, useClass: PrismaSiteAssetRepository },
     { provide: SITE_HOSTING, useClass: S3SiteHosting },
     { provide: SITE_RENDERER, useClass: MustacheSiteRenderer },
+    { provide: SITE_DOMAIN_CHECKER, useClass: HttpSiteDomainChecker },
     { provide: SITE_SOURCES, useClass: FacadeSiteSources },
     { provide: SITE_ACCOUNT, useClass: AccountsSiteAccount },
     {
@@ -97,10 +104,12 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
         return {
           hosting: sites ? { ...sites, region, endpoint, forcePathStyle } : null,
           publicApiUrl: config.publicApiUrl,
+          domainTarget: config.siteDomains.target,
+          domainCheckVia: config.siteDomains.checkVia,
         };
       },
     },
   ],
-  exports: [ProcessSiteUseCase, GiveUpSiteUseCase],
+  exports: [ProcessSiteUseCase, GiveUpSiteUseCase, CheckSiteDomainUseCase],
 })
 export class SitesModule {}

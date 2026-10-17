@@ -52,6 +52,8 @@ export const updateSiteSchema = z.object({
   content: siteContentSchema.optional(),
   slug: z.string().max(63).optional(),
   templateId: z.uuid().optional(),
+  /** Domínio próprio (null ou "" = tira). Só conta-mãe ou plataforma (ADR 0011). */
+  customDomain: z.string().max(300).nullable().optional(),
 });
 
 export const previewSiteSchema = z.object({

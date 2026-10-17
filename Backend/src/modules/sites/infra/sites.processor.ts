@@ -2,18 +2,24 @@ import { OnWorkerEvent, Processor } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import type { JobEnvelope } from '../../../shared/infra/queue/job-envelope';
 import { TenantAwareProcessor } from '../../../shared/infra/queue/tenant-aware.processor';
-import { ProcessSiteJob, SITES_QUEUE } from '../application/sites-jobs';
-import { GiveUpSiteUseCase, ProcessSiteUseCase } from '../application/use-cases/site.use-cases';
+import { CheckSiteDomainJob, ProcessSiteJob, SITES_QUEUE } from '../application/sites-jobs';
+import {
+  CheckSiteDomainUseCase,
+  GiveUpSiteUseCase,
+  ProcessSiteUseCase,
+} from '../application/use-cases/site.use-cases';
 
-/** Fila dos sites (worker): publicar e tirar do ar. */
+/** Fila dos sites (worker): publicar, tirar do ar e verificar o domínio próprio. */
 @Processor(SITES_QUEUE, { concurrency: 5 })
 export class SitesProcessor extends TenantAwareProcessor {
   constructor(
     process: ProcessSiteUseCase,
     private readonly giveUp: GiveUpSiteUseCase,
+    checkDomain: CheckSiteDomainUseCase,
   ) {
     super();
     this.on(ProcessSiteJob, ({ siteId }) => process.execute(siteId));
+    this.on(CheckSiteDomainJob, ({ siteId }) => checkDomain.execute(siteId));
   }
 
   /** Esgotou as tentativas (bucket fora do ar): o site sai de "publicando" com o motivo. */

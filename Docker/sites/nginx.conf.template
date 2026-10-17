@@ -1,4 +1,4 @@
-# Servidor dos sites dos clientes (ADR 0008).
+# Servidor dos sites dos clientes (ADR 0008; domínio próprio: ADR 0011).
 #
 # Template do entrypoint do nginx: ao subir, ${SITES_DOMAIN} e ${SITES_ORIGIN}
 # viram os valores do ambiente (só variáveis definidas são trocadas; as do
@@ -6,6 +6,9 @@
 #
 # Cada site é uma pasta no bucket público de sites: <slug>/index.html etc.
 # O slug é o primeiro rótulo do host: barbearia-x.<SITES_DOMAIN> → barbearia-x/.
+# Domínio próprio (qualquer outro host, que chega pelo túnel da Cloudflare): a
+# pasta é o próprio host — www.barbearia.com.br → www.barbearia.com.br/. Host
+# que ninguém publicou dá 404.
 # Nada fica no disco do container além do cache, que é descartável.
 
 # Cache local: se o S3 ficar fora do ar, o último conteúdo continua sendo servido.
@@ -19,11 +22,16 @@ map $host $site_rest {
     "~^[a-z0-9-]+\.(?<rest>.+)$" $rest;
     default "";
 }
-# O Traefik já só manda para cá o que é *.SITES_DOMAIN; isto é defesa extra
-# (comparação exata de texto, sem regex: o domínio não precisa de escape).
-map $site_rest $site_ok {
+# Subdomínio nosso? Comparação exata de texto, sem regex: o domínio não
+# precisa de escape.
+map $site_rest $is_sites_domain {
     "${SITES_DOMAIN}" 1;
     default 0;
+}
+# Pasta do site no bucket. O nginx já recusa Host com "/" ou "..".
+map $is_sites_domain $site_key {
+    1 $site_slug;
+    default $host;
 }
 
 server {
@@ -42,7 +50,6 @@ server {
     }
 
     location / {
-        if ($site_ok = 0) { return 404; }
         if ($request_method !~ ^(GET|HEAD)$) { return 405; }
 
         # /            → /index.html
@@ -52,7 +59,7 @@ server {
         if ($obj ~ /$) { set $obj "${obj}index.html"; }
         if ($obj !~ "\.[A-Za-z0-9]+$") { set $obj "$obj/index.html"; }
 
-        proxy_pass ${SITES_ORIGIN}/$site_slug$obj;
+        proxy_pass ${SITES_ORIGIN}/$site_key$obj;
         proxy_ssl_server_name on;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
@@ -73,7 +80,7 @@ server {
         # O tempo de cache vem do Cache-Control gravado na publicação
         # (publish.sh: HTML 60 s, demais arquivos 1 dia); isto é o mínimo.
         proxy_cache sites;
-        proxy_cache_key $site_slug$obj;
+        proxy_cache_key $site_key$obj;
         proxy_cache_valid 200 1m;
         proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
         proxy_cache_background_update on;

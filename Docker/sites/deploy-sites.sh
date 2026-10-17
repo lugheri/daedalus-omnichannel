@@ -5,7 +5,8 @@
 #
 #   ./sites/deploy-sites.sh
 #
-# Variáveis: Docker/.env.prod (SITES_DOMAIN e SITES_ORIGIN).
+# Variáveis: Docker/.env.prod (SITES_DOMAIN, SITES_ORIGIN e SITES_TUNNEL_ID).
+# O túnel dos domínios próprios (ADR 0011) exige o secret cf_tunnel_credentials.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -19,7 +20,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-for var in SITES_DOMAIN SITES_ORIGIN; do
+for var in SITES_DOMAIN SITES_ORIGIN SITES_TUNNEL_ID; do
   if [[ -z "${!var:-}" ]]; then
     echo "Defina $var em $ENV_FILE." >&2
     exit 1
@@ -30,9 +31,10 @@ done
 SITES_DOMAIN_RE="$(printf '%s' "$SITES_DOMAIN" | sed 's/\./\\./g')"
 # Hash do template: muda o nome da config do Swarm quando o arquivo muda.
 SITES_CONFIG_VERSION="$(sha256sum nginx.conf.template | cut -c1-12)"
-export SITES_DOMAIN_RE SITES_CONFIG_VERSION
+SITES_TUNNEL_CONFIG_VERSION="$(sha256sum cloudflared.yml | cut -c1-12)"
+export SITES_DOMAIN_RE SITES_CONFIG_VERSION SITES_TUNNEL_CONFIG_VERSION
 
 STACK="${SITES_STACK_NAME:-omnichannel-sites}"
-echo "▶ Sites: *.${SITES_DOMAIN} → ${SITES_ORIGIN} (stack '${STACK}')"
+echo "▶ Sites: *.${SITES_DOMAIN} e domínios próprios (túnel ${SITES_TUNNEL_ID}) → ${SITES_ORIGIN} (stack '${STACK}')"
 docker stack deploy --detach=false -c stack.sites.yaml "$STACK"
-echo "✔ Servidor de sites no ar. Publique um site com ./sites/publish.sh <slug> <pasta>"
+echo "✔ Servidor de sites no ar. Domínio próprio: CNAME para ${SITES_TUNNEL_ID}.cfargotunnel.com (proxy ligado)."

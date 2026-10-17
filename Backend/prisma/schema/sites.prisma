@@ -26,25 +26,33 @@ model SiteTemplate {
 }
 
 model Site {
-  id            String       @id @db.Uuid
+  id              String       @id @db.Uuid
   // Um site por conta (por enquanto).
-  tenantId      String       @unique @map("tenant_id") @db.Uuid
-  templateId    String       @map("template_id") @db.Uuid
-  template      SiteTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  tenantId        String       @unique @map("tenant_id") @db.Uuid
+  templateId      String       @map("template_id") @db.Uuid
+  template        SiteTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
   // Subdomínio: <slug>.SITES_DOMAIN. Único entre todas as contas.
-  slug          String       @unique
+  slug            String       @unique
   // Conteúdo do site (domain/site-content.ts), validado no domínio.
-  content       Json
+  content         Json
   // Onde o site está no ar (null = fora do ar). Pode diferir do slug até a
   // próxima publicação.
-  publishedSlug String?      @map("published_slug")
-  publishedAt   DateTime?    @map("published_at") @db.Timestamptz(3)
+  publishedSlug   String?      @map("published_slug")
+  publishedAt     DateTime?    @map("published_at") @db.Timestamptz(3)
   // publish | unpublish enquanto o worker não termina.
-  pendingAction String?      @map("pending_action")
+  pendingAction   String?      @map("pending_action")
   // Motivo da última publicação que falhou (código).
-  lastError     String?      @map("last_error")
-  createdAt     DateTime     @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime     @map("updated_at") @db.Timestamptz(3)
+  lastError       String?      @map("last_error")
+  // Domínio próprio (ADR 0011): o host principal, ex. www.barbearia.com.br.
+  // Único entre todas as contas; só quem gerencia a conta define.
+  customDomain    String?      @unique @map("custom_domain")
+  // O domínio que está no ar (pode diferir até publicar de novo).
+  publishedDomain String?      @map("published_domain")
+  // pending | checking | connected | unreachable (null = sem domínio).
+  domainStatus    String?      @map("domain_status")
+  domainCheckedAt DateTime?    @map("domain_checked_at") @db.Timestamptz(3)
+  createdAt       DateTime     @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @map("updated_at") @db.Timestamptz(3)
 
   @@index([templateId])
   @@map("sites")

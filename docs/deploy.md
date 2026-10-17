@@ -123,11 +123,14 @@ A partir daí, todo cadastro público nasce abaixo dela, e as contas que já exi
 
 ## Sites dos clientes
 
-Os sites estáticos dos clientes rodam numa stack separada (`Docker/sites`), atrás do mesmo Traefik. Decisão e motivos: [ADR 0008](adr/0008-hospedagem-sites-clientes.md).
+Os sites estáticos dos clientes rodam numa stack separada (`Docker/sites`), atrás do mesmo Traefik. Decisão e motivos: [ADR 0008](adr/0008-hospedagem-sites-clientes.md); domínio próprio: [ADR 0011](adr/0011-dominio-proprio-dos-sites.md).
 
 ```
 visitante → Cloudflare → Traefik (*.SITES_DOMAIN, certificado curinga)
           → sites (nginx ×2, cache local) → bucket S3 público: <slug>/index.html
+
+visitante → Cloudflare (www.cliente.com.br, HTTPS da Cloudflare) → túnel (cloudflared ×2)
+          → sites (nginx) → bucket: www.cliente.com.br/index.html
 ```
 
 ### Uma vez
@@ -137,7 +140,15 @@ visitante → Cloudflare → Traefik (*.SITES_DOMAIN, certificado curinga)
    - *SSL/TLS → Overview*: modo **Full (strict)**.
 2. **Bucket público de sites** (`SITES_BUCKET`) no provedor de S3, com leitura pública dos objetos e **sem listagem**. Nada privado vai para esse bucket. O worker publica os sites (e a API grava as imagens) com a **mesma chave do S3 da stack principal** (secrets `s3_access_key`/`s3_secret_key`): ela precisa ler e escrever nos dois buckets. Para o `publish.sh` manual, uma chave própria só desse bucket.
 3. Preencha `SITES_DOMAIN`, `SITES_BUCKET`, `SITES_ORIGIN` e `SITES_PUBLIC_ACL` no `Docker/.env.prod`. O `deploy.sh` da stack principal também exige `SITES_DOMAIN` e `SITES_BUCKET` (a API e o worker publicam os sites: [ADR 0010](adr/0010-modulo-de-sites.md)).
-4. Com a stack principal no ar:
+4. **Túnel dos domínios próprios** (no seu computador, com o [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) instalado):
+
+```bash
+cloudflared tunnel login                      # autoriza a conta da Cloudflare
+cloudflared tunnel create omnichannel-sites   # mostra o ID e grava ~/.cloudflared/<ID>.json
+```
+
+   No manager: `docker secret create cf_tunnel_credentials <ID>.json` (copie o arquivo e apague depois) e `SITES_TUNNEL_ID=<ID>` no `Docker/.env.prod`. O `deploy.sh` da stack principal passa o destino (`<ID>.cfargotunnel.com`) para o painel mostrar.
+5. Com a stack principal no ar:
 
 ```bash
 cd daedalus-omnichannel/Docker
@@ -160,6 +171,16 @@ Site montado à mão (fora do módulo), pelo script:
 - O slug aceita letras minúsculas, números e hífen.
 - As chaves do bucket são pedidas na hora (ou vêm de `SITES_S3_ACCESS_KEY` / `SITES_S3_SECRET_KEY`); nunca as grave em arquivo.
 - Republicar a mesma pasta atualiza o site; arquivo apagado da pasta some do site. A mudança aparece em até 1 minuto.
+
+### Domínio próprio de um cliente
+
+1. Registre o domínio e adicione a zona na **sua** Cloudflare (troque os nameservers no registro.br para os que a Cloudflare indicar). Em *SSL/TLS → Edge Certificates*, ligue **Always Use HTTPS**.
+2. No DNS da zona, com proxy ligado (nuvem laranja):
+   - `CNAME www → <SITES_TUNNEL_ID>.cfargotunnel.com`
+   - `CNAME @ → <SITES_TUNNEL_ID>.cfargotunnel.com` (o domínio sem www, que redireciona para o www)
+3. No painel, entrando na conta do cliente (como conta-mãe): **Meu site › Endereço › Domínio próprio** = `www.cliente.com.br`, Salvar e **Publicar**. O painel mostra os registros acima e, depois de publicar, verifica sozinho: **Conectado** quando o DNS já chega no site (pode levar minutos; "Verificar agora" confere de novo).
+
+O certificado HTTPS é o da Cloudflare (Universal SSL, emitido sozinho para a zona). Trocar ou tirar o domínio tira a pasta antiga do ar na próxima publicação.
 
 ### Tirar um site do ar
 

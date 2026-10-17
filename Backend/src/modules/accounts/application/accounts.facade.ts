@@ -36,6 +36,14 @@ export class AccountsFacade {
     @Inject(TENANT_REPOSITORY) private readonly tenants: TenantRepository,
   ) {}
 
+  /**
+   * O ator da requisição entrou nesta conta vindo de uma conta acima (acesso
+   * delegado, ADR 0009)? Para o que só quem gerencia a conta pode fazer.
+   */
+  async actingFromParentAccount(): Promise<boolean> {
+    return !!(await this.access.get()).delegatedFromTenantId;
+  }
+
   /** A conta do tenant atual (ex.: nome e endereço sugeridos para o site). */
   async currentAccount(): Promise<AccountSummary> {
     const tenant = await this.tenants.findById(this.tenant.tenantId);

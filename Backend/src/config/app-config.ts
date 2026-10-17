@@ -110,4 +110,12 @@ export class AppConfig {
       secretAccessKey: this.env.SITES_S3_SECRET_KEY ?? this.env.S3_SECRET_KEY,
     };
   }
+
+  /** Domínio próprio dos sites (ADR 0011): destino do CNAME e, em dev, o atalho da verificação. */
+  get siteDomains() {
+    return {
+      target: this.env.SITES_DOMAIN_TARGET?.trim() || null,
+      checkVia: this.env.SITES_DOMAIN_CHECK_VIA ?? null,
+    };
+  }
 }

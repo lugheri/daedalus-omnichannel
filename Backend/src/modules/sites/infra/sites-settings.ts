@@ -15,6 +15,10 @@ export interface SitesSettings {
   } | null;
   /** Origem da API pública (o `action` dos formulários do site). */
   publicApiUrl: string;
+  /** Destino do CNAME dos domínios próprios (o túnel); null = não configurado. */
+  domainTarget: string | null;
+  /** Só em dev: `host:porta` onde verificar os domínios (sem DNS). */
+  domainCheckVia: string | null;
 }
 
 export const SITES_SETTINGS = Symbol('SitesSettings');

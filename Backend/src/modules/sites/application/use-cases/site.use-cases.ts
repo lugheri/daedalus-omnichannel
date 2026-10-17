@@ -4,6 +4,7 @@ import { JOB_QUEUE, type JobQueue } from '../../../../shared/application/job-que
 import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/application/tenant-context';
 import { InvalidSiteError } from '../../domain/errors/invalid-site.error';
 import { SiteConflictError } from '../../domain/errors/site-conflict.error';
+import { SiteDomainManagedAboveError } from '../../domain/errors/site-domain-managed-above.error';
 import { SiteNotFoundError } from '../../domain/errors/site-not-found.error';
 import {
   defaultSiteContent,
@@ -11,10 +12,13 @@ import {
   referencedAssetIds,
   type SiteContent,
 } from '../../domain/site-content';
+import { domainVariants, validCustomDomain } from '../../domain/site-domain';
 import { suggestSiteSlug } from '../../domain/site-slug';
 import type { SiteTemplate } from '../../domain/site-template.entity';
 import { Site } from '../../domain/site.entity';
+import { DOMAIN_CHECK_PATH, publishDomainFolder, removeDomainFolder } from '../domain-pages';
 import { SITE_ASSET_REPOSITORY, type SiteAssetRepository } from '../ports/site-asset.repository';
+import { SITE_DOMAIN_CHECKER, type SiteDomainChecker } from '../ports/site-domain-checker';
 import { SITE_HOSTING, type SiteHosting } from '../ports/site-hosting';
 import { SITE_ACCOUNT, type SiteAccount } from '../ports/site-sources';
 import {
@@ -23,7 +27,7 @@ import {
 } from '../ports/site-template.repository';
 import { SITE_REPOSITORY, type SiteRepository } from '../ports/site.repository';
 import { SiteComposer } from '../site-composer';
-import { ProcessSiteJob } from '../sites-jobs';
+import { CheckSiteDomainJob, ProcessSiteJob } from '../sites-jobs';
 
 async function loadCurrent(sites: SiteRepository): Promise<Site> {
   const site = await sites.findCurrent();
@@ -49,17 +53,29 @@ export interface SiteDetails {
   template: SiteTemplate | null;
 }
 
+export interface SiteOverview {
+  details: SiteDetails | null;
+  /** Quem está logado pode definir o domínio próprio (conta-mãe ou plataforma). */
+  canManageDomain: boolean;
+}
+
 @Injectable()
 export class GetSiteUseCase {
   constructor(
     @Inject(SITE_REPOSITORY) private readonly sites: SiteRepository,
     @Inject(SITE_TEMPLATE_REPOSITORY) private readonly templates: SiteTemplateRepository,
+    @Inject(SITE_ACCOUNT) private readonly account: SiteAccount,
   ) {}
 
-  async execute(): Promise<SiteDetails | null> {
+  async execute(): Promise<SiteOverview> {
     const site = await this.sites.findCurrent();
-    if (!site) return null;
-    return { site, template: await this.templates.findForSite(site.templateId) };
+    const canManageDomain =
+      (await this.account.current()).isRoot || (await this.account.actingFromParentAccount());
+    if (!site) return { details: null, canManageDomain };
+    return {
+      details: { site, template: await this.templates.findForSite(site.templateId) },
+      canManageDomain,
+    };
   }
 }
 
@@ -97,21 +113,31 @@ export class CreateSiteUseCase {
   }
 }
 
-/** Edita o rascunho (o que está no ar só muda ao publicar). */
+/**
+ * Edita o rascunho (o que está no ar só muda ao publicar). O domínio próprio
+ * (`customDomain`, null = tira) só muda por quem gerencia a conta — acesso
+ * da conta-mãe — ou na conta da plataforma (ADR 0011).
+ */
 @Injectable()
 export class UpdateSiteUseCase {
   constructor(
     @Inject(SITE_REPOSITORY) private readonly sites: SiteRepository,
     @Inject(SITE_TEMPLATE_REPOSITORY) private readonly templates: SiteTemplateRepository,
     @Inject(SITE_ASSET_REPOSITORY) private readonly assets: SiteAssetRepository,
+    @Inject(SITE_ACCOUNT) private readonly account: SiteAccount,
+    @Inject(SITE_HOSTING) private readonly hosting: SiteHosting,
   ) {}
 
   async execute(changes: {
     content?: SiteContent;
     slug?: string;
     templateId?: string;
+    customDomain?: string | null;
   }): Promise<SiteDetails> {
+    const { customDomain, ...edits } = changes;
     const site = await loadCurrent(this.sites);
+    const domainChanged =
+      customDomain !== undefined && (await this.changeDomain(site, customDomain));
     if (changes.templateId && changes.templateId !== site.templateId) {
       await choosableTemplate(this.templates, changes.templateId, site.templateId);
     }
@@ -120,12 +146,26 @@ export class UpdateSiteUseCase {
       const found = await this.assets.findByIds(wanted);
       if (found.length !== wanted.length) throw new InvalidSiteError('SITE_UNKNOWN_ASSET');
     }
-    site.edit(changes);
+    site.edit(edits);
     if (changes.slug !== undefined && (await this.sites.isSlugTaken(site.slug, site.id))) {
       throw new SiteConflictError('SITE_SLUG_TAKEN');
     }
     await this.sites.save(site);
+    if (domainChanged) await this.sites.saveDomainStatus(site);
     return { site, template: await this.templates.findForSite(site.templateId) };
+  }
+
+  private async changeDomain(site: Site, raw: string | null): Promise<boolean> {
+    const domain = raw?.trim() ? validCustomDomain(raw, this.hosting.sitesDomain) : null;
+    if (domain === site.customDomain) return false;
+    const account = await this.account.current();
+    if (!account.isRoot && !(await this.account.actingFromParentAccount())) {
+      throw new SiteDomainManagedAboveError();
+    }
+    if (domain && (await this.sites.isDomainTaken(domainVariants(domain), site.id))) {
+      throw new SiteConflictError('SITE_DOMAIN_TAKEN');
+    }
+    return site.setCustomDomain(domain);
   }
 }
 
@@ -153,7 +193,7 @@ export class PreviewSiteUseCase {
     const content = input.content
       ? normalizeSiteContent(input.content)
       : (site?.content ?? defaultSiteContent((await this.account.current()).name));
-    const url = site && this.hosting.enabled ? this.hosting.siteUrl(site.slug) : null;
+    const url = site && this.hosting.enabled ? publicUrl(this.hosting, site) : null;
     return this.composer.render(template.html, content, url);
   }
 }
@@ -184,11 +224,17 @@ export class RequestSitePublicationUseCase {
   }
 }
 
+/** Endereço principal do site: o domínio próprio, se houver; senão o nosso. */
+function publicUrl(hosting: SiteHosting, site: Site): string {
+  return site.customDomain ? hosting.domainUrl(site.customDomain) : hosting.siteUrl(site.slug);
+}
+
 /**
  * Worker: faz o que estiver pendente no site. Publicar grava o HTML em
- * `<slug>/index.html` e, se o endereço mudou, apaga o antigo. Erro do modelo
- * vira falha na hora (repetir não resolve); erro do armazenamento sobe para
- * a fila tentar de novo.
+ * `<slug>/index.html` e, com domínio próprio, na pasta do domínio (mais a
+ * verificação e o redirecionamento do domínio sem www); endereço ou domínio
+ * trocados saem do ar. Erro do modelo vira falha na hora (repetir não
+ * resolve); erro do armazenamento sobe para a fila tentar de novo.
  */
 @Injectable()
 export class ProcessSiteUseCase {
@@ -198,6 +244,7 @@ export class ProcessSiteUseCase {
     @Inject(SITE_REPOSITORY) private readonly sites: SiteRepository,
     @Inject(SITE_TEMPLATE_REPOSITORY) private readonly templates: SiteTemplateRepository,
     @Inject(SITE_HOSTING) private readonly hosting: SiteHosting,
+    @Inject(JOB_QUEUE) private readonly jobs: JobQueue,
     private readonly composer: SiteComposer,
   ) {}
 
@@ -209,6 +256,7 @@ export class ProcessSiteUseCase {
 
     if (site.pendingAction === 'unpublish') {
       if (site.publishedSlug) await this.hosting.removePage(site.publishedSlug);
+      if (site.publishedDomain) await removeDomainFolder(this.hosting, site.publishedDomain);
       site.markUnpublished();
       await this.sites.savePublication(site);
       this.logger.log(`Site ${site.slug} fora do ar`);
@@ -223,11 +271,7 @@ export class ProcessSiteUseCase {
     }
     let html: string;
     try {
-      html = await this.composer.render(
-        template.html,
-        site.content,
-        this.hosting.siteUrl(site.slug),
-      );
+      html = await this.composer.render(template.html, site.content, publicUrl(this.hosting, site));
     } catch (error) {
       if (!(error instanceof InvalidSiteError)) throw error;
       site.markFailed(error.code);
@@ -235,12 +279,72 @@ export class ProcessSiteUseCase {
       return;
     }
     await this.hosting.publishPage(site.slug, html);
+    if (site.customDomain) {
+      await publishDomainFolder(this.hosting, site.customDomain, html, site.id);
+    }
     if (site.publishedSlug && site.publishedSlug !== site.slug) {
       await this.hosting.removePage(site.publishedSlug);
     }
-    site.markPublished(site.slug, startedAt);
+    if (site.publishedDomain && site.publishedDomain !== site.customDomain) {
+      await removeDomainFolder(this.hosting, site.publishedDomain);
+    }
+    site.markPublished(site.slug, site.customDomain, startedAt);
     await this.sites.savePublication(site);
     this.logger.log(`Site ${site.slug} publicado`);
+    // Pouco depois (dá tempo de o arquivo de verificação chegar à borda); a
+    // tela mostra "verificando…" até lá.
+    if (site.customDomain) {
+      site.markDomainChecking();
+      await this.sites.saveDomainStatus(site);
+      await this.jobs.add(CheckSiteDomainJob, { siteId: site.id }, { delayMs: 3_000 });
+    }
+  }
+}
+
+/** Pede a verificação do domínio próprio (a tela mostra "verificando…"). */
+@Injectable()
+export class RequestSiteDomainCheckUseCase {
+  constructor(
+    @Inject(SITE_REPOSITORY) private readonly sites: SiteRepository,
+    @Inject(SITE_TEMPLATE_REPOSITORY) private readonly templates: SiteTemplateRepository,
+    @Inject(JOB_QUEUE) private readonly jobs: JobQueue,
+  ) {}
+
+  async execute(): Promise<SiteDetails> {
+    const site = await loadCurrent(this.sites);
+    const template = await this.templates.findForSite(site.templateId);
+    if (!site.customDomain) return { site, template };
+    site.markDomainChecking();
+    await this.sites.saveDomainStatus(site);
+    await this.jobs.add(CheckSiteDomainJob, { siteId: site.id });
+    return { site, template };
+  }
+}
+
+/**
+ * Worker: o domínio já chega no site? Busca, pelo próprio domínio, o arquivo
+ * de verificação publicado. Sem publicar no domínio ainda, fica "pendente".
+ */
+@Injectable()
+export class CheckSiteDomainUseCase {
+  private readonly logger = new Logger(CheckSiteDomainUseCase.name);
+
+  constructor(
+    @Inject(SITE_REPOSITORY) private readonly sites: SiteRepository,
+    @Inject(SITE_DOMAIN_CHECKER) private readonly checker: SiteDomainChecker,
+  ) {}
+
+  async execute(siteId: string): Promise<void> {
+    const site = await this.sites.findById(siteId);
+    if (!site?.customDomain) return;
+    if (site.publishedDomain !== site.customDomain) {
+      site.markDomainPending();
+    } else {
+      const ok = await this.checker.reaches(site.customDomain, DOMAIN_CHECK_PATH, site.id);
+      site.markDomainChecked(ok, new Date());
+      this.logger.log(`Domínio ${site.customDomain}: ${ok ? 'conectado' : 'não respondeu'}`);
+    }
+    await this.sites.saveDomainStatus(site);
   }
 }
 

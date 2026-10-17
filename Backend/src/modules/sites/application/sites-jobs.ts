@@ -8,3 +8,6 @@ export const SITES_QUEUE = 'sites';
  * não desfaz o pedido mais recente.
  */
 export const ProcessSiteJob = defineJob<{ siteId: string }>(SITES_QUEUE, 'process-site');
+
+/** Confere se o domínio próprio do site já chega nele (ADR 0011). */
+export const CheckSiteDomainJob = defineJob<{ siteId: string }>(SITES_QUEUE, 'check-domain');

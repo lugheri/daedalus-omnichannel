@@ -39,6 +39,7 @@ import {
   SeoFields,
   type PatchContent,
 } from './site-content-fields'
+import { DomainSection } from './site-domain'
 import { SitePreview } from './site-preview'
 import { usePreview } from './use-preview'
 
@@ -46,12 +47,15 @@ interface Draft {
   content: SiteContent
   slug: string
   templateId: string
+  /** "" = sem domínio próprio. */
+  customDomain: string
 }
 
 const draftOf = (site: Site): Draft => ({
   content: site.content,
   slug: site.slug,
   templateId: site.templateId,
+  customDomain: site.customDomain ?? '',
 })
 
 function SiteStatus({ site }: { site: Site }) {
@@ -72,10 +76,14 @@ export function SiteEditor({
   site,
   addressPattern,
   publishingEnabled,
+  domainTarget,
+  canManageDomain,
 }: {
   site: Site
   addressPattern: string | null
   publishingEnabled: boolean
+  domainTarget: string | null
+  canManageDomain: boolean
 }) {
   const queryClient = useQueryClient()
   const templates = useAvailableTemplates()
@@ -108,6 +116,9 @@ export function SiteEditor({
     content: draft.content,
     ...(draft.slug !== saved.slug ? { slug: draft.slug } : {}),
     ...(draft.templateId !== saved.templateId ? { templateId: draft.templateId } : {}),
+    ...(draft.customDomain.trim() !== saved.customDomain
+      ? { customDomain: draft.customDomain.trim() || null }
+      : {}),
   })
 
   const save = useMutation({
@@ -255,10 +266,16 @@ export function SiteEditor({
                 </div>
                 <FieldDescription>
                   Letras minúsculas, números e hífen. Ao mudar com o site no ar, o endereço antigo
-                  sai do ar na próxima publicação. Domínio próprio (www.suaempresa.com.br) vem em
-                  breve.
+                  sai do ar na próxima publicação. Continua valendo mesmo com domínio próprio.
                 </FieldDescription>
               </Field>
+              <DomainSection
+                site={site}
+                value={draft.customDomain}
+                onChange={(customDomain) => setDraft((current) => ({ ...current, customDomain }))}
+                canManage={canManageDomain}
+                target={domainTarget}
+              />
               <Field>
                 <FieldLabel htmlFor="site-template">Modelo</FieldLabel>
                 <Select
