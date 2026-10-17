@@ -6,6 +6,10 @@ import { UNIT_OF_WORK, type UnitOfWork } from '../../../shared/application/unit-
 import { Contact } from '../domain/contact.entity';
 import { Phone } from '../domain/phone.vo';
 import {
+  CaptureLeadUseCase,
+  type CaptureLeadInput,
+} from './use-cases/capture-lead/capture-lead.use-case';
+import {
   CONTACT_REPOSITORY,
   type AudienceCount,
   type ContactFilter,
@@ -39,6 +43,26 @@ export class ContactsFacade {
     @Inject(EVENT_BUS) private readonly events: EventBus,
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
   ) {}
+
+  /**
+   * Lead de um formulário do site: mesmas regras do `/v1/public/leads` (não
+   * duplica; completa o que estiver em branco), SEM o `LeadCapturedEvent` —
+   * o módulo forms avisa os funis com os dados do envio. Lança os erros de
+   * domínio do contato (telefone/e-mail inválido, sem telefone nem e-mail).
+   */
+  async captureFormLead(
+    input: CaptureLeadInput,
+  ): Promise<{ contact: ContactSummary; created: boolean }> {
+    const capture = new CaptureLeadUseCase(
+      this.contacts,
+      this.ids,
+      this.tenant,
+      this.events,
+      this.unitOfWork,
+    );
+    const { contact, created } = await capture.execute(input, { announce: false });
+    return { contact: summarize(contact), created };
+  }
 
   async findById(id: string): Promise<ContactSummary | null> {
     const contact = await this.contacts.findById(id);

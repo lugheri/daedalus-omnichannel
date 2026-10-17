@@ -26,6 +26,7 @@ export const PERMISSIONS = [
   'messaging:send', //          enviar e-mail/SMS a um contato (pela ficha)
   'campaigns:manage', //        campanhas de e-mail/SMS
   'catalog:manage', //          serviços e profissionais (preços, quem atende)
+  'forms:manage', //            formulários do site (contato e solicitação de serviço)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

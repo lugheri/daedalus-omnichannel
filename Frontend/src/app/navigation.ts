@@ -1,5 +1,7 @@
 import {
   BriefcaseBusiness,
+  ClipboardList,
+  Globe,
   CalendarDays,
   Contact,
   Headset,
@@ -94,6 +96,20 @@ export const NAV_MODULES: NavModule[] = [
             icon: UserRound,
             anyOf: ['catalog:manage'],
           },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'site',
+    label: 'Site',
+    icon: Globe,
+    description: 'Formulários que levam os contatos do site ao CRM',
+    groups: [
+      {
+        label: null,
+        items: [
+          { to: '/forms', label: 'Formulários', icon: ClipboardList, anyOf: ['forms:manage'] },
         ],
       },
     ],

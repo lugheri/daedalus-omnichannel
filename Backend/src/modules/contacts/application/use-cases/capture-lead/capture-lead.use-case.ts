@@ -41,7 +41,14 @@ export class CaptureLeadUseCase {
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
   ) {}
 
-  async execute(input: CaptureLeadInput): Promise<{ contact: Contact; created: boolean }> {
+  /**
+   * `announce: false`: não publica `LeadCapturedEvent` — quem chamou avisa do
+   * jeito dele (ex.: o formulário do site, com o serviço escolhido).
+   */
+  async execute(
+    input: CaptureLeadInput,
+    { announce = true }: { announce?: boolean } = {},
+  ): Promise<{ contact: Contact; created: boolean }> {
     const phone = input.phone ? Phone.create(input.phone) : null;
     const email = input.email ? Email.create(input.email) : null;
     if (!phone && !email) throw new ContactWithoutIdentifierError();
@@ -59,7 +66,7 @@ export class CaptureLeadUseCase {
           email: byEmail && byEmail.id !== existing.id ? null : email,
         });
         if (changed) await this.contacts.save(existing);
-        await this.events.publish([this.captured(existing, input, false)]);
+        if (announce) await this.events.publish([this.captured(existing, input, false)]);
         return { contact: existing, created: false };
       }
 
@@ -72,7 +79,10 @@ export class CaptureLeadUseCase {
         sourceDetail: input.campaign,
       });
       await this.contacts.save(contact);
-      await this.events.publish([...contact.pullEvents(), this.captured(contact, input, true)]);
+      await this.events.publish([
+        ...contact.pullEvents(),
+        ...(announce ? [this.captured(contact, input, true)] : []),
+      ]);
       return { contact, created: true };
     });
   }

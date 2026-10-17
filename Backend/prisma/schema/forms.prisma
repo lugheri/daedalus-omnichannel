@@ -1,0 +1,48 @@
+// Módulo forms. Formulários do site (contato e solicitação de serviço), que
+// postam direto para a API pela chave pública — sem chave de API na página.
+// Contato e serviço são de outros módulos: só ids (e o nome do serviço
+// copiado no envio, para o histórico não depender do catálogo).
+
+model Form {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  name       String
+  // contact | service
+  kind       String
+  // Vai na URL do formulário (action); trocar invalida os formulários publicados.
+  publicKey  String   @unique @map("public_key")
+  // Rótulo da origem do contato (sourceDetail); null = o nome do formulário.
+  campaign   String?
+  // Página de obrigado do site; null = a página padrão da API.
+  successUrl String?  @map("success_url")
+  active     Boolean
+  createdAt  DateTime @map("created_at") @db.Timestamptz(3)
+
+  submissions FormSubmission[]
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("forms")
+  @@schema("forms")
+}
+
+model FormSubmission {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  formId        String   @map("form_id") @db.Uuid
+  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  contactId     String   @map("contact_id") @db.Uuid
+  name          String?
+  phone         String?
+  email         String?
+  message       String?
+  serviceId     String?  @map("service_id") @db.Uuid
+  serviceName   String?  @map("service_name")
+  // Como a pessoa escreveu ("sábado de manhã", "15/11"): a agenda vem depois.
+  preferredDate String?  @map("preferred_date")
+  createdAt     DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, formId, createdAt(sort: Desc)])
+  @@index([tenantId, contactId, createdAt(sort: Desc)])
+  @@map("form_submissions")
+  @@schema("forms")
+}

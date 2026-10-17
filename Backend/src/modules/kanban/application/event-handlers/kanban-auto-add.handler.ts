@@ -9,6 +9,7 @@ import { UNIT_OF_WORK, type UnitOfWork } from '../../../../shared/application/un
 import { TenantCreatedEvent } from '../../../accounts';
 import { LeadCapturedEvent } from '../../../contacts';
 import { ConversationStartedEvent } from '../../../conversations';
+import { FormSubmittedEvent } from '../../../forms';
 import type { Board } from '../../domain/board.entity';
 import { BOARD_REPOSITORY, type BoardRepository } from '../ports/board.repository';
 import {
@@ -43,7 +44,13 @@ export class DealEntry {
   async enter(
     tenantId: string,
     board: Board,
-    input: { contactId: string; conversationId: string | null },
+    input: {
+      contactId: string;
+      conversationId: string | null;
+      /** Ausente = o nome do contato. */
+      title?: (contactName: string) => string;
+      valueCents?: number | null;
+    },
   ): Promise<void> {
     await this.unitOfWork.run(async () => {
       const existing = await this.deals.findOpenOnBoard(board.id, input.contactId);
@@ -63,7 +70,8 @@ export class DealEntry {
         columnId: board.firstColumn.id,
         contactId: contact.id,
         conversationId: input.conversationId,
-        title: defaultDealTitle(contact),
+        title: (input.title ?? ((name) => name))(defaultDealTitle(contact)),
+        valueCents: input.valueCents ?? null,
         ownerId: null,
         by: null,
       });
@@ -105,6 +113,31 @@ export class KanbanLeadEntryHandler {
       await this.entry.enter(event.tenantId, board, {
         contactId: event.aggregateId,
         conversationId: null,
+      });
+    }
+  }
+}
+
+/**
+ * Formulário do site enviado: entra nos funis que recebem leads. Solicitação
+ * de serviço vira "Corte — Ana", com o preço do serviço como valor.
+ */
+@Injectable()
+export class KanbanFormEntryHandler {
+  constructor(
+    @Inject(BOARD_REPOSITORY) private readonly boards: BoardRepository,
+    private readonly entry: DealEntry,
+  ) {}
+
+  @HandlesDomainEvent(FormSubmittedEvent)
+  async handle(event: DeliveredEvent<FormSubmittedEvent>): Promise<void> {
+    const { service } = event;
+    for (const board of await this.boards.listAcceptingLeads()) {
+      await this.entry.enter(event.tenantId, board, {
+        contactId: event.contactId,
+        conversationId: null,
+        title: service ? (name) => `${service.name} — ${name}`.slice(0, 120) : undefined,
+        valueCents: service?.priceCents ?? null,
       });
     }
   }

@@ -7,6 +7,7 @@ import { CatalogConflictError } from '../../domain/errors/catalog-conflict.error
 import { CatalogItemNotFoundError } from '../../domain/errors/catalog-item-not-found.error';
 import { InvalidCatalogItemError } from '../../domain/errors/invalid-catalog-item.error';
 import type { OfferingDetails } from '../../domain/offering.entity';
+import { CatalogFacade } from '../catalog.facade';
 import {
   FakeMemberDirectory,
   InMemoryOfferingRepository,
@@ -96,6 +97,24 @@ describe('Catalog', () => {
         new UpdateOfferingUseCase(offerings).execute(cut.id, { name: 'Novo', durationMinutes: 0 }),
       ).rejects.toThrow(InvalidCatalogItemError);
       expect((await offerings.findById(cut.id))?.name).toBe('Corte');
+    });
+
+    it('the site only sees active services marked to show there', async () => {
+      const shown = await service({ name: 'Corte' });
+      const hidden = await service({ name: 'Interno', showOnSite: false });
+      const paused = await service({ name: 'Pausado' });
+      await new UpdateOfferingUseCase(offerings).execute(paused.id, { active: false });
+      const facade = new CatalogFacade(offerings);
+
+      expect(await facade.siteService(shown.id)).toEqual({
+        id: shown.id,
+        name: 'Corte',
+        priceCents: 5000,
+      });
+      expect(await facade.siteService(hidden.id)).toBeNull();
+      expect(await facade.siteService(paused.id)).toBeNull();
+      tenant.switchTo('tenant-b');
+      expect(await facade.siteService(shown.id)).toBeNull();
     });
 
     it('names are unique per account', async () => {

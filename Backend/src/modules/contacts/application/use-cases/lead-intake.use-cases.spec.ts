@@ -85,6 +85,14 @@ describe('Lead intake', () => {
       });
     });
 
+    it('without announcing (site forms), no LeadCapturedEvent goes out', async () => {
+      await new CaptureLeadUseCase(contacts, ids, tenant, events, uow).execute(
+        { phone: '11987654321', campaign: 'Formulário' },
+        { announce: false },
+      );
+      expect(events.published).toEqual([expect.any(ContactCreatedEvent)]);
+    });
+
     it('does not take an email that belongs to another contact', async () => {
       await capture({ phone: '11911112222', email: 'joao@x.com' });
       const { contact } = await capture({ phone: '11987654321' });

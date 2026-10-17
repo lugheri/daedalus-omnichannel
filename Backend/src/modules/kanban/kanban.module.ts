@@ -7,6 +7,7 @@ import {
   DealEntry,
   KanbanConversationEntryHandler,
   KanbanDefaultBoardHandler,
+  KanbanFormEntryHandler,
   KanbanLeadEntryHandler,
 } from './application/event-handlers/kanban-auto-add.handler';
 import { KanbanRealtimeHandler } from './application/event-handlers/kanban-realtime.handler';
@@ -115,6 +116,7 @@ import { PrismaDealRepository } from './infra/prisma-deal.repository';
     DealEntry,
     KanbanConversationEntryHandler,
     KanbanLeadEntryHandler,
+    KanbanFormEntryHandler,
     KanbanDefaultBoardHandler,
     KanbanTeamCleanupHandler,
     KanbanRealtimeHandler,

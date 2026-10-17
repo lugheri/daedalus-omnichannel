@@ -9,6 +9,7 @@ import {
 import { TenantCreatedEvent } from '../../accounts';
 import { LeadCapturedEvent } from '../../contacts';
 import { ConversationStartedEvent } from '../../conversations';
+import { FormSubmittedEvent } from '../../forms';
 import { TeamDeletedEvent } from '../../teams';
 import { BoardConversationNotFoundError } from '../domain/errors/board-conversation-not-found.error';
 import { BoardNameTakenError } from '../domain/errors/board-name-taken.error';
@@ -32,6 +33,7 @@ import {
   DealEntry,
   KanbanConversationEntryHandler,
   KanbanDefaultBoardHandler,
+  KanbanFormEntryHandler,
   KanbanLeadEntryHandler,
 } from './event-handlers/kanban-auto-add.handler';
 import { BOARD_CHANGED, KanbanRealtimeHandler } from './event-handlers/kanban-realtime.handler';
@@ -550,6 +552,35 @@ describe('Kanban (sales pipelines)', () => {
       const [opened] = await deals.listOpenByConversation('conv-2');
       expect(opened).toMatchObject({ ownerId: null, conversationId: 'conv-2' });
       expect(events.published.at(-1)).toMatchObject({ movedBy: null });
+    });
+
+    it('a site form: contact form opens a plain deal; service request names it and takes the price', async () => {
+      const board = await create();
+      await update(board.id, { autoAddLeads: true });
+      contacts.add('lead-2', 'Bia');
+      const submitted = (contactId: string, service: FormSubmittedEvent['service']) =>
+        new KanbanFormEntryHandler(boards, entry()).handle(
+          delivered(
+            new FormSubmittedEvent(
+              'sub-1',
+              'tenant-a',
+              'form-1',
+              service ? 'service' : 'contact',
+              contactId,
+              service,
+            ),
+          ),
+        );
+
+      await submitted('lead-1', null);
+      await submitted('lead-2', { id: 'svc', name: 'Corte', priceCents: 5000 });
+      await submitted('lead-2', { id: 'svc', name: 'Barba', priceCents: 3000 }); // já tem em aberto
+
+      const [first] = await list(board.id);
+      expect(first.deals.map((v) => [v.deal.title, v.deal.valueCents, v.deal.ownerId])).toEqual([
+        ['Corte — Bia', 5000, null],
+        ['Ana Lead', null, null],
+      ]);
     });
 
     it('site leads enter the pipelines that accept leads, while the contact has no open deal', async () => {

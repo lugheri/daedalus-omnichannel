@@ -110,6 +110,16 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['forms:manage']} />,
+            children: [
+              { path: '/forms', ...page(() => import('@/features/forms/forms-page'), 'FormsPage') },
+              {
+                path: '/forms/:id',
+                ...page(() => import('@/features/forms/form-page'), 'FormPage'),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['campaigns:manage']} />,
             children: [
               {
