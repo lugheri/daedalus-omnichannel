@@ -11,13 +11,17 @@ import type {
 import type { InvitationRepository } from '../application/ports/invitation.repository';
 import type { InvitationTokenGenerator } from '../application/ports/invitation-token-generator';
 import type { MembershipRepository } from '../application/ports/membership.repository';
+import type {
+  ParentAccessEntry,
+  ParentAccessRepository,
+} from '../application/ports/parent-access.repository';
 import type { RoleRepository } from '../application/ports/role.repository';
 import type { TenantRepository } from '../application/ports/tenant.repository';
 import type { Invitation } from '../domain/invitation.entity';
 import type { Membership } from '../domain/membership.entity';
 import type { Role } from '../domain/role.entity';
 import type { Slug } from '../domain/slug.vo';
-import type { Tenant } from '../domain/tenant.entity';
+import { Tenant } from '../domain/tenant.entity';
 
 /** Guarda em memória, substituindo pelo id (upsert) — base dos repositórios falsos. */
 class Store<T extends { id: string }> {
@@ -55,6 +59,58 @@ export class InMemoryTenantRepository implements TenantRepository {
   existsBySlug(slug: Slug): Promise<boolean> {
     return Promise.resolve(this.tenants.some((t) => t.slug.value === slug.value));
   }
+
+  findBySlug(slug: string): Promise<Tenant | null> {
+    return Promise.resolve(this.store.find((t) => t.slug.value === slug));
+  }
+
+  findRoot(): Promise<Tenant | null> {
+    return Promise.resolve(this.store.find((t) => t.isRoot));
+  }
+
+  listDescendants(tenantId: string): Promise<Tenant[]> {
+    return Promise.resolve(
+      this.tenants.filter((t) => t.isBelow(tenantId)).sort((a, b) => a.name.localeCompare(b.name)),
+    );
+  }
+
+  /** Como o SQL real: a raiz entra na frente dos ancestrais de quem está fora da árvore dela. */
+  adoptOrphans(root: Tenant): Promise<number> {
+    const outside = this.tenants.filter((t) => t.id !== root.id && !t.isBelow(root.id));
+    const orphans = outside.filter((t) => !t.parentId);
+    for (const tenant of outside) {
+      const restored = Tenant.restore(tenant.id, {
+        name: tenant.name,
+        slug: tenant.slug,
+        status: tenant.status,
+        createdAt: tenant.createdAt,
+        isRoot: tenant.isRoot,
+        parentId: tenant.parentId ?? root.id,
+        ancestors: [root.id, ...tenant.ancestors],
+      });
+      this.store.upsert(restored);
+    }
+    return Promise.resolve(orphans.length);
+  }
+}
+
+/** Histórico de acessos da conta-mãe em memória. */
+export class InMemoryParentAccessRepository implements ParentAccessRepository {
+  readonly entries: ParentAccessEntry[] = [];
+
+  record(entry: ParentAccessEntry): Promise<void> {
+    this.entries.push(entry);
+    return Promise.resolve();
+  }
+
+  listByTenant(tenantId: string, limit: number): Promise<ParentAccessEntry[]> {
+    return Promise.resolve(
+      this.entries
+        .filter((e) => e.tenantId === tenantId)
+        .reverse()
+        .slice(0, limit),
+    );
+  }
 }
 
 export class InMemoryRoleRepository implements RoleRepository {
@@ -84,6 +140,10 @@ export class InMemoryRoleRepository implements RoleRepository {
 
   listByTenant(tenantId: string): Promise<Role[]> {
     return Promise.resolve(this.roles.filter((r) => r.tenantId === tenantId));
+  }
+
+  findByKey(tenantId: string, key: string): Promise<Role | null> {
+    return Promise.resolve(this.store.find((r) => r.tenantId === tenantId && r.key === key));
   }
 
   delete(role: Role): Promise<void> {

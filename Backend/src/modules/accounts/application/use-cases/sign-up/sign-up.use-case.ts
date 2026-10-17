@@ -5,7 +5,6 @@ import { UNIT_OF_WORK, type UnitOfWork } from '../../../../../shared/application
 import { DEFAULT_ROLES } from '../../../domain/default-roles';
 import { Membership } from '../../../domain/membership.entity';
 import { Role } from '../../../domain/role.entity';
-import { Slug } from '../../../domain/slug.vo';
 import { Tenant } from '../../../domain/tenant.entity';
 import {
   IDENTITY_GATEWAY,
@@ -18,6 +17,7 @@ import {
 } from '../../ports/membership.repository';
 import { ROLE_REPOSITORY, type RoleRepository } from '../../ports/role.repository';
 import { TENANT_REPOSITORY, type TenantRepository } from '../../ports/tenant.repository';
+import { uniqueSlugFor } from '../../unique-slug';
 
 export interface SignUpInput {
   accountName: string;
@@ -31,8 +31,6 @@ export interface SignUpResult {
   userId: string;
   tokens: SessionTokens;
 }
-
-const MAX_SLUG_ATTEMPTS = 5;
 
 /**
  * Cadastro de uma conta nova: cria o tenant, os cargos padrão, o usuário e o
@@ -55,7 +53,9 @@ export class SignUpUseCase {
     return this.unitOfWork.run(async () => {
       const tenant = Tenant.create(this.ids.generate(), {
         name: input.accountName,
-        slug: await this.uniqueSlugFor(input.accountName),
+        slug: await uniqueSlugFor(this.tenants, this.ids, input.accountName),
+        // Cadastro público: cliente direto da plataforma (ADR 0009).
+        parent: await this.tenants.findRoot(),
       });
       const roles = DEFAULT_ROLES.map((template) =>
         Role.fromTemplate(this.ids.generate(), tenant.id, template),
@@ -87,21 +87,5 @@ export class SignUpUseCase {
 
       return { tenant, userId: user.id, tokens };
     });
-  }
-
-  private async uniqueSlugFor(name: string): Promise<Slug> {
-    const base = Slug.fromName(name);
-    let candidate = base;
-
-    for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
-      if (!(await this.tenants.existsBySlug(candidate))) return candidate;
-      candidate = base.withSuffix(this.randomSuffix());
-    }
-    throw new Error(`Could not find a free slug for "${name}"`);
-  }
-
-  private randomSuffix(): string {
-    // O fim de um UUIDv7 é aleatório: serve de sufixo curto e sem colisão prática.
-    return this.ids.generate().replace(/-/g, '').slice(-6);
   }
 }

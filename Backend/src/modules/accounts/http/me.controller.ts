@@ -15,7 +15,10 @@ export class MeController {
 
   @Get()
   async me() {
-    const { user, tenant, access } = await this.getMe.execute(this.actors.actor);
+    const { user, tenant, access, parent, delegatedFrom } = await this.getMe.execute(
+      this.actors.actor,
+    );
+    const brief = (t: typeof parent) => t && { id: t.id, name: t.name };
     return {
       user,
       tenant: TenantPresenter.toHttp(tenant),
@@ -23,6 +26,10 @@ export class MeController {
       membershipId: access.membershipId,
       role: access.role,
       permissions: access.permissions,
+      /** A conta-mãe (quem gerencia esta), se houver. */
+      parent: brief(parent),
+      /** Entrou vindo de uma conta acima: qual (o front mostra o aviso e "voltar"). */
+      delegatedFrom: brief(delegatedFrom),
     };
   }
 

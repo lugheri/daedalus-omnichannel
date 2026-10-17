@@ -20,7 +20,17 @@ import {
 import { MEMBERSHIP_REPOSITORY } from './application/ports/membership.repository';
 import { ROLE_REPOSITORY } from './application/ports/role.repository';
 import { TENANT_REPOSITORY } from './application/ports/tenant.repository';
+import {
+  CreateChildAccountUseCase,
+  DesignateRootAccountUseCase,
+  ListChildAccountsUseCase,
+  ListParentAccessesUseCase,
+  SetChildAccountStatusUseCase,
+} from './application/use-cases/child-accounts/child-accounts.use-cases';
 import { GetMeUseCase } from './application/use-cases/get-me/get-me.use-case';
+import { PARENT_ACCESS_REPOSITORY } from './application/ports/parent-access.repository';
+import { ChildAccountsController } from './http/child-accounts.controller';
+import { PrismaParentAccessRepository } from './infra/prisma-parent-access.repository';
 import {
   AcceptInvitationUseCase,
   LookUpInvitationUseCase,
@@ -86,6 +96,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     AuthController,
     AccountSwitchController,
     MeController,
+    ChildAccountsController,
     MemberDirectoryController,
     ApiKeysController,
     MembersController,
@@ -100,6 +111,11 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     ResolveAccessUseCase,
     GetMeUseCase,
     ListMyAccountsUseCase,
+    ListChildAccountsUseCase,
+    CreateChildAccountUseCase,
+    SetChildAccountStatusUseCase,
+    ListParentAccessesUseCase,
+    DesignateRootAccountUseCase,
     SwitchAccountUseCase,
     CurrentAccess,
     AccountsFacade,
@@ -128,6 +144,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     DeleteRoleUseCase,
     // Adapters
     { provide: TENANT_REPOSITORY, useClass: PrismaTenantRepository },
+    { provide: PARENT_ACCESS_REPOSITORY, useClass: PrismaParentAccessRepository },
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
     { provide: MEMBERSHIP_REPOSITORY, useClass: PrismaMembershipRepository },
     { provide: INVITATION_REPOSITORY, useClass: PrismaInvitationRepository },
@@ -143,6 +160,6 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     },
   ],
   // ApiKeyGuard e o use case que ele usa: rotas de outros módulos usam @ApiKeyAuth().
-  exports: [AccountsFacade, ApiKeyGuard, AuthenticateApiKeyUseCase],
+  exports: [AccountsFacade, ApiKeyGuard, AuthenticateApiKeyUseCase, DesignateRootAccountUseCase],
 })
 export class AccountsModule {}

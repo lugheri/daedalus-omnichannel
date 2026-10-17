@@ -65,6 +65,11 @@ export function AccountSwitcher() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>Suas contas</DropdownMenuLabel>
+        {me.parent && (
+          <p className="text-muted-foreground px-2 pb-1.5 text-xs">
+            Esta conta é gerenciada por {me.parent.name}.
+          </p>
+        )}
         <p className="text-muted-foreground px-2 pb-1.5 text-xs sm:hidden">
           Agora em {me.tenant.name}
         </p>

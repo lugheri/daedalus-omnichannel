@@ -14,6 +14,7 @@ ADRs não são editados depois de aceitos: quando uma decisão muda, cria-se um 
 | [0006](0006-canais-whatsapp.md)         | Canais de WhatsApp: API oficial e Baileys (conector)     | Aceito |
 | [0007](0007-deploy-swarm.md)            | Deploy em Docker Swarm com dados fora do cluster         | Aceito |
 | [0008](0008-hospedagem-sites-clientes.md) | Hospedagem dos sites dos clientes na própria infraestrutura | Aceito |
+| [0009](0009-hierarquia-de-contas.md) | Hierarquia de contas: conta-mãe, revendedores e acesso delegado | Aceito |
 
 ## Modelo
 

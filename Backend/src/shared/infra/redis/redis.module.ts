@@ -9,7 +9,14 @@ class RedisShutdown implements OnApplicationShutdown {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   async onApplicationShutdown(): Promise<void> {
-    await this.redis.quit();
+    // Sem conexão pronta (Redis fora, ou desligando antes de conectar), o
+    // `quit` falha na hora (sem fila offline) e o cliente seguiria tentando
+    // reconectar, segurando o processo: aí só desconecta.
+    if (this.redis.status !== 'ready') {
+      this.redis.disconnect();
+      return;
+    }
+    await this.redis.quit().catch(() => this.redis.disconnect());
   }
 }
 

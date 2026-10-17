@@ -38,7 +38,9 @@ export class ListMembersUseCase {
     ]);
     const users = await this.identity.findUsers(memberships.map((m) => m.userId));
 
+    // Quem entra vindo da conta-mãe não é membro: aparece em "acessos da conta-mãe".
     return memberships.flatMap((membership) => {
+      if (membership.isDelegated) return [];
       const user = users.find((u) => u.id === membership.userId);
       const role = roles.find((r) => r.id === membership.roleId);
       if (!user || !role) return [];

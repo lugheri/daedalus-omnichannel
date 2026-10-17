@@ -31,7 +31,7 @@ export class ChangeMemberRoleUseCase {
         input.membershipId,
       );
       const newRole = await this.roles.findInTenant(access.tenantId, input.roleId);
-      if (!newRole) throw new RoleNotFoundError();
+      if (!newRole?.isAssignable) throw new RoleNotFoundError();
 
       // Só administra quem não é "mais poderoso" que você, e só dá o que você tem.
       assertCanGrant(access, currentRole.permissions);

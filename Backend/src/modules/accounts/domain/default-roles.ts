@@ -1,6 +1,6 @@
 import { PERMISSIONS, type Permission } from './permissions';
 
-export type SystemRoleKey = 'owner' | 'admin' | 'supervisor' | 'agent';
+export type SystemRoleKey = 'owner' | 'admin' | 'supervisor' | 'agent' | 'parent_access';
 
 export interface RoleTemplate {
   key: SystemRoleKey;
@@ -51,3 +51,21 @@ export const DEFAULT_ROLES: readonly RoleTemplate[] = [
     isSystem: false,
   },
 ];
+
+/** O que quem vem da conta-mãe pode fazer: o mesmo que um Admin (sem excluir a conta). */
+export const PARENT_ACCESS_PERMISSIONS: readonly Permission[] = PERMISSIONS.filter(
+  (p) => p !== 'account:manage',
+);
+
+/**
+ * Cargo de sistema dos vínculos delegados (quem entra vindo de uma conta
+ * acima). Criado na primeira entrada; não aparece na lista de cargos nem pode
+ * ser dado a um membro. As permissões valem as de `PARENT_ACCESS_PERMISSIONS`
+ * no momento do acesso (não as gravadas), para acompanhar o catálogo.
+ */
+export const PARENT_ACCESS_ROLE: RoleTemplate = {
+  key: 'parent_access',
+  name: 'Acesso da conta-mãe',
+  permissions: PARENT_ACCESS_PERMISSIONS,
+  isSystem: true,
+};

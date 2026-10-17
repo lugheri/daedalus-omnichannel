@@ -1,8 +1,17 @@
+import { PARENT_ACCESS_ROLE } from '../../../domain/default-roles';
+import { Membership } from '../../../domain/membership.entity';
+import { Role } from '../../../domain/role.entity';
+import { ListRolesUseCase } from '../roles/manage-roles.use-case';
 import { CannotDisableSelfError } from '../../../domain/errors/cannot-disable-self.error';
 import { CannotGrantPermissionError } from '../../../domain/errors/cannot-grant-permission.error';
 import { LastOwnerError } from '../../../domain/errors/last-owner.error';
 import { MemberNotFoundError } from '../../../domain/errors/member-not-found.error';
-import { accountScenario, roleId, type AccountScenario } from '../../../testing/scenario';
+import {
+  TENANT_ID,
+  accountScenario,
+  roleId,
+  type AccountScenario,
+} from '../../../testing/scenario';
 import { ChangeMemberRoleUseCase } from './change-member-role.use-case';
 import { ListMembersUseCase } from './list-members.use-case';
 import { SetMemberStatusUseCase } from './set-member-status.use-case';
@@ -49,6 +58,36 @@ describe('Member management', () => {
       'admin:admin',
       'agent:agent',
     ]);
+  });
+
+  it('people from a parent account are not listed as members, and their role cannot be given', async () => {
+    const role = Role.fromTemplate('role-parent', TENANT_ID, PARENT_ACCESS_ROLE);
+    await s.roles.save(role);
+    await s.memberships.save(
+      Membership.createDelegated('m-visitor', {
+        tenantId: TENANT_ID,
+        userId: 'visitor',
+        roleId: role.id,
+        fromMembershipId: 'm-elsewhere',
+      }),
+    );
+    await s.actAs('m-admin');
+
+    const members = await new ListMembersUseCase(
+      s.currentAccess,
+      s.memberships,
+      s.roles,
+      s.identity,
+    ).execute();
+    expect(members.map((m) => m.membershipId)).not.toContain('m-visitor');
+
+    const listed = await new ListRolesUseCase(s.currentAccess, s.roles).execute();
+    expect(listed.map((r) => r.key)).not.toContain('parent_access');
+
+    await s.actAs('m-owner');
+    await expect(
+      changeRole.execute({ membershipId: 'm-agent', roleId: role.id }),
+    ).rejects.toMatchObject({ code: 'ROLE_NOT_FOUND' });
   });
 
   describe('changing roles', () => {

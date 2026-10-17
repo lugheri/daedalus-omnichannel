@@ -6,6 +6,16 @@ export interface TenantRepository {
   findById(id: string): Promise<Tenant | null>;
   findManyByIds(ids: string[]): Promise<Tenant[]>;
   existsBySlug(slug: Slug): Promise<boolean>;
+  findBySlug(slug: string): Promise<Tenant | null>;
+  /** A conta da plataforma (mãe dos cadastros públicos), se já foi definida. */
+  findRoot(): Promise<Tenant | null>;
+  /** Todas as contas abaixo desta (filhas, netas...), por nome. */
+  listDescendants(tenantId: string): Promise<Tenant[]>;
+  /**
+   * Põe debaixo da raiz toda conta que ainda não tem mãe (e atualiza os
+   * ancestrais das contas abaixo delas). Devolve quantas foram adotadas.
+   */
+  adoptOrphans(root: Tenant): Promise<number>;
 }
 
 export const TENANT_REPOSITORY = Symbol('TenantRepository');

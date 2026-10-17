@@ -110,6 +110,18 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['accounts:children']} />,
+            children: [
+              {
+                path: '/accounts',
+                ...page(
+                  () => import('@/features/accounts/child-accounts-page'),
+                  'ChildAccountsPage',
+                ),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['forms:manage']} />,
             children: [
               { path: '/forms', ...page(() => import('@/features/forms/forms-page'), 'FormsPage') },

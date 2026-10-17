@@ -7,6 +7,8 @@ export const TenantPresenter = {
       name: tenant.name,
       slug: tenant.slug.value,
       status: tenant.status,
+      /** Revendedor (ou a raiz): pode criar contas abaixo. */
+      canCreateChildren: tenant.canCreateChildren,
     };
   },
 };

@@ -12,6 +12,11 @@ export interface AccountAccess {
   membershipId: string;
   role: { id: string; key: SystemRoleKey | null; name: string };
   permissions: Permission[];
+  /**
+   * Acesso delegado: a conta acima de onde a pessoa veio (ver
+   * `Membership.isDelegated`). Ausente/null = membro comum da conta.
+   */
+  delegatedFromTenantId?: string | null;
 }
 
 /** As permissões exigidas que o acesso NÃO tem (vazio = tem todas). */

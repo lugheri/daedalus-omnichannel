@@ -51,6 +51,19 @@ describe('SignUpUseCase', () => {
     expect(roles.roles.every((r) => r.tenantId === tenant.id)).toBe(true);
   });
 
+  it('without a platform root, the account has no parent; with one, it is born below it', async () => {
+    const { tenant: first } = await signUp('Primeira', 'a@x.com');
+    expect(first.parentId).toBeNull();
+
+    const platform = await tenants.findById(first.id);
+    platform!.markRoot();
+    await tenants.save(platform!);
+
+    const { tenant } = await signUp('Segunda', 'b@x.com');
+    expect(tenant.parentId).toBe(first.id);
+    expect(tenant.ancestors).toEqual([first.id]);
+  });
+
   it('makes the new user an active Owner of the tenant', async () => {
     const { tenant, userId } = await signUp();
 

@@ -8,6 +8,7 @@ export interface RoleRepository {
   findById(id: string): Promise<Role | null>;
   findInTenant(tenantId: string, id: string): Promise<Role | null>;
   listByTenant(tenantId: string): Promise<Role[]>;
+  findByKey(tenantId: string, key: string): Promise<Role | null>;
   delete(role: Role): Promise<void>;
 }
 

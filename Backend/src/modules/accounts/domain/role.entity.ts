@@ -67,6 +67,11 @@ export class Role extends Entity<RoleProps> {
     return this.permissions.includes(permission);
   }
 
+  /** Pode ser dado a um membro? Não o cargo de sistema dos acessos da conta-mãe. */
+  get isAssignable(): boolean {
+    return this.props.key !== 'parent_access';
+  }
+
   get isOwner(): boolean {
     return this.props.key === 'owner';
   }

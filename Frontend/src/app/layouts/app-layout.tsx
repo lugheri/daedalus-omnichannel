@@ -8,6 +8,7 @@ import { Breadcrumbs } from './shell/breadcrumbs'
 import { CommandPalette } from './shell/command-palette'
 import { ModulePanel } from './shell/module-panel'
 import { ModuleRail } from './shell/module-rail'
+import { DelegationBanner } from './shell/delegation-banner'
 import { TopBar } from './shell/top-bar'
 import { useStoredFlag } from './shell/use-stored-flag'
 
@@ -29,7 +30,7 @@ export function AppLayout() {
     (match) => (match.handle as RouteHandle | undefined)?.fullBleed,
   )
 
-  const modules = useMemo(() => visibleModules(canAny), [canAny])
+  const modules = useMemo(() => visibleModules(canAny, me), [canAny, me])
   const location = locate(modules, pathname)
 
   const [railCompact, setRailCompact] = useStoredFlag('omni.shell.railCompact', false)
@@ -91,6 +92,7 @@ export function AppLayout() {
     <RealtimeProvider key={me.tenant.id}>
       <div className="flex h-svh flex-col">
         <TopBar onMenu={toggleMenu} onSearch={() => setPaletteOpen(true)} />
+        <DelegationBanner />
 
         <div className="relative flex min-h-0 flex-1">
           <div

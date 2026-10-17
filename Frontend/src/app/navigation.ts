@@ -1,4 +1,6 @@
+import type { Me } from '@/features/auth/api'
 import {
+  Building2,
   BriefcaseBusiness,
   ClipboardList,
   Globe,
@@ -27,6 +29,8 @@ export interface NavItem {
   icon: LucideIcon
   /** Visível para quem tiver ao menos uma destas permissões (vazio = todos). */
   anyOf: string[]
+  /** Condição extra sobre a conta (ex.: só em conta revendedora). */
+  when?: (me: Me) => boolean
 }
 
 export interface NavGroup {
@@ -179,12 +183,20 @@ export const NAV_MODULES: NavModule[] = [
     key: 'people',
     label: 'Pessoas e acesso',
     icon: Users,
-    description: 'Membros, equipes e cargos',
+    description: 'Membros, equipes, cargos e contas clientes',
     groups: [
       {
         label: null,
         items: [
           { to: '/settings/members', label: 'Membros', icon: Users, anyOf: ['members:manage'] },
+          {
+            to: '/accounts',
+            label: 'Contas clientes',
+            icon: Building2,
+            anyOf: ['accounts:children'],
+            // Só revendedor (ou a plataforma) tem contas abaixo para gerenciar.
+            when: (me) => !!me.tenant.canCreateChildren,
+          },
           { to: '/settings/teams', label: 'Equipes', icon: Network, anyOf: ['teams:manage'] },
           {
             to: '/settings/roles',
@@ -199,10 +211,12 @@ export const NAV_MODULES: NavModule[] = [
 ]
 
 /** Os módulos com o que a pessoa pode ver: grupos e módulos vazios somem. */
-export function visibleModules(canAny: (...permissions: string[]) => boolean): NavModule[] {
+export function visibleModules(canAny: (...permissions: string[]) => boolean, me: Me): NavModule[] {
   return NAV_MODULES.flatMap((module) => {
     const groups = module.groups.flatMap((group) => {
-      const items = group.items.filter((item) => item.anyOf.length === 0 || canAny(...item.anyOf))
+      const items = group.items.filter(
+        (item) => (item.anyOf.length === 0 || canAny(...item.anyOf)) && (item.when?.(me) ?? true),
+      )
       return items.length ? [{ ...group, items }] : []
     })
     return groups.length ? [{ ...module, groups }] : []

@@ -11,6 +11,10 @@ export interface Me {
   user: { id: string; name: string; email: string };
   tenant: Tenant;
   access: AccountAccess;
+  /** A conta-mãe desta conta (a filha vê quem a gerencia — ADR 0009). */
+  parent: Tenant | null;
+  /** Acesso delegado: a conta de onde a pessoa veio. */
+  delegatedFrom: Tenant | null;
 }
 
 /**
@@ -34,6 +38,16 @@ export class GetMeUseCase {
     ]);
     if (!user || !tenant) throw new AccountAccessDeniedError();
 
-    return { user, tenant, access };
+    const related = await this.tenants.findManyByIds(
+      [tenant.parentId, access.delegatedFromTenantId].filter((id): id is string => !!id),
+    );
+    const byId = (id: string | null | undefined) => related.find((t) => t.id === id) ?? null;
+    return {
+      user,
+      tenant,
+      access,
+      parent: byId(tenant.parentId),
+      delegatedFrom: byId(access.delegatedFromTenantId),
+    };
   }
 }

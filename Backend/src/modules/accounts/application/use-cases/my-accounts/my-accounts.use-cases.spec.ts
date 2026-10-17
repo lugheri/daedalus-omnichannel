@@ -6,8 +6,11 @@ import { Tenant } from '../../../domain/tenant.entity';
 import {
   FakeIdentityGateway,
   InMemoryMembershipRepository,
+  InMemoryParentAccessRepository,
+  InMemoryRoleRepository,
   InMemoryTenantRepository,
 } from '../../../testing/fakes';
+import { ImmediateUnitOfWork, SequentialIdGenerator } from '../../../../../shared/testing/fakes';
 import { ListMyAccountsUseCase, SwitchAccountUseCase } from './my-accounts.use-cases';
 
 describe('My accounts', () => {
@@ -65,7 +68,15 @@ describe('My accounts', () => {
 
   describe('SwitchAccountUseCase', () => {
     const switchTo = (tenantId: string) =>
-      new SwitchAccountUseCase(identity, memberships, tenants).execute(actor, tenantId);
+      new SwitchAccountUseCase(
+        identity,
+        memberships,
+        tenants,
+        new InMemoryRoleRepository(),
+        new InMemoryParentAccessRepository(),
+        new SequentialIdGenerator(),
+        new ImmediateUnitOfWork(),
+      ).execute(actor, tenantId);
 
     it('opens a session in the chosen account and ends the current one', async () => {
       await giveAccess('tenant-b', 'Loja Zeta');

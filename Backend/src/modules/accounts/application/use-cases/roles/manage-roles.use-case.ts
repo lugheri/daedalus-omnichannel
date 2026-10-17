@@ -27,7 +27,8 @@ export class ListRolesUseCase {
 
   async execute(): Promise<Role[]> {
     const { tenantId } = await this.currentAccess.get();
-    return this.roles.listByTenant(tenantId);
+    // O cargo dos acessos da conta-mãe é interno: não aparece nem se edita.
+    return (await this.roles.listByTenant(tenantId)).filter((role) => role.isAssignable);
   }
 }
 

@@ -8,8 +8,8 @@ export function HomePage() {
   const me = useMe()
   const { canAny } = usePermissions()
   const modules = useMemo(
-    () => visibleModules(canAny).filter((module) => module.key !== 'home'),
-    [canAny],
+    () => visibleModules(canAny, me).filter((module) => module.key !== 'home'),
+    [canAny, me],
   )
 
   return (

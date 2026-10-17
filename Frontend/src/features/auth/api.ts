@@ -5,11 +5,19 @@ export interface Tenant {
   name: string
   slug: string
   status: 'trial' | 'active' | 'suspended'
+  /** Revendedor (ou a raiz): pode criar contas abaixo. */
+  canCreateChildren?: boolean
+}
+
+/** Uma conta citada por id e nome (mãe, origem do acesso). */
+export interface AccountRef {
+  id: string
+  name: string
 }
 
 export interface RoleSummary {
   id: string
-  key: 'owner' | 'admin' | 'supervisor' | 'agent' | null
+  key: 'owner' | 'admin' | 'supervisor' | 'agent' | 'parent_access' | null
   name: string
 }
 
@@ -20,6 +28,10 @@ export interface Me {
   membershipId: string
   role: RoleSummary
   permissions: string[]
+  /** Quem gerencia esta conta (conta-mãe), se houver. */
+  parent: AccountRef | null
+  /** Entrou vindo de uma conta acima (acesso da conta-mãe): de qual. */
+  delegatedFrom: AccountRef | null
 }
 
 export type SessionStart = AuthTokensResponse & { tenant: Tenant }

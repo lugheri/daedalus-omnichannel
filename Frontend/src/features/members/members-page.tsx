@@ -3,6 +3,7 @@ import { MoreHorizontal, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/page-header'
+import { ParentAccesses } from '@/features/accounts/parent-accesses'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -222,6 +223,7 @@ export function MembersPage() {
       )}
 
       <InviteDialog open={inviting} onOpenChange={setInviting} />
+      <ParentAccesses />
     </>
   )
 }

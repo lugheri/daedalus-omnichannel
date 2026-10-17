@@ -47,6 +47,37 @@ export class PrismaTenantRepository implements TenantRepository {
     return rows.map((row) => TenantMapper.toDomain(row));
   }
 
+  async findBySlug(slug: string): Promise<Tenant | null> {
+    const row = await this.txHost.tx.tenant.findUnique({ where: { slug } });
+    return row ? TenantMapper.toDomain(row) : null;
+  }
+
+  async findRoot(): Promise<Tenant | null> {
+    const row = await this.txHost.tx.tenant.findFirst({ where: { isRoot: true } });
+    return row ? TenantMapper.toDomain(row) : null;
+  }
+
+  async listDescendants(tenantId: string): Promise<Tenant[]> {
+    const rows = await this.txHost.tx.tenant.findMany({
+      where: { ancestors: { has: tenantId } },
+      orderBy: { name: 'asc' },
+      take: 1000,
+    });
+    return rows.map((row) => TenantMapper.toDomain(row));
+  }
+
+  async adoptOrphans(root: Tenant): Promise<number> {
+    // Os ancestrais de TODAS as contas fora da árvore da raiz ganham a raiz na
+    // frente (as órfãs e as que estão abaixo delas); as órfãs ganham a mãe.
+    await this.txHost.tx.$executeRaw`
+      UPDATE accounts.tenants
+      SET ancestors = array_prepend(${root.id}::uuid, ancestors)
+      WHERE id <> ${root.id}::uuid AND NOT (${root.id}::uuid = ANY(ancestors))`;
+    return this.txHost.tx.$executeRaw`
+      UPDATE accounts.tenants SET parent_id = ${root.id}::uuid
+      WHERE parent_id IS NULL AND id <> ${root.id}::uuid`;
+  }
+
   async existsBySlug(slug: Slug): Promise<boolean> {
     const count = await this.txHost.tx.tenant.count({ where: { slug: slug.value } });
     return count > 0;
@@ -91,6 +122,13 @@ export class PrismaRoleRepository implements RoleRepository {
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((row) => RoleMapper.toDomain(row));
+  }
+
+  async findByKey(tenantId: string, key: string): Promise<Role | null> {
+    const row = await this.txHost.tx.role.findUnique({
+      where: { tenantId_key: { tenantId, key } },
+    });
+    return row ? RoleMapper.toDomain(row) : null;
   }
 
   async delete(role: Role): Promise<void> {

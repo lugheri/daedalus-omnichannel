@@ -19,6 +19,10 @@ export const TenantMapper = {
       slug: Slug.restore(row.slug),
       status: row.status as TenantStatus,
       createdAt: row.createdAt,
+      parentId: row.parentId,
+      ancestors: row.ancestors,
+      isRoot: row.isRoot,
+      allowsChildren: row.allowsChildren,
     });
   },
 
@@ -28,6 +32,10 @@ export const TenantMapper = {
       name: tenant.name,
       slug: tenant.slug.value,
       status: tenant.status,
+      parentId: tenant.parentId,
+      ancestors: [...tenant.ancestors],
+      isRoot: tenant.isRoot,
+      allowsChildren: tenant.canCreateChildren,
       createdAt: tenant.createdAt,
     };
   },
@@ -67,6 +75,7 @@ export const MembershipMapper = {
       roleId: row.roleId,
       status: row.status as MembershipStatus,
       createdAt: row.createdAt,
+      delegatedFromMembershipId: row.delegatedFromMembershipId,
     });
   },
 
@@ -77,6 +86,7 @@ export const MembershipMapper = {
       userId: membership.userId,
       roleId: membership.roleId,
       status: membership.status,
+      delegatedFromMembershipId: membership.delegatedFromMembershipId,
       createdAt: membership.createdAt,
     };
   },

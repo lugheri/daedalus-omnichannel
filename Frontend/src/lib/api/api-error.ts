@@ -43,7 +43,10 @@ const MESSAGES: Record<string, string> = {
   ORIGIN_NOT_ALLOWED: 'Origem não autorizada.',
   AUTH_INVALID_CREDENTIALS: 'E-mail ou senha incorretos.',
   AUTH_ACCOUNT_ACCESS_DENIED: 'Você não tem acesso ativo a esta conta.',
-  ACCOUNT_NOT_ACCESSIBLE: 'Você não tem mais acesso a esta conta.',
+  ACCOUNT_NOT_ACCESSIBLE: 'Você não tem acesso a esta conta (ou ela está suspensa).',
+  CHILD_ACCOUNT_NOT_FOUND: 'Conta não encontrada abaixo desta.',
+  CHILD_ACCOUNTS_NOT_ALLOWED:
+    'Esta conta não pode criar contas abaixo dela. Fale com quem gerencia a sua conta.',
   AUTH_INVALID_ACCESS_TOKEN: 'Sua sessão expirou. Entre novamente.',
   AUTH_INVALID_REFRESH_TOKEN: 'Sua sessão expirou. Entre novamente.',
   AUTH_MISSING_PERMISSION: 'Você não tem permissão para esta ação.',

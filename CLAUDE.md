@@ -18,7 +18,7 @@ Plataforma de atendimento omnichannel (WhatsApp, Instagram, e-mail etc.). Fase a
 
 ## Multitenancy e acesso
 
-Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003](docs/adr/0003-controle-de-acesso.md), [0004](docs/adr/0004-autenticacao.md) e [0005](docs/adr/0005-refresh-token-em-cookie.md).
+Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003](docs/adr/0003-controle-de-acesso.md), [0004](docs/adr/0004-autenticacao.md), [0005](docs/adr/0005-refresh-token-em-cookie.md) e [0009](docs/adr/0009-hierarquia-de-contas.md).
 
 - **Tenant = conta/empresa cliente.** Banco compartilhado com `tenantId` em toda tabela de negócio.
 - **O `tenantId` vem só do token autenticado** — nunca de body, URL, query ou header.
@@ -26,6 +26,7 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 - **Cargo (Role) define o que se pode fazer; Equipe (Team) define sobre quais dados.** Cargos são por tenant; permissões são um catálogo fixo no código (`recurso:ação`).
 - Cargos padrão: Owner (de sistema, intocável), Admin, Supervisor, Agent.
 - Administração da plataforma (`platformRole` no User) é separada dos cargos de tenant.
+- **Hierarquia de contas:** toda conta tem uma conta-mãe (menos a raiz, a da plataforma); cadastro público nasce abaixo da raiz. Só a raiz e contas **revendedoras** criam contas abaixo. Quem está acima vê a subárvore inteira e entra nela como **acesso da conta-mãe** (Admin sem `account:manage`), registrado para a conta ver. Os dados continuam por conta: a hierarquia só controla quem entra.
 - Limites de plano são _entitlements_ do tenant, não permissões.
 - **Sessão no navegador:** access token no corpo (o front guarda só em memória); refresh token em cookie `HttpOnly` + `SameSite=Strict` restrito a `/v1/auth`. Por isso **front e API precisam estar no mesmo site** (ex.: `app.dominio.com` e `api.dominio.com`) e o front usa `credentials: 'include'` nas rotas de auth.
 

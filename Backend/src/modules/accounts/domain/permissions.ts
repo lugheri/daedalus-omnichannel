@@ -8,6 +8,7 @@
  */
 export const PERMISSIONS = [
   'account:manage', //          faturamento, dados e exclusão da conta
+  'accounts:children', //       contas filhas: criar, suspender e entrar nelas
   'members:manage', //          convidar, desativar e trocar cargo de membros
   'roles:manage', //            criar e editar cargos
   'teams:manage', //            equipes e filas

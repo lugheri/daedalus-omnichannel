@@ -53,7 +53,7 @@ export class InviteMemberUseCase {
 
     const invitation = await this.unitOfWork.run(async () => {
       const role = await this.roles.findInTenant(access.tenantId, input.roleId);
-      if (!role) throw new RoleNotFoundError();
+      if (!role?.isAssignable) throw new RoleNotFoundError();
       assertCanGrant(access, role.permissions);
 
       const invitation = Invitation.create(this.ids.generate(), {

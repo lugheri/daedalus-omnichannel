@@ -111,6 +111,16 @@ docker service logs -f omnichannel_api     # logs em JSON
 
 O primeiro acesso a `https://app.<domínio>` pode levar alguns segundos: o Traefik emite o certificado do Let's Encrypt.
 
+### Conta da plataforma (uma vez, no primeiro deploy)
+
+Cadastre a conta da Daedalus pelo painel (`https://app.<domínio>/signup`) e marque-a como **raiz** da hierarquia de contas ([ADR 0009](adr/0009-hierarquia-de-contas.md)) (o slug está em `SELECT name, slug FROM accounts.tenants`, na VM de dados):
+
+```bash
+docker exec -it $(docker ps -q -f name=omnichannel_api | head -n1) node dist/designate-root.js <slug>
+```
+
+A partir daí, todo cadastro público nasce abaixo dela, e as contas que já existiam passam a ser filhas dela. Com a raiz definida, o comando recusa qualquer outra conta (a raiz é uma só).
+
 ## Sites dos clientes
 
 Os sites estáticos dos clientes rodam numa stack separada (`Docker/sites`), atrás do mesmo Traefik. Decisão e motivos: [ADR 0008](adr/0008-hospedagem-sites-clientes.md).

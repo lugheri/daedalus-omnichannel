@@ -8,6 +8,10 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: string; lab
       label: 'Conta',
       permissions: [
         { key: 'account:manage', label: 'Faturamento, dados e exclusão da conta (só Owner)' },
+        {
+          key: 'accounts:children',
+          label: 'Contas clientes: criar, suspender e entrar nelas (em conta revendedora)',
+        },
         { key: 'members:manage', label: 'Convidar, desativar e trocar o cargo de membros' },
         { key: 'roles:manage', label: 'Criar e editar cargos' },
         { key: 'teams:manage', label: 'Gerenciar equipes e filas' },
