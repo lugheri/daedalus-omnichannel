@@ -7,7 +7,12 @@ import { FormNotFoundError } from '../../domain/errors/form-not-found.error';
 import { InvalidFormError } from '../../domain/errors/invalid-form.error';
 import { FormSubmittedEvent } from '../../domain/events/form-submitted.event';
 import { Form, type FormSettings } from '../../domain/form.entity';
-import { cleanFields, type FormSubmission, type SubmissionFields } from '../../domain/submission';
+import {
+  cleanFields,
+  cleanSourceRef,
+  type FormSubmission,
+  type SubmissionFields,
+} from '../../domain/submission';
 import { FORM_REPOSITORY, type FormRepository } from '../ports/form.repository';
 import { LEAD_GATEWAY, type LeadGateway } from '../ports/lead-gateway';
 import { PUBLIC_KEY_GENERATOR, type PublicKeyGenerator } from '../ports/public-key-generator';
@@ -163,7 +168,9 @@ export class SubmitFormUseCase {
   async execute(
     formId: string,
     raw: Partial<Record<keyof SubmissionFields, string | null>>,
+    rawSourceRef: string | null = null,
   ): Promise<SubmitFormResult> {
+    const sourceRef = cleanSourceRef(rawSourceRef);
     const form = await load(this.forms, formId);
     if (!form.active) throw new InvalidFormError('FORM_INACTIVE');
 
@@ -193,6 +200,7 @@ export class SubmitFormUseCase {
         contactId,
         serviceName: service?.name ?? null,
         preferredDate: form.kind === 'service' ? fields.preferredDate : null,
+        sourceRef,
         createdAt: new Date(),
       };
       await this.submissions.save(submission);
@@ -204,6 +212,7 @@ export class SubmitFormUseCase {
           form.kind,
           contactId,
           service && { id: service.id, name: service.name, priceCents: service.priceCents },
+          sourceRef,
         ),
       ]);
     });

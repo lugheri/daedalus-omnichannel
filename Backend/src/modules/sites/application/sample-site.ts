@@ -1,4 +1,5 @@
 import { defaultSiteContent, type SiteContent } from '../domain/site-content';
+import type { LandingViewInput } from './landing-view';
 import type { SiteViewInput } from './site-view';
 
 /** Imagem de exemplo sem depender de nada externo (a prévia roda num iframe isolado). */
@@ -82,5 +83,50 @@ export function sampleSiteInput(): SiteViewInput {
     ],
     form: { actionUrl: '#', kind: 'contact' },
     bookingEnabled: true,
+  };
+}
+
+/**
+ * Uma landing page de exemplo da mesma barbearia, com tudo preenchido: a
+ * prévia do editor de modelos de landing.
+ */
+export function sampleLandingInput(): LandingViewInput {
+  const site = sampleSiteInput();
+  return {
+    site: site.content,
+    landing: {
+      hero: {
+        title: 'Dia dos Pais: corte + barba com 30% de desconto',
+        subtitle: 'Só até domingo. Garanta o horário do seu pai (e o seu).',
+        ctaLabel: 'Quero o desconto',
+      },
+      heroImageAssetId: null,
+      intro:
+        'Presente que ele vai usar: um trato completo, sem pressa, com toalha quente e café.\n\nVale para qualquer barbeiro da casa, de segunda a sábado.',
+      benefits: [
+        { title: 'Corte e barba completos', text: 'Lavagem, toalha quente e finalização.' },
+        { title: 'Hora marcada', text: 'Sem fila: você escolhe o horário.' },
+        { title: 'Pagamento fácil', text: 'Pix ou cartão, em até 3x.' },
+      ],
+      offer: {
+        title: 'Corte + barba',
+        price: 'R$ 49,00',
+        oldPrice: 'R$ 70,00',
+        note: 'Válido até domingo, 10/08.',
+      },
+      testimonials: site.content.testimonials,
+      faq: [
+        { question: 'Posso dar de presente?', answer: 'Pode: é só informar o nome dele.' },
+        { question: 'Vale para qualquer dia?', answer: 'De segunda a sábado, com hora marcada.' },
+      ],
+      formTitle: 'Garanta o seu desconto',
+      seo: { title: null, description: null },
+    },
+    pageUrl: 'https://barbearia-do-ze.exemplo.com.br/dia-dos-pais/',
+    homeUrl: 'https://barbearia-do-ze.exemplo.com.br',
+    assetUrl: site.assetUrl,
+    services: site.services,
+    form: { actionUrl: '#', kind: 'contact' },
+    variant: 'a',
   };
 }

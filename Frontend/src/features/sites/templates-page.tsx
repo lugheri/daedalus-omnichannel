@@ -14,8 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -25,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { siteKeys, templatesApi, useSiteTemplates } from './api'
+import { siteKeys, templatesApi, useSiteTemplates, type TemplateKind } from './api'
 
 const dateFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
 
@@ -51,6 +58,7 @@ export function TemplatesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Modelo</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead className="hidden md:table-cell">Nicho</TableHead>
               <TableHead>Situação</TableHead>
               <TableHead className="hidden sm:table-cell">Sites</TableHead>
@@ -60,14 +68,14 @@ export function TemplatesPage() {
           <TableBody>
             {templates.isPending && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <Skeleton className="h-8" />
                 </TableCell>
               </TableRow>
             )}
             {templates.data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
                   Nenhum modelo ainda. O primeiro já nasce com um modelo inicial completo.
                 </TableCell>
               </TableRow>
@@ -81,6 +89,11 @@ export function TemplatesPage() {
                   >
                     {template.name}
                   </Link>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">
+                    {template.kind === 'landing' ? 'Landing page' : 'Site'}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground hidden md:table-cell">
                   {template.niche ?? '—'}
@@ -113,9 +126,10 @@ function NewTemplateDialog({ onOpenChange }: { onOpenChange: (open: boolean) => 
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [niche, setNiche] = useState('')
+  const [kind, setKind] = useState<TemplateKind>('site')
 
   const create = useMutation({
-    mutationFn: () => templatesApi.create({ name, niche: niche.trim() || null }),
+    mutationFn: () => templatesApi.create({ name, niche: niche.trim() || null, kind }),
     onSuccess: (template) => {
       void queryClient.invalidateQueries({ queryKey: siteKeys.templates })
       void navigate(`/site-templates/${template.id}`)
@@ -133,8 +147,7 @@ function NewTemplateDialog({ onOpenChange }: { onOpenChange: (open: boolean) => 
         <DialogHeader>
           <DialogTitle>Novo modelo</DialogTitle>
           <DialogDescription>
-            Nasce como rascunho, com o modelo inicial (página única, todas as seções) para você
-            adaptar.
+            Nasce como rascunho, com o modelo inicial do tipo (todas as seções) para você adaptar.
           </DialogDescription>
         </DialogHeader>
         <form id="template-form" onSubmit={submit} noValidate>
@@ -149,6 +162,21 @@ function NewTemplateDialog({ onOpenChange }: { onOpenChange: (open: boolean) => 
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="template-kind">Tipo</FieldLabel>
+              <Select value={kind} onValueChange={(value) => setKind(value as TemplateKind)}>
+                <SelectTrigger id="template-kind" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="site">Site (a página da empresa)</SelectItem>
+                  <SelectItem value="landing">Landing page (página de campanha)</SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                Não muda depois: os marcadores de cada tipo são outros.
+              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="template-niche">Nicho</FieldLabel>

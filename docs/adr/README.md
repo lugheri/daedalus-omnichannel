@@ -19,6 +19,7 @@ ADRs não são editados depois de aceitos: quando uma decisão muda, cria-se um 
 | [0011](0011-dominio-proprio-dos-sites.md) | Domínio próprio dos sites pelo túnel da Cloudflare | Aceito |
 | [0012](0012-chat-do-site.md) | Chat do site e canais com tipo | Aceito |
 | [0013](0013-agenda.md) | Agenda e agendamento online | Aceito |
+| [0014](0014-landing-pages-e-teste-ab.md) | Landing pages e teste A/B | Aceito |
 
 ## Modelo
 

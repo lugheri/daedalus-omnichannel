@@ -23,7 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { ApiError, errorMessage } from '@/lib/api/api-error'
 import { siteKeys, templatesApi, useSiteTemplate, type SiteTemplate } from './api'
-import { MARKER_GROUPS } from './markers'
+import { markerGroupsFor } from './markers'
 import { SitePreview } from './site-preview'
 import { usePreview } from './use-preview'
 
@@ -64,7 +64,7 @@ function TemplateEditor({ template }: { template: SiteTemplate }) {
     available !== template.available
 
   // Prévia com o site de exemplo (o erro dos marcadores aparece acima dela).
-  const preview = usePreview(html, templatesApi.preview, PREVIEW_DELAY_MS)
+  const preview = usePreview({ html, kind: template.kind }, templatesApi.preview, PREVIEW_DELAY_MS)
   const previewError = preview.error ? templateError(preview.error) : null
 
   const save = useMutation({
@@ -79,7 +79,7 @@ function TemplateEditor({ template }: { template: SiteTemplate }) {
     onSuccess: (next) => {
       queryClient.setQueryData(siteKeys.template(template.id), next)
       void queryClient.invalidateQueries({ queryKey: siteKeys.templates })
-      void queryClient.invalidateQueries({ queryKey: siteKeys.available })
+      void queryClient.invalidateQueries({ queryKey: ['site', 'templates', 'available'] })
       toast.success(
         next.available
           ? 'Modelo salvo. Os sites que o usam mudam na próxima publicação.'
@@ -109,11 +109,11 @@ function TemplateEditor({ template }: { template: SiteTemplate }) {
       </Button>
       <PageHeader
         title={template.name}
-        description={
+        description={`${template.kind === 'landing' ? 'Modelo de landing page' : 'Modelo de site'} · ${
           template.sites
-            ? `Usado por ${template.sites} ${template.sites === 1 ? 'site' : 'sites'}.`
-            : 'Nenhum site usa este modelo ainda.'
-        }
+            ? `usado ${template.sites} ${template.sites === 1 ? 'vez' : 'vezes'}.`
+            : 'ninguém usa ainda.'
+        }`}
         actions={
           <>
             <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
@@ -187,7 +187,7 @@ function TemplateEditor({ template }: { template: SiteTemplate }) {
           <details className="rounded-md border p-3 text-sm">
             <summary className="cursor-pointer font-medium">Marcadores disponíveis</summary>
             <div className="mt-3 flex flex-col gap-4">
-              {MARKER_GROUPS.map((group) => (
+              {markerGroupsFor(template.kind).map((group) => (
                 <section key={group.title}>
                   <h3 className="mb-1 text-xs font-semibold uppercase">{group.title}</h3>
                   <dl className="grid gap-1">
@@ -217,7 +217,11 @@ function TemplateEditor({ template }: { template: SiteTemplate }) {
           <SitePreview
             html={preview.html}
             loading={preview.loading}
-            title="Prévia do modelo com o site de exemplo"
+            title={
+              template.kind === 'landing'
+                ? 'Prévia do modelo com a landing page de exemplo'
+                : 'Prévia do modelo com o site de exemplo'
+            }
             className="xl:sticky xl:top-0 xl:h-[calc(100svh-11rem)] xl:self-start"
           />
         </div>

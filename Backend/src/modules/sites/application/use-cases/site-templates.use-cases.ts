@@ -5,15 +5,21 @@ import { InvalidSiteError } from '../../domain/errors/invalid-site.error';
 import { SiteConflictError } from '../../domain/errors/site-conflict.error';
 import { SiteNotFoundError } from '../../domain/errors/site-not-found.error';
 import { SiteTemplatesRootOnlyError } from '../../domain/errors/site-templates-root-only.error';
-import { SiteTemplate, type SiteTemplateDetails } from '../../domain/site-template.entity';
+import {
+  SiteTemplate,
+  type SiteTemplateDetails,
+  type SiteTemplateKind,
+} from '../../domain/site-template.entity';
+import { buildLandingView } from '../landing-view';
 import { SITE_RENDERER, type SiteRenderer } from '../ports/site-renderer';
 import { SITE_ACCOUNT, type SiteAccount } from '../ports/site-sources';
 import {
   SITE_TEMPLATE_REPOSITORY,
   type SiteTemplateRepository,
 } from '../ports/site-template.repository';
-import { sampleSiteInput } from '../sample-site';
+import { sampleLandingInput, sampleSiteInput } from '../sample-site';
 import { buildSiteView } from '../site-view';
+import { STARTER_LANDING_TEMPLATE_HTML } from '../starter-landing-template';
 import { STARTER_TEMPLATE_HTML } from '../starter-template';
 
 /** Modelos são mantidos só na conta da plataforma (por enquanto). */
@@ -75,7 +81,7 @@ export class GetSiteTemplateUseCase {
   }
 }
 
-/** Modelo novo nasce como rascunho, com o HTML do modelo inicial (se não vier outro). */
+/** Modelo novo nasce como rascunho, com o HTML do modelo inicial do tipo (se não vier outro). */
 @Injectable()
 export class CreateSiteTemplateUseCase {
   constructor(
@@ -87,13 +93,19 @@ export class CreateSiteTemplateUseCase {
   ) {}
 
   async execute(
-    input: Omit<SiteTemplateDetails, 'html'> & { html?: string | null },
+    input: Omit<SiteTemplateDetails, 'html'> & {
+      html?: string | null;
+      kind?: SiteTemplateKind;
+    },
   ): Promise<SiteTemplate> {
     await this.keeper.assert();
-    const html = input.html ?? STARTER_TEMPLATE_HTML;
+    const kind = input.kind ?? 'site';
+    const html =
+      input.html ?? (kind === 'landing' ? STARTER_LANDING_TEMPLATE_HTML : STARTER_TEMPLATE_HTML);
     assertReadable(this.renderer, html);
     const template = SiteTemplate.create(this.ids.generate(), {
       ...input,
+      kind,
       html,
       tenantId: this.tenant.tenantId,
     });
@@ -145,7 +157,7 @@ export class DeleteSiteTemplateUseCase {
   }
 }
 
-/** O HTML em edição com o site de exemplo (todas as seções preenchidas). */
+/** O HTML em edição com o site (ou a landing) de exemplo, todas as seções preenchidas. */
 @Injectable()
 export class PreviewSiteTemplateUseCase {
   constructor(
@@ -153,20 +165,24 @@ export class PreviewSiteTemplateUseCase {
     @Inject(SITE_RENDERER) private readonly renderer: SiteRenderer,
   ) {}
 
-  async execute(html: string): Promise<string> {
+  async execute(html: string, kind: SiteTemplateKind = 'site'): Promise<string> {
     await this.keeper.assert();
-    return this.renderer.render(html, buildSiteView(sampleSiteInput()));
+    const view =
+      kind === 'landing'
+        ? buildLandingView(sampleLandingInput())
+        : buildSiteView(sampleSiteInput());
+    return this.renderer.render(html, view);
   }
 }
 
-/** Os modelos que qualquer conta pode escolher para o próprio site. */
+/** Os modelos que qualquer conta pode escolher (para o site ou para landing pages). */
 @Injectable()
 export class ListAvailableTemplatesUseCase {
   constructor(
     @Inject(SITE_TEMPLATE_REPOSITORY) private readonly templates: SiteTemplateRepository,
   ) {}
 
-  execute(): Promise<SiteTemplate[]> {
-    return this.templates.listAvailable();
+  execute(kind: SiteTemplateKind = 'site'): Promise<SiteTemplate[]> {
+    return this.templates.listAvailable(kind);
   }
 }

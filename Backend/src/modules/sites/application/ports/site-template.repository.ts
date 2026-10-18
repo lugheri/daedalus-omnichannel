@@ -1,4 +1,4 @@
-import type { SiteTemplate } from '../../domain/site-template.entity';
+import type { SiteTemplate, SiteTemplateKind } from '../../domain/site-template.entity';
 
 /**
  * Modelos de site. Os modelos são da conta que os mantém (a da plataforma) e
@@ -15,9 +15,9 @@ export interface SiteTemplateRepository {
   delete(template: SiteTemplate): Promise<void>;
   /** Qualquer conta: o modelo que um site usa (ou vai usar). */
   findForSite(id: string): Promise<SiteTemplate | null>;
-  /** Qualquer conta: os disponíveis para escolha, por nome. */
-  listAvailable(): Promise<SiteTemplate[]>;
-  /** Qualquer conta: quantos sites usam o modelo. */
+  /** Qualquer conta: os disponíveis para escolha (do tipo pedido), por nome. */
+  listAvailable(kind: SiteTemplateKind): Promise<SiteTemplate[]>;
+  /** Qualquer conta: quantos sites e variantes de landing page usam o modelo. */
   countSitesUsing(id: string): Promise<number>;
 }
 

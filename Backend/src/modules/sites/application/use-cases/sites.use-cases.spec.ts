@@ -14,12 +14,14 @@ import {
   FakeSiteAccount,
   FakeSiteDomainChecker,
   FakeSiteSources,
+  InMemoryLandingPageRepository,
   InMemorySiteAssetRepository,
   InMemorySiteHosting,
   InMemorySiteRepository,
   InMemorySiteTemplateRepository,
   JsonSiteRenderer,
 } from '../../testing/fakes';
+import { LandingRelocator } from '../landing-location';
 import { SiteComposer } from '../site-composer';
 import { CheckSiteDomainJob, ProcessSiteJob } from '../sites-jobs';
 import type { SiteView } from '../site-view';
@@ -64,6 +66,7 @@ describe('Sites', () => {
   let storage: InMemoryFileStorage;
   let jobs: RecordingJobQueue;
   let ids: SequentialIdGenerator;
+  let landings: InMemoryLandingPageRepository;
 
   beforeEach(() => {
     tenant = new FakeTenantContext('platform');
@@ -73,7 +76,8 @@ describe('Sites', () => {
       'tenant-b': { name: 'Barbearia do Zé', slug: 'barbearia-do-ze-2', isRoot: false },
     });
     sites = new InMemorySiteRepository(tenant);
-    templates = new InMemorySiteTemplateRepository(tenant, sites);
+    landings = new InMemoryLandingPageRepository(tenant);
+    templates = new InMemorySiteTemplateRepository(tenant, sites, landings);
     assets = new InMemorySiteAssetRepository(tenant);
     hosting = new InMemorySiteHosting();
     sources = new FakeSiteSources();
@@ -103,9 +107,12 @@ describe('Sites', () => {
   };
   const createSite = (templateId: string) =>
     new CreateSiteUseCase(sites, templates, account, tenant, ids).execute({ templateId });
-  const updateSite = () => new UpdateSiteUseCase(sites, templates, assets, account, hosting);
+  const relocator = () => new LandingRelocator(landings, hosting, jobs);
+  const updateSite = () =>
+    new UpdateSiteUseCase(sites, templates, assets, account, hosting, relocator());
   const request = () => new RequestSitePublicationUseCase(sites, templates, hosting, jobs);
-  const process = () => new ProcessSiteUseCase(sites, templates, hosting, jobs, composer());
+  const process = () =>
+    new ProcessSiteUseCase(sites, templates, hosting, jobs, composer(), relocator());
   const runJobs = async () => {
     const pending = jobs.of(ProcessSiteJob);
     jobs.jobs.splice(
@@ -485,7 +492,7 @@ describe('Sites', () => {
       const { asset: logo } = await upload();
       const { asset: other } = await upload();
       await withContent((c) => (c.theme.logoAssetId = logo.id));
-      const remove = new DeleteSiteAssetUseCase(assets, sites, hosting, storage);
+      const remove = new DeleteSiteAssetUseCase(assets, sites, landings, hosting, storage);
 
       await expect(remove.execute(logo.id)).rejects.toThrow(SiteConflictError);
       await remove.execute(other.id);
@@ -540,7 +547,7 @@ describe('Sites', () => {
       // A plataforma define no próprio site sem ser acesso delegado.
       account.acting = false;
       tenant.switchTo('platform');
-      await createSite((await templates.listAvailable())[0].id);
+      await createSite((await templates.listAvailable('site'))[0].id);
       await expect(setDomain('www.daedalus.com.br')).resolves.toBeDefined();
     });
 
@@ -549,7 +556,7 @@ describe('Sites', () => {
       account.acting = true;
       await setDomain('www.barbearia.com.br');
       tenant.switchTo('tenant-b');
-      await createSite((await templates.listAvailable())[0].id);
+      await createSite((await templates.listAvailable('site'))[0].id);
       await expect(setDomain('barbearia.com.br')).rejects.toMatchObject({
         code: 'SITE_DOMAIN_TAKEN',
       });

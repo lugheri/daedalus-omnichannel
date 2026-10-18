@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { MAX_FAQ_ITEMS, MAX_GALLERY_ITEMS, MAX_TESTIMONIALS } from '../../domain/site-content';
-import { MAX_TEMPLATE_HTML_LENGTH } from '../../domain/site-template.entity';
+import {
+  MAX_LANDING_BENEFITS,
+  MAX_LANDING_FAQ,
+  MAX_LANDING_TESTIMONIALS,
+} from '../../domain/landing-content';
+import { MAX_TEMPLATE_HTML_LENGTH, SITE_TEMPLATE_KINDS } from '../../domain/site-template.entity';
 
 /** Texto opcional: ausente ou vazio = sem (o domínio apara e troca "" por null). */
 const optional = (max: number) => z.string().max(max).nullable().default(null);
@@ -67,6 +72,8 @@ const templateHtml = z.string().max(MAX_TEMPLATE_HTML_LENGTH);
 
 export const createTemplateSchema = z.object({
   name: z.string().max(200),
+  /** Não muda depois: site ou landing page. */
+  kind: z.enum(SITE_TEMPLATE_KINDS).default('site'),
   niche: optional(200),
   description: optional(1000),
   /** Ausente: nasce com o HTML do modelo inicial. */
@@ -81,4 +88,64 @@ export const updateTemplateSchema = z.object({
   available: z.boolean().optional(),
 });
 
-export const previewTemplateSchema = z.object({ html: templateHtml });
+export const previewTemplateSchema = z.object({
+  html: templateHtml,
+  kind: z.enum(SITE_TEMPLATE_KINDS).default('site'),
+});
+
+export const availableTemplatesQuery = z.object({
+  kind: z.enum(SITE_TEMPLATE_KINDS).default('site'),
+});
+
+// ── landing pages (ADR 0014) ────────────────────────────────────────────────
+
+export const landingContentSchema = z.object({
+  hero: z.object({ title: optional(160), subtitle: optional(300), ctaLabel: optional(40) }),
+  heroImageAssetId: z.uuid().nullable().default(null),
+  intro: optional(4000),
+  benefits: z
+    .array(z.object({ title: z.string().max(120), text: optional(400) }))
+    .max(MAX_LANDING_BENEFITS),
+  offer: z.object({
+    title: optional(120),
+    price: optional(40),
+    oldPrice: optional(40),
+    note: optional(200),
+  }),
+  testimonials: z
+    .array(z.object({ author: z.string().max(80), text: z.string().max(600) }))
+    .max(MAX_LANDING_TESTIMONIALS),
+  faq: z
+    .array(z.object({ question: z.string().max(200), answer: z.string().max(1500) }))
+    .max(MAX_LANDING_FAQ),
+  formTitle: optional(120),
+  seo: z.object({ title: optional(120), description: optional(300) }),
+});
+
+export const createLandingSchema = z.object({
+  name: z.string().max(200),
+  path: z.string().max(100),
+  templateId: z.uuid(),
+  formId: z.uuid().nullable().default(null),
+});
+
+export const updateLandingSchema = z.object({
+  name: z.string().max(200).optional(),
+  path: z.string().max(100).optional(),
+  formId: z.uuid().nullable().optional(),
+});
+
+export const addVariantSchema = z.object({ copyFrom: z.uuid().nullable().default(null) });
+
+export const updateVariantSchema = z.object({
+  name: z.string().max(200).optional(),
+  templateId: z.uuid().optional(),
+  content: landingContentSchema.optional(),
+  weight: z.number().int().optional(),
+});
+
+export const previewLandingSchema = z.object({
+  variantId: z.uuid(),
+  templateId: z.uuid().optional(),
+  content: landingContentSchema.optional(),
+});

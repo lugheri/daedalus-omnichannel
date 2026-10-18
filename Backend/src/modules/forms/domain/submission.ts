@@ -17,7 +17,17 @@ export interface FormSubmission extends SubmissionFields {
   formId: string;
   contactId: string;
   serviceName: string | null;
+  /** De onde veio, como a página informou (`?ref=`); opaco para o forms. */
+  sourceRef: string | null;
   createdAt: Date;
+}
+
+const SOURCE_REF = /^[A-Za-z0-9:_.-]{1,80}$/;
+
+/** A origem informada pela página, se tiver formato aceitável (senão é ignorada: não é erro). */
+export function cleanSourceRef(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  return value && SOURCE_REF.test(value) ? value : null;
 }
 
 const LIMITS: Record<keyof SubmissionFields, number> = {

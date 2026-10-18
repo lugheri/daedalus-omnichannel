@@ -17,6 +17,8 @@ export class FormSubmittedEvent extends DomainEvent {
     readonly contactId: string,
     /** Solicitação de serviço: o serviço escolhido (nome e preço no momento). */
     readonly service: { id: string; name: string; priceCents: number | null } | null,
+    /** De onde veio (ex.: `lp:<variante>` das landing pages); null = não informado. */
+    readonly sourceRef: string | null = null,
   ) {
     super(submissionId);
   }

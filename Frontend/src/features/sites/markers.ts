@@ -136,3 +136,84 @@ export const MARKER_GROUPS: MarkerGroup[] = [
     ],
   },
 ]
+
+/**
+ * Marcadores dos modelos de LANDING PAGE. Espelho de
+ * `modules/sites/application/landing-view.ts` do backend.
+ */
+export const LANDING_MARKER_GROUPS: MarkerGroup[] = [
+  MARKER_GROUPS[0],
+  {
+    title: 'Página',
+    items: [
+      { marker: '{{site.title}}', description: 'Título (SEO, ou o título da capa).' },
+      { marker: '{{site.description}}', description: 'Descrição (SEO, ou o subtítulo).' },
+      { marker: '{{site.url}}', description: 'Endereço da landing page (canônico).' },
+      {
+        marker: '{{#site.homeUrl}}',
+        description: 'Endereço do site da conta (só com o site no ar): "voltar ao site".',
+      },
+      { marker: '{{landing.variant}}', description: 'Letra da variante (a, b, c, d).' },
+    ],
+  },
+  {
+    title: 'Empresa e aparência (do site da conta)',
+    items: [
+      {
+        marker: '{{business.name}}, {{business.whatsappUrl}}…',
+        description: 'Os mesmos campos da empresa do modelo de site.',
+      },
+      { marker: '{{theme.primaryColor}} / {{theme.primaryContrast}}', description: 'Cores.' },
+      { marker: '{{#logo}}{{url}}{{/logo}}', description: 'Logo, se houver.' },
+      {
+        marker: '{{#heroImage}}{{url}}{{/heroImage}}',
+        description: 'Imagem da capa da landing (ou a do site).',
+      },
+    ],
+  },
+  {
+    title: 'Oferta',
+    items: [
+      { marker: '{{hero.title}} / {{hero.subtitle}}', description: 'Chamada da capa.' },
+      {
+        marker: '{{hero.ctaLabel}} / {{hero.ctaUrl}}',
+        description: 'Botão: leva ao formulário (#formulario) ou ao WhatsApp, sem formulário.',
+      },
+      {
+        marker: '{{#introParagraphs}}{{.}}{{/introParagraphs}}',
+        description: 'Texto principal, um parágrafo por item (também {{intro}}).',
+      },
+      { marker: '{{#benefits}}', description: 'title, text.' },
+      { marker: '{{#offer}}', description: 'title, price, oldPrice, note.' },
+      { marker: '{{#testimonials}} / {{#faq}}', description: 'Como no site.' },
+    ],
+  },
+  {
+    title: 'Seções (com conteúdo)',
+    items: [
+      {
+        marker: '{{#sections.intro}}',
+        description: 'Também: benefits, offer, testimonials, faq, form.',
+      },
+    ],
+  },
+  {
+    title: 'Formulário',
+    items: [
+      {
+        marker: '{{{contactForm.html}}}',
+        description: 'Formulário pronto; o envio conta como conversão da variante.',
+      },
+      { marker: '{{contactForm.title}}', description: 'Título da seção do formulário.' },
+      {
+        marker: '{{contactForm.action}}',
+        description: 'Para montar o próprio <form method="post"> (já marca a variante).',
+      },
+      { marker: 'id="formulario"', description: 'Onde o botão da capa leva: use no formulário.' },
+    ],
+  },
+]
+
+export function markerGroupsFor(kind: 'site' | 'landing'): MarkerGroup[] {
+  return kind === 'landing' ? LANDING_MARKER_GROUPS : MARKER_GROUPS
+}

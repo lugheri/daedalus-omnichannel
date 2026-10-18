@@ -4,6 +4,7 @@ import { CatalogFacade } from '../../catalog';
 import { ChannelsFacade } from '../../channels';
 import { FormsFacade } from '../../forms';
 import { SchedulingFacade } from '../../scheduling';
+import type { LandingBeacon } from '../application/ports/landing-beacon';
 import type {
   SiteAccount,
   SiteChatInfo,
@@ -66,5 +67,15 @@ export class AccountsSiteAccount implements SiteAccount {
 
   actingFromParentAccount() {
     return this.accounts.actingFromParentAccount();
+  }
+}
+
+/** O aviso de visita das landing pages vai para a API pública (rota sem login). */
+@Injectable()
+export class ApiLandingBeacon implements LandingBeacon {
+  constructor(@Inject(SITES_SETTINGS) private readonly settings: SitesSettings) {}
+
+  viewUrl(variantId: string): string {
+    return `${this.settings.publicApiUrl}/v1/public/landing/views/${variantId}`;
   }
 }

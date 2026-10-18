@@ -1,4 +1,6 @@
-import { sampleSiteInput } from '../application/sample-site';
+import { buildLandingView } from '../application/landing-view';
+import { sampleLandingInput, sampleSiteInput } from '../application/sample-site';
+import { STARTER_LANDING_TEMPLATE_HTML } from '../application/starter-landing-template';
 import { buildSiteView } from '../application/site-view';
 import { STARTER_TEMPLATE_HTML } from '../application/starter-template';
 import { InvalidSiteError } from '../domain/errors/invalid-site.error';
@@ -33,6 +35,42 @@ describe('MustacheSiteRenderer', () => {
     expect(html).toContain('src="https://www.google.com/maps?q=Rua%20das');
     expect(html).toContain('&amp;output=embed"');
     expect(html).not.toContain('{{');
+  });
+
+  it('renders the starter landing template with the sample landing page', () => {
+    const input = sampleLandingInput();
+    const html = renderer.render(STARTER_LANDING_TEMPLATE_HTML, buildLandingView(input));
+    expect(renderer.check(STARTER_LANDING_TEMPLATE_HTML)).toBeNull();
+    expect(html).toContain('<title>Dia dos Pais: corte + barba com 30% de desconto</title>');
+    expect(html).toContain(
+      '<link rel="canonical" href="https://barbearia-do-ze.exemplo.com.br/dia-dos-pais/">',
+    );
+    expect(html).toContain('<a class="btn" href="#formulario">Quero o desconto</a>');
+    expect(html).toContain('<div class="price">R$ 49,00</div>');
+    expect(html).toContain('<div class="old">R$ 70,00</div>');
+    expect(html).toContain('<h3>Hora marcada</h3>');
+    expect(html).toContain('<summary>Posso dar de presente?</summary>');
+    expect(html).toContain('<section id="formulario" class="alt">');
+    expect(html).toContain('<h2>Garanta o seu desconto</h2>');
+    expect(html).toContain('class="site-form"');
+    // Dois parágrafos do texto principal.
+    expect(html.match(/<p>Presente que ele vai usar|<p>Vale para qualquer barbeiro/g)).toHaveLength(
+      2,
+    );
+    expect(html).toContain('<a class="brand" href="https://barbearia-do-ze.exemplo.com.br">');
+    expect(html).not.toContain('{{');
+
+    // Sem oferta, sem benefícios e sem formulário: as seções somem e a chamada vai ao WhatsApp.
+    input.landing.offer = { title: null, price: null, oldPrice: null, note: null };
+    input.landing.benefits = [];
+    input.form = null;
+    input.homeUrl = null;
+    const bare = renderer.render(STARTER_LANDING_TEMPLATE_HTML, buildLandingView(input));
+    expect(bare).not.toContain('class="offer"');
+    expect(bare).not.toContain('class="benefits"');
+    expect(bare).not.toContain('id="formulario"');
+    expect(bare).toContain('href="https://wa.me/5515999998888');
+    expect(bare).toContain('<span class="brand">');
   });
 
   it('escapes what the account typed and drops sections turned off', () => {

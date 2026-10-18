@@ -31,7 +31,7 @@ import { AssetPicker } from './asset-picker'
 export type PatchContent = (change: (content: SiteContent) => void) => void
 
 /** Campo de texto do conteúdo (vazio vai como "", que o backend grava como "sem"). */
-function TextField({
+export function TextField({
   id,
   label,
   value,
@@ -431,7 +431,7 @@ export function SectionsFields({ content, patch }: { content: SiteContent; patch
 }
 
 /** Lista editável de itens de texto (depoimentos, dúvidas). */
-function TextList<T>({
+export function TextList<T>({
   title,
   items,
   max,

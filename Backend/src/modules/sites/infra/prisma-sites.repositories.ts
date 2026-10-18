@@ -16,7 +16,7 @@ import { SiteConflictError } from '../domain/errors/site-conflict.error';
 import type { SiteAsset } from '../domain/site-asset';
 import { completeSiteContent, type SiteContent } from '../domain/site-content';
 import type { SiteDomainStatus } from '../domain/site-domain';
-import { SiteTemplate } from '../domain/site-template.entity';
+import { SiteTemplate, type SiteTemplateKind } from '../domain/site-template.entity';
 import { Site, type SitePendingAction } from '../domain/site.entity';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,7 +44,13 @@ export class PrismaSiteTemplateRepository implements SiteTemplateRepository {
     };
     await this.db.siteTemplate.upsert({
       where: { id: template.id, tenantId },
-      create: { id: template.id, tenantId, createdAt: template.createdAt, ...data },
+      create: {
+        id: template.id,
+        tenantId,
+        kind: template.kind,
+        createdAt: template.createdAt,
+        ...data,
+      },
       update: data,
     });
   }
@@ -80,22 +86,27 @@ export class PrismaSiteTemplateRepository implements SiteTemplateRepository {
     return row ? toTemplate(row) : null;
   }
 
-  async listAvailable(): Promise<SiteTemplate[]> {
+  async listAvailable(kind: SiteTemplateKind): Promise<SiteTemplate[]> {
     const rows = await this.db.siteTemplate.findMany({
-      where: { available: true },
+      where: { available: true, kind },
       orderBy: { name: 'asc' },
     });
     return rows.map(toTemplate);
   }
 
-  countSitesUsing(id: string): Promise<number> {
-    return this.db.site.count({ where: { templateId: id } });
+  async countSitesUsing(id: string): Promise<number> {
+    const [sites, variants] = await Promise.all([
+      this.db.site.count({ where: { templateId: id } }),
+      this.db.landingVariant.count({ where: { templateId: id } }),
+    ]);
+    return sites + variants;
   }
 }
 
 function toTemplate(row: SiteTemplateModel): SiteTemplate {
   return SiteTemplate.restore(row.id, {
     tenantId: row.tenantId,
+    kind: row.kind as SiteTemplateKind,
     name: row.name,
     niche: row.niche,
     description: row.description,

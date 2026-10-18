@@ -12,6 +12,10 @@ import {
   type SiteAsset,
 } from '../../domain/site-asset';
 import { referencedAssetIds } from '../../domain/site-content';
+import {
+  LANDING_PAGE_REPOSITORY,
+  type LandingPageRepository,
+} from '../ports/landing-page.repository';
 import { SITE_ASSET_REPOSITORY, type SiteAssetRepository } from '../ports/site-asset.repository';
 import { SITE_HOSTING, type SiteHosting } from '../ports/site-hosting';
 import { SITE_REPOSITORY, type SiteRepository } from '../ports/site.repository';
@@ -79,6 +83,7 @@ export class DeleteSiteAssetUseCase {
   constructor(
     @Inject(SITE_ASSET_REPOSITORY) private readonly assets: SiteAssetRepository,
     @Inject(SITE_REPOSITORY) private readonly sites: SiteRepository,
+    @Inject(LANDING_PAGE_REPOSITORY) private readonly landings: LandingPageRepository,
     @Inject(SITE_HOSTING) private readonly hosting: SiteHosting,
     @Inject(FILE_STORAGE) private readonly storage: FileStorage,
   ) {}
@@ -87,7 +92,10 @@ export class DeleteSiteAssetUseCase {
     const asset = await this.assets.findById(id);
     if (!asset) throw new SiteNotFoundError('SITE_ASSET_NOT_FOUND');
     const site = await this.sites.findCurrent();
-    if (site && referencedAssetIds(site.content).includes(asset.id)) {
+    if (
+      (site && referencedAssetIds(site.content).includes(asset.id)) ||
+      (await this.landings.isAssetUsed(asset.id))
+    ) {
       throw new SiteConflictError('SITE_ASSET_IN_USE');
     }
     await this.assets.delete(asset);

@@ -1,4 +1,7 @@
 import type { TenantContext } from '../../../shared/application/tenant-context';
+import type { LandingBeacon } from '../application/ports/landing-beacon';
+import type { LandingPageRepository } from '../application/ports/landing-page.repository';
+import type { LandingStatsRepository } from '../application/ports/landing-stats.repository';
 import type { SiteAssetRepository } from '../application/ports/site-asset.repository';
 import type { SiteDomainChecker } from '../application/ports/site-domain-checker';
 import type { SiteHosting } from '../application/ports/site-hosting';
@@ -14,14 +17,17 @@ import type {
 import type { SiteTemplateRepository } from '../application/ports/site-template.repository';
 import type { SiteRepository } from '../application/ports/site.repository';
 import { InvalidSiteError } from '../domain/errors/invalid-site.error';
+import type { VariantNumbers } from '../domain/ab-test';
 import { SiteConflictError } from '../domain/errors/site-conflict.error';
+import { LandingPage, type LandingPageProps } from '../domain/landing-page.entity';
 import type { SiteAsset } from '../domain/site-asset';
-import { SiteTemplate } from '../domain/site-template.entity';
+import { SiteTemplate, type SiteTemplateKind } from '../domain/site-template.entity';
 import { Site, type SiteProps } from '../domain/site.entity';
 
 const copyTemplate = (t: SiteTemplate) =>
   SiteTemplate.restore(t.id, {
     tenantId: t.tenantId,
+    kind: t.kind,
     name: t.name,
     niche: t.niche,
     description: t.description,
@@ -55,6 +61,7 @@ export class InMemorySiteTemplateRepository implements SiteTemplateRepository {
   constructor(
     private readonly tenant: TenantContext,
     private readonly sites?: InMemorySiteRepository,
+    private readonly landings?: InMemoryLandingPageRepository,
   ) {}
 
   save(template: SiteTemplate): Promise<void> {
@@ -86,17 +93,20 @@ export class InMemorySiteTemplateRepository implements SiteTemplateRepository {
     return Promise.resolve(found ? copyTemplate(found) : null);
   }
 
-  listAvailable(): Promise<SiteTemplate[]> {
+  listAvailable(kind: SiteTemplateKind): Promise<SiteTemplate[]> {
     return Promise.resolve(
       this.items
-        .filter((t) => t.available)
+        .filter((t) => t.available && t.kind === kind)
         .sort((a, b) => a.name.localeCompare(b.name))
         .map(copyTemplate),
     );
   }
 
   countSitesUsing(id: string): Promise<number> {
-    return Promise.resolve(this.sites?.all.filter((s) => s.templateId === id).length ?? 0);
+    const sites = this.sites?.all.filter((s) => s.templateId === id).length ?? 0;
+    const variants =
+      this.landings?.all.flatMap((p) => p.variants).filter((v) => v.templateId === id).length ?? 0;
+    return Promise.resolve(sites + variants);
   }
 }
 
@@ -363,5 +373,189 @@ export class FakeSiteAccount implements SiteAccount {
 
   actingFromParentAccount(): Promise<boolean> {
     return Promise.resolve(this.acting);
+  }
+}
+
+const landingProps = (p: LandingPage): LandingPageProps =>
+  structuredClone({
+    tenantId: p.tenantId,
+    name: p.name,
+    path: p.path,
+    formId: p.formId,
+    variants: [...p.variants],
+    pendingAction: p.pendingAction,
+    lastError: p.lastError,
+    publishedAt: p.publishedAt,
+    publishedFolders: [...p.publishedFolders],
+    publishedPath: p.publishedPath,
+    publishedCodes: [...p.publishedCodes],
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  });
+
+/** Como o real: `save` grava só a edição em página existente; `savePublication`, só o estado. */
+export class InMemoryLandingPageRepository implements LandingPageRepository {
+  private rows = new Map<string, LandingPageProps>();
+
+  constructor(private readonly tenant: TenantContext) {}
+
+  get all(): LandingPage[] {
+    return [...this.rows.entries()].map(([id, props]) =>
+      LandingPage.restore(id, structuredClone(props)),
+    );
+  }
+
+  private mine(): LandingPage[] {
+    return this.all.filter((p) => p.tenantId === this.tenant.tenantId);
+  }
+
+  save(page: LandingPage): Promise<void> {
+    const taken = this.all.some(
+      (p) => p.id !== page.id && p.tenantId === page.tenantId && p.path === page.path,
+    );
+    if (taken) return Promise.reject(new SiteConflictError('LANDING_PATH_TAKEN'));
+    const current = this.rows.get(page.id);
+    const next = landingProps(page);
+    this.rows.set(
+      page.id,
+      current
+        ? {
+            ...current,
+            name: next.name,
+            path: next.path,
+            formId: next.formId,
+            variants: next.variants,
+            updatedAt: next.updatedAt,
+          }
+        : next,
+    );
+    return Promise.resolve();
+  }
+
+  savePublication(page: LandingPage): Promise<void> {
+    const current = this.rows.get(page.id);
+    if (current && current.tenantId === this.tenant.tenantId) {
+      const next = landingProps(page);
+      this.rows.set(page.id, {
+        ...current,
+        pendingAction: next.pendingAction,
+        lastError: next.lastError,
+        publishedAt: next.publishedAt,
+        publishedFolders: next.publishedFolders,
+        publishedPath: next.publishedPath,
+        publishedCodes: next.publishedCodes,
+      });
+    }
+    return Promise.resolve();
+  }
+
+  findById(id: string): Promise<LandingPage | null> {
+    return Promise.resolve(this.mine().find((p) => p.id === id) ?? null);
+  }
+
+  list(): Promise<LandingPage[]> {
+    return Promise.resolve(
+      this.mine().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    );
+  }
+
+  count(): Promise<number> {
+    return Promise.resolve(this.mine().length);
+  }
+
+  isPathTaken(path: string, exceptPageId: string | null): Promise<boolean> {
+    return Promise.resolve(
+      this.mine().some(
+        (p) => p.id !== exceptPageId && (p.path === path || p.publishedPath === path),
+      ),
+    );
+  }
+
+  listLive(): Promise<LandingPage[]> {
+    return Promise.resolve(this.mine().filter((p) => p.isLive));
+  }
+
+  delete(page: LandingPage): Promise<void> {
+    this.rows.delete(page.id);
+    return Promise.resolve();
+  }
+
+  isAssetUsed(assetId: string): Promise<boolean> {
+    return Promise.resolve(
+      this.mine().some((p) => p.variants.some((v) => v.content.heroImageAssetId === assetId)),
+    );
+  }
+
+  findVariantOwnerAsSystem(variantId: string) {
+    const page = this.all.find((p) => p.variants.some((v) => v.id === variantId));
+    return Promise.resolve(
+      page ? { tenantId: page.tenantId, landingPageId: page.id, live: page.isLive } : null,
+    );
+  }
+}
+
+export class InMemoryLandingStatsRepository implements LandingStatsRepository {
+  /** `<variante>|<dia>` → visitas (com a conta). */
+  readonly views = new Map<string, { tenantId: string; views: number }>();
+  readonly conversions = new Map<
+    string,
+    { tenantId: string; landingPageId: string; variantId: string }
+  >();
+
+  constructor(private readonly tenant: TenantContext) {}
+
+  recordView(variantId: string, day: string): Promise<void> {
+    const key = `${variantId}|${day}`;
+    const current = this.views.get(key);
+    this.views.set(key, { tenantId: this.tenant.tenantId, views: (current?.views ?? 0) + 1 });
+    return Promise.resolve();
+  }
+
+  recordConversion(c: { id: string; landingPageId: string; variantId: string }): Promise<void> {
+    if (!this.conversions.has(c.id)) {
+      this.conversions.set(c.id, {
+        tenantId: this.tenant.tenantId,
+        landingPageId: c.landingPageId,
+        variantId: c.variantId,
+      });
+    }
+    return Promise.resolve();
+  }
+
+  totals(variantIds: string[]): Promise<Map<string, VariantNumbers>> {
+    const result = new Map<string, VariantNumbers>();
+    const entry = (id: string) => {
+      let n = result.get(id);
+      if (!n) result.set(id, (n = { views: 0, conversions: 0 }));
+      return n;
+    };
+    for (const [key, row] of this.views) {
+      const id = key.split('|')[0];
+      if (row.tenantId === this.tenant.tenantId && variantIds.includes(id)) {
+        entry(id).views += row.views;
+      }
+    }
+    for (const row of this.conversions.values()) {
+      if (row.tenantId === this.tenant.tenantId && variantIds.includes(row.variantId)) {
+        entry(row.variantId).conversions += 1;
+      }
+    }
+    return Promise.resolve(result);
+  }
+
+  clear(variantIds: string[]): Promise<void> {
+    for (const key of [...this.views.keys()]) {
+      if (variantIds.includes(key.split('|')[0])) this.views.delete(key);
+    }
+    for (const [id, row] of [...this.conversions]) {
+      if (variantIds.includes(row.variantId)) this.conversions.delete(id);
+    }
+    return Promise.resolve();
+  }
+}
+
+export class FakeLandingBeacon implements LandingBeacon {
+  viewUrl(variantId: string): string {
+    return `https://api.test/v1/public/landing/views/${variantId}`;
   }
 }

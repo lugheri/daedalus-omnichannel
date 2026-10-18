@@ -6,6 +6,12 @@ import { CatalogModule } from '../catalog';
 import { ChannelsModule } from '../channels';
 import { FormsModule } from '../forms';
 import { SchedulingModule } from '../scheduling';
+import { LandingConversionHandler } from './application/event-handlers/landing-conversion.handler';
+import { LandingComposer } from './application/landing-composer';
+import { LandingRelocator } from './application/landing-location';
+import { LANDING_BEACON } from './application/ports/landing-beacon';
+import { LANDING_PAGE_REPOSITORY } from './application/ports/landing-page.repository';
+import { LANDING_STATS_REPOSITORY } from './application/ports/landing-stats.repository';
 import { SITE_ASSET_REPOSITORY } from './application/ports/site-asset.repository';
 import { SITE_DOMAIN_CHECKER } from './application/ports/site-domain-checker';
 import { SITE_HOSTING } from './application/ports/site-hosting';
@@ -15,6 +21,24 @@ import { SITE_TEMPLATE_REPOSITORY } from './application/ports/site-template.repo
 import { SITE_REPOSITORY } from './application/ports/site.repository';
 import { SiteComposer } from './application/site-composer';
 import { SITES_QUEUE } from './application/sites-jobs';
+import {
+  AddLandingVariantUseCase,
+  ChooseLandingWinnerUseCase,
+  CreateLandingPageUseCase,
+  DeleteLandingPageUseCase,
+  GetLandingPageUseCase,
+  GiveUpLandingUseCase,
+  LandingStatsUseCase,
+  ListLandingPagesUseCase,
+  PreviewLandingUseCase,
+  ProcessLandingUseCase,
+  RecordLandingViewUseCase,
+  RemoveLandingVariantUseCase,
+  RequestLandingPublicationUseCase,
+  ResetLandingStatsUseCase,
+  UpdateLandingPageUseCase,
+  UpdateLandingVariantUseCase,
+} from './application/use-cases/landing-pages.use-cases';
 import {
   DeleteSiteAssetUseCase,
   ListSiteAssetsUseCase,
@@ -41,11 +65,17 @@ import {
   RequestSitePublicationUseCase,
   UpdateSiteUseCase,
 } from './application/use-cases/site.use-cases';
+import { LandingPagesController } from './http/landing-pages.controller';
+import { PublicLandingController } from './http/public-landing.controller';
 import { SiteTemplatesController } from './http/site-templates.controller';
 import { SiteController } from './http/site.controller';
-import { AccountsSiteAccount, FacadeSiteSources } from './infra/gateways';
+import { AccountsSiteAccount, ApiLandingBeacon, FacadeSiteSources } from './infra/gateways';
 import { HttpSiteDomainChecker } from './infra/http-site-domain-checker';
 import { MustacheSiteRenderer } from './infra/mustache-site-renderer';
+import {
+  PrismaLandingPageRepository,
+  PrismaLandingStatsRepository,
+} from './infra/prisma-landing.repositories';
 import {
   PrismaSiteAssetRepository,
   PrismaSiteRepository,
@@ -55,7 +85,7 @@ import { S3SiteHosting } from './infra/s3-site-hosting';
 import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
 
 /**
- * Sites das contas (ADR 0010): modelos (HTML com marcadores, mantidos na
+ * Sites das contas (ADR 0010) e landing pages (ADR 0014): modelos (HTML com marcadores, mantidos na
  * conta da plataforma), o site de cada conta, prévia e publicação no bucket
  * público de sites (ADR 0008) pela fila `sites`.
  */
@@ -68,7 +98,12 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
     SchedulingModule,
     BullModule.registerQueue({ name: SITES_QUEUE }),
   ],
-  controllers: [SiteTemplatesController, SiteController],
+  controllers: [
+    SiteTemplatesController,
+    SiteController,
+    LandingPagesController,
+    PublicLandingController,
+  ],
   providers: [
     TemplateKeeper,
     ListSiteTemplatesUseCase,
@@ -91,6 +126,28 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
     UploadSiteAssetUseCase,
     DeleteSiteAssetUseCase,
     SiteComposer,
+    LandingComposer,
+    LandingRelocator,
+    ListLandingPagesUseCase,
+    GetLandingPageUseCase,
+    CreateLandingPageUseCase,
+    UpdateLandingPageUseCase,
+    DeleteLandingPageUseCase,
+    AddLandingVariantUseCase,
+    UpdateLandingVariantUseCase,
+    RemoveLandingVariantUseCase,
+    ChooseLandingWinnerUseCase,
+    PreviewLandingUseCase,
+    RequestLandingPublicationUseCase,
+    ProcessLandingUseCase,
+    GiveUpLandingUseCase,
+    LandingStatsUseCase,
+    ResetLandingStatsUseCase,
+    RecordLandingViewUseCase,
+    LandingConversionHandler,
+    { provide: LANDING_PAGE_REPOSITORY, useClass: PrismaLandingPageRepository },
+    { provide: LANDING_STATS_REPOSITORY, useClass: PrismaLandingStatsRepository },
+    { provide: LANDING_BEACON, useClass: ApiLandingBeacon },
     { provide: SITE_TEMPLATE_REPOSITORY, useClass: PrismaSiteTemplateRepository },
     { provide: SITE_REPOSITORY, useClass: PrismaSiteRepository },
     { provide: SITE_ASSET_REPOSITORY, useClass: PrismaSiteAssetRepository },
@@ -114,6 +171,12 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
       },
     },
   ],
-  exports: [ProcessSiteUseCase, GiveUpSiteUseCase, CheckSiteDomainUseCase],
+  exports: [
+    ProcessSiteUseCase,
+    GiveUpSiteUseCase,
+    CheckSiteDomainUseCase,
+    ProcessLandingUseCase,
+    GiveUpLandingUseCase,
+  ],
 })
 export class SitesModule {}

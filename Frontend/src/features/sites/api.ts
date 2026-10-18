@@ -80,13 +80,17 @@ export interface SiteState {
   canManageDomain: boolean
 }
 
+/** `site`: a página do site; `landing`: landing page de campanha. Não muda depois de criado. */
+export type TemplateKind = 'site' | 'landing'
+
 export interface SiteTemplateSummary {
   id: string
   name: string
+  kind: TemplateKind
   niche: string | null
   description: string | null
   available: boolean
-  /** Só na lista da conta da plataforma: quantos sites usam. */
+  /** Só na lista da conta da plataforma: quantos sites (e variantes de landing page) usam. */
   sites?: number
   createdAt: string
   updatedAt: string
@@ -131,29 +135,30 @@ export const sitesApi = {
     return api<SiteAsset>('/v1/site/assets', { method: 'POST', body: form })
   },
   removeAsset: (id: string) => api<void>(`/v1/site/assets/${id}`, { method: 'DELETE' }),
-  availableTemplates: () => api<SiteTemplateSummary[]>('/v1/site-templates/available'),
+  availableTemplates: (kind: TemplateKind = 'site') =>
+    api<SiteTemplateSummary[]>(`/v1/site-templates/available?kind=${kind}`),
 }
 
 /** Modelos (só na conta da plataforma). */
 export const templatesApi = {
   list: () => api<SiteTemplateSummary[]>('/v1/site-templates'),
   get: (id: string) => api<SiteTemplate>(`/v1/site-templates/${id}`),
-  create: (input: { name: string; niche: string | null }) =>
+  create: (input: { name: string; niche: string | null; kind: TemplateKind }) =>
     api<SiteTemplate>('/v1/site-templates', { method: 'POST', body: input }),
   update: (
     id: string,
     input: Partial<Pick<SiteTemplate, 'name' | 'niche' | 'description' | 'html' | 'available'>>,
   ) => api<SiteTemplate>(`/v1/site-templates/${id}`, { method: 'PATCH', body: input }),
   remove: (id: string) => api<void>(`/v1/site-templates/${id}`, { method: 'DELETE' }),
-  /** O HTML em edição com o site de exemplo. */
-  preview: (html: string) =>
-    api<{ html: string }>('/v1/site-templates/preview', { method: 'POST', body: { html } }),
+  /** O HTML em edição com o site (ou a landing page) de exemplo. */
+  preview: (input: { html: string; kind: TemplateKind }) =>
+    api<{ html: string }>('/v1/site-templates/preview', { method: 'POST', body: input }),
 }
 
 export const siteKeys = {
   site: ['site'] as const,
   assets: ['site', 'assets'] as const,
-  available: ['site', 'templates', 'available'] as const,
+  available: (kind: TemplateKind = 'site') => ['site', 'templates', 'available', kind] as const,
   templates: ['site-templates'] as const,
   template: (id: string) => ['site-templates', id] as const,
 }
@@ -174,8 +179,11 @@ export function useSiteAssets() {
   return useQuery({ queryKey: siteKeys.assets, queryFn: sitesApi.assets })
 }
 
-export function useAvailableTemplates() {
-  return useQuery({ queryKey: siteKeys.available, queryFn: sitesApi.availableTemplates })
+export function useAvailableTemplates(kind: TemplateKind = 'site') {
+  return useQuery({
+    queryKey: siteKeys.available(kind),
+    queryFn: () => sitesApi.availableTemplates(kind),
+  })
 }
 
 export function useSiteTemplates() {
@@ -191,4 +199,6 @@ export const PUBLISH_ERRORS: Record<string, string> = {
   SITE_TEMPLATE_INVALID_HTML: 'O modelo do site tem um erro. Avise quem gerencia a sua conta.',
   SITE_TEMPLATE_NOT_FOUND: 'O modelo do site não existe mais. Escolha outro.',
   SITE_HOSTING_UNAVAILABLE: 'O servidor dos sites não respondeu. Tente publicar de novo.',
+  LANDING_SITE_REQUIRED: 'A conta não tem mais site: a landing page mora no endereço dele.',
+  LANDING_NO_ACTIVE_VARIANT: 'Nenhuma variante com tráfego. Dê peso a pelo menos uma.',
 }

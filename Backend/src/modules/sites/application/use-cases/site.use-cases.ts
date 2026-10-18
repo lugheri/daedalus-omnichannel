@@ -26,26 +26,15 @@ import {
   type SiteTemplateRepository,
 } from '../ports/site-template.repository';
 import { SITE_REPOSITORY, type SiteRepository } from '../ports/site.repository';
+import { LandingRelocator } from '../landing-location';
 import { SiteComposer } from '../site-composer';
+import { choosableTemplate } from '../template-choice';
 import { CheckSiteDomainJob, ProcessSiteJob } from '../sites-jobs';
 
 async function loadCurrent(sites: SiteRepository): Promise<Site> {
   const site = await sites.findCurrent();
   if (!site) throw new SiteNotFoundError('SITE_NOT_FOUND');
   return site;
-}
-
-/** Modelo que a conta pode escolher (disponível), ou o que o site já usa. */
-async function choosableTemplate(
-  templates: SiteTemplateRepository,
-  id: string,
-  current: string | null,
-): Promise<SiteTemplate> {
-  const template = await templates.findForSite(id);
-  if (!template || (!template.available && template.id !== current)) {
-    throw new SiteNotFoundError('SITE_TEMPLATE_NOT_FOUND');
-  }
-  return template;
 }
 
 export interface SiteDetails {
@@ -126,6 +115,7 @@ export class UpdateSiteUseCase {
     @Inject(SITE_ASSET_REPOSITORY) private readonly assets: SiteAssetRepository,
     @Inject(SITE_ACCOUNT) private readonly account: SiteAccount,
     @Inject(SITE_HOSTING) private readonly hosting: SiteHosting,
+    private readonly landings: LandingRelocator,
   ) {}
 
   async execute(changes: {
@@ -152,6 +142,8 @@ export class UpdateSiteUseCase {
     }
     await this.sites.save(site);
     if (domainChanged) await this.sites.saveDomainStatus(site);
+    // Site fora do ar mudou de endereço: as landing pages no ar vão junto.
+    if (changes.slug !== undefined && !site.isLive) await this.landings.relocate(site);
     return { site, template: await this.templates.findForSite(site.templateId) };
   }
 
@@ -246,6 +238,7 @@ export class ProcessSiteUseCase {
     @Inject(SITE_HOSTING) private readonly hosting: SiteHosting,
     @Inject(JOB_QUEUE) private readonly jobs: JobQueue,
     private readonly composer: SiteComposer,
+    private readonly landings: LandingRelocator,
   ) {}
 
   async execute(siteId: string): Promise<void> {
@@ -259,6 +252,7 @@ export class ProcessSiteUseCase {
       if (site.publishedDomain) await removeDomainFolder(this.hosting, site.publishedDomain);
       site.markUnpublished();
       await this.sites.savePublication(site);
+      await this.landings.relocate(site, { everyLive: true });
       this.logger.log(`Site ${site.slug} fora do ar`);
       return;
     }
@@ -288,8 +282,10 @@ export class ProcessSiteUseCase {
     if (site.publishedDomain && site.publishedDomain !== site.customDomain) {
       await removeDomainFolder(this.hosting, site.publishedDomain);
     }
+    const wasLive = site.isLive;
     site.markPublished(site.slug, site.customDomain, startedAt);
     await this.sites.savePublication(site);
+    await this.landings.relocate(site, { everyLive: !wasLive });
     this.logger.log(`Site ${site.slug} publicado`);
     // Pouco depois (dá tempo de o arquivo de verificação chegar à borda); a
     // tela mostra "verificando…" até lá.

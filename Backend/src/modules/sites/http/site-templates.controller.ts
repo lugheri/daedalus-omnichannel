@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe';
@@ -22,13 +23,19 @@ import {
   UpdateSiteTemplateUseCase,
 } from '../application/use-cases/site-templates.use-cases';
 import type { SiteTemplate } from '../domain/site-template.entity';
-import { createTemplateSchema, previewTemplateSchema, updateTemplateSchema } from './dto/sites.dto';
+import {
+  availableTemplatesQuery,
+  createTemplateSchema,
+  previewTemplateSchema,
+  updateTemplateSchema,
+} from './dto/sites.dto';
 
 const idParam = new ZodValidationPipe(z.uuid());
 
 const presentTemplate = (template: SiteTemplate, sites?: number) => ({
   id: template.id,
   name: template.name,
+  kind: template.kind,
   niche: template.niche,
   description: template.description,
   available: template.available,
@@ -55,9 +62,13 @@ export class SiteTemplatesController {
     private readonly listAvailable: ListAvailableTemplatesUseCase,
   ) {}
 
+  /** `?kind=site` (padrão) ou `landing`. */
   @Get('available')
-  async available() {
-    return (await this.listAvailable.execute()).map((t) => presentTemplate(t));
+  async available(
+    @Query(new ZodValidationPipe(availableTemplatesQuery))
+    query: z.infer<typeof availableTemplatesQuery>,
+  ) {
+    return (await this.listAvailable.execute(query.kind)).map((t) => presentTemplate(t));
   }
 
   @Get()
@@ -81,7 +92,7 @@ export class SiteTemplatesController {
   async preview(
     @Body(new ZodValidationPipe(previewTemplateSchema)) body: z.infer<typeof previewTemplateSchema>,
   ) {
-    return { html: await this.previewTemplate.execute(body.html) };
+    return { html: await this.previewTemplate.execute(body.html, body.kind) };
   }
 
   @Get(':id')

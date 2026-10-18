@@ -65,8 +65,13 @@ export class PublicFormsController {
       Object.entries(FIELDS).map(([key, aliases]) => [key, pick(fields, aliases)]),
     ) as Partial<Record<keyof SubmissionFields, string | null>>;
 
+    // De onde veio (`?ref=` na ação do formulário, ou campo `ref`): as landing pages
+    // marcam a variante para contar a conversão.
+    const query = (request.query ?? {}) as Record<string, unknown>;
+    const ref = pick(query, ['ref']) ?? pick(fields, ['ref']);
+
     try {
-      const { successUrl } = await this.submitForm.execute(request.formId!, raw);
+      const { successUrl } = await this.submitForm.execute(request.formId!, raw, ref);
       return wantsJson ? reply.send({ ok: true }) : reply.redirect(successUrl ?? thanksUrl, 303);
     } catch (error) {
       // JSON: o filtro global responde { code, message } como no resto da API.

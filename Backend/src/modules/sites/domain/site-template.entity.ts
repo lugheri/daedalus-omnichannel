@@ -1,6 +1,10 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { InvalidSiteError } from './errors/invalid-site.error';
 
+/** `site`: a página do site da conta; `landing`: landing page de campanha (ADR 0014). */
+export const SITE_TEMPLATE_KINDS = ['site', 'landing'] as const;
+export type SiteTemplateKind = (typeof SITE_TEMPLATE_KINDS)[number];
+
 /** Um documento HTML de página única com CSS embutido cabe folgado nisso. */
 export const MAX_TEMPLATE_HTML_LENGTH = 300_000;
 
@@ -14,6 +18,8 @@ export interface SiteTemplateDetails {
 export interface SiteTemplateProps extends SiteTemplateDetails {
   /** Conta que mantém o modelo (a da plataforma). */
   tenantId: string;
+  /** Não muda depois de criado: os marcadores de cada tipo são outros. */
+  kind: SiteTemplateKind;
   /** As contas só escolhem modelos disponíveis; rascunho fica só com quem mantém. */
   available: boolean;
   createdAt: Date;
@@ -26,11 +32,15 @@ export interface SiteTemplateProps extends SiteTemplateDetails {
  * conferida na aplicação (pelo renderizador) antes de gravar.
  */
 export class SiteTemplate extends AggregateRoot<SiteTemplateProps> {
-  static create(id: string, input: SiteTemplateDetails & { tenantId: string }): SiteTemplate {
+  static create(
+    id: string,
+    input: SiteTemplateDetails & { tenantId: string; kind?: SiteTemplateKind },
+  ): SiteTemplate {
     const now = new Date();
     return new SiteTemplate(id, {
       ...validDetails(input),
       tenantId: input.tenantId,
+      kind: input.kind ?? 'site',
       available: false,
       createdAt: now,
       updatedAt: now,
@@ -60,6 +70,9 @@ export class SiteTemplate extends AggregateRoot<SiteTemplateProps> {
 
   get tenantId() {
     return this.props.tenantId;
+  }
+  get kind() {
+    return this.props.kind;
   }
   get name() {
     return this.props.name;

@@ -135,6 +135,17 @@ export const router = createBrowserRouter([
             children: [
               { path: '/site', ...page(() => import('@/features/sites/site-page'), 'SitePage') },
               {
+                path: '/landing-pages',
+                ...page(
+                  () => import('@/features/landing-pages/landing-pages-page'),
+                  'LandingPagesPage',
+                ),
+              },
+              {
+                path: '/landing-pages/:id',
+                ...page(() => import('@/features/landing-pages/landing-page'), 'LandingPagePage'),
+              },
+              {
                 path: '/site-templates',
                 ...page(() => import('@/features/sites/templates-page'), 'TemplatesPage'),
               },

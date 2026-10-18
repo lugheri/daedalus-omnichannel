@@ -6,6 +6,7 @@ import {
   Globe,
   CalendarDays,
   Contact,
+  FlaskConical,
   Headset,
   Home,
   Inbox,
@@ -116,12 +117,18 @@ export const NAV_MODULES: NavModule[] = [
     key: 'site',
     label: 'Site',
     icon: Globe,
-    description: 'O site da empresa e os formulários que levam os contatos ao CRM',
+    description: 'O site da empresa, landing pages e os formulários que levam os contatos ao CRM',
     groups: [
       {
         label: null,
         items: [
           { to: '/site', label: 'Meu site', icon: MonitorSmartphone, anyOf: ['sites:manage'] },
+          {
+            to: '/landing-pages',
+            label: 'Landing pages',
+            icon: FlaskConical,
+            anyOf: ['sites:manage'],
+          },
           { to: '/forms', label: 'Formulários', icon: ClipboardList, anyOf: ['forms:manage'] },
           {
             to: '/site-templates',

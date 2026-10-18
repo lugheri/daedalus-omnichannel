@@ -62,7 +62,11 @@ describe('Forms', () => {
   const update = (id: string, changes: Parameters<UpdateFormUseCase['execute']>[1]) =>
     new UpdateFormUseCase(forms, keys).execute(id, changes);
   /** Como a rota pública: o guard resolve a chave e fixa o tenant; depois, o envio. */
-  const submit = async (publicKey: string, fields: Record<string, string>) => {
+  const submit = async (
+    publicKey: string,
+    fields: Record<string, string>,
+    sourceRef: string | null = null,
+  ) => {
     const { formId, tenantId } = await new AuthenticateFormKeyUseCase(forms).execute(publicKey);
     tenant.enter(tenantId);
     return new SubmitFormUseCase(
@@ -73,7 +77,7 @@ describe('Forms', () => {
       ids,
       events,
       new ImmediateUnitOfWork(),
-    ).execute(formId, fields);
+    ).execute(formId, fields, sourceRef);
   };
 
   describe('managing forms', () => {
@@ -159,6 +163,17 @@ describe('Forms', () => {
           contactId: 'contact-1',
           service: null,
         }),
+      ]);
+    });
+
+    it('the page origin (?ref=) goes to the submission and the event; a bad one is ignored', async () => {
+      const form = await create({});
+      await submit(form.publicKey, { phone: '11999990000' }, 'lp:0199-variante');
+      await submit(form.publicKey, { phone: '11999990000' }, '<script>');
+      expect(submissions.items.map((s) => s.sourceRef)).toEqual(['lp:0199-variante', null]);
+      expect(events.published.map((e) => (e as FormSubmittedEvent).sourceRef)).toEqual([
+        'lp:0199-variante',
+        null,
       ]);
     });
 

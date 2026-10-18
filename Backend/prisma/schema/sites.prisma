@@ -14,13 +14,16 @@ model SiteTemplate {
   html        String
   // Disponível: as contas podem escolher. Rascunho: só quem mantém vê.
   available   Boolean
+  // site | landing (ADR 0014): a página inteira do site ou uma landing page.
+  kind        String   @default("site")
   createdAt   DateTime @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @map("updated_at") @db.Timestamptz(3)
 
-  sites Site[]
+  sites    Site[]
+  variants LandingVariant[]
 
   @@index([tenantId, name])
-  @@index([available])
+  @@index([available, kind])
   @@map("templates")
   @@schema("sites")
 }
@@ -70,5 +73,89 @@ model SiteAsset {
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@map("assets")
+  @@schema("sites")
+}
+
+// Landing pages (ADR 0014): páginas de campanha no endereço do site da conta
+// (<site>/<path>/), com até 4 variantes para teste A/B. O que foi publicado
+// fica registrado (pastas, caminho e letras das variantes) para tirar do ar
+// exatamente o que foi gravado no bucket.
+model LandingPage {
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  name             String
+  // Caminho dentro do site: barbearia.sites.com/<path>/. Único na conta.
+  path             String
+  // Formulário (módulo forms) cujo envio conta como conversão; null = sem.
+  formId           String?   @map("form_id") @db.Uuid
+  pendingAction    String?   @map("pending_action")
+  lastError        String?   @map("last_error")
+  publishedAt      DateTime? @map("published_at") @db.Timestamptz(3)
+  // Onde está no ar: pastas do bucket (slug e domínio), caminho e as letras
+  // das variantes gravadas (com teste: <pasta>/<path>/<letra>/).
+  publishedFolders String[]  @default([]) @map("published_folders")
+  publishedPath    String?   @map("published_path")
+  publishedCodes   String[]  @default([]) @map("published_codes")
+  createdAt        DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  variants LandingVariant[]
+
+  @@unique([tenantId, path])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("landing_pages")
+  @@schema("sites")
+}
+
+model LandingVariant {
+  id            String       @id @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  landingPageId String       @map("landing_page_id") @db.Uuid
+  page          LandingPage  @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  // a, b, c ou d: a pasta da variante durante o teste.
+  code          String
+  name          String
+  templateId    String       @map("template_id") @db.Uuid
+  template      SiteTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  // domain/landing-content.ts
+  content       Json
+  // Peso na divisão do tráfego (0 = fora do teste).
+  weight        Int
+  createdAt     DateTime     @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([landingPageId, code])
+  @@index([templateId])
+  @@index([tenantId])
+  @@map("landing_variants")
+  @@schema("sites")
+}
+
+// Visitas por variante e dia (UTC). A página avisa uma vez por navegador e
+// dia; o contador só soma.
+model LandingView {
+  variantId String   @map("variant_id") @db.Uuid
+  day       DateTime @db.Date
+  tenantId  String   @map("tenant_id") @db.Uuid
+  views     Int
+
+  @@id([variantId, day])
+  @@index([tenantId])
+  @@map("landing_views")
+  @@schema("sites")
+}
+
+// Conversões: um envio de formulário vindo de uma variante. O id é o do
+// envio (evento repetido não conta duas vezes).
+model LandingConversion {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  landingPageId String   @map("landing_page_id") @db.Uuid
+  variantId     String   @map("variant_id") @db.Uuid
+  createdAt     DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, variantId])
+  @@index([landingPageId])
+  @@map("landing_conversions")
   @@schema("sites")
 }
