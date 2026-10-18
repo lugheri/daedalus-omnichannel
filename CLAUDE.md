@@ -53,6 +53,8 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 
 ## Ambiente de desenvolvimento
 
+Passo a passo para subir tudo (primeira vez, dia a dia, desligar, testes e problemas comuns): [docs/desenvolvimento-local.md](docs/desenvolvimento-local.md).
+
 - Windows + Docker Engine **dentro do WSL** (Ubuntu 22.04), sem Docker Desktop. Comandos `docker` rodam num terminal WSL.
 - O WSL desliga quando não há sessão aberta, derrubando os containers: manter um terminal WSL aberto enquanto desenvolve.
 - A API roda no Windows (`npm run start:dev`, porta 3000) e o front também (`npm run dev`, porta **5180** — a 5173 é usada por outro projeto da máquina).
