@@ -166,332 +166,459 @@ footer { color: var(--muted); font-size: 0.9rem; display: grid; gap: 6px; border
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
 
+<style>
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.plan { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.plan .n { font: 500 0.7rem/1 var(--font-mono); color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+.plan .v { font: 700 1.35rem/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.plan .v small { font: 500 0.75rem var(--font-mono); color: var(--muted); }
+.plan p { font-size: 0.9rem; color: var(--muted); }
+.plan.main { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.plan.tbd { border-style: dashed; }
+.plan.tbd .v { color: var(--muted); }
+.cmp { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.cmp table { min-width: 560px; }
+.src { font: 500 0.68rem var(--font-mono); white-space: nowrap; }
+.src.own { color: var(--accent); }
+.src.gap { color: var(--signal); }
+</style>
+
 <div class="wrap">
 
 <header>
-  <span class="eyebrow">Daedalus OminiChannel · produto para negócios locais · 05/10/2026</span>
+  <span class="eyebrow">Daedalus OminiChannel · produto para negócios locais · atualizado em 07/10/2026</span>
   <h1>Roteiro de captação para negócios locais</h1>
-  <p class="thesis">Encontramos empresas sem site ou com site fraco, vendemos um site hospedado por nós e já ligado ao CRM. O site é o gancho. O negócio é a mensalidade, que cresce conforme o cliente passa a enxergar de onde vêm os clientes dele.</p>
-  <p class="principle"><strong>As fases são possibilidades, não um compromisso.</strong> Cada uma só começa se os clientes pedirem ou se os números da fase anterior justificarem. O critério para avançar está no fim de cada fase.</p>
+  <p class="thesis">Encontramos empresas sem site ou com site fraco e vendemos um site hospedado por nós, já ligado a um sistema com CRM, agenda e contatos. O site abre a porta; o sistema é a mensalidade.</p>
+  <p class="principle"><strong>Primeiro o Básico, depois o que os clientes pedirem.</strong> Os planos 2 e 3 só ganham forma com o feedback dos primeiros 10 a 20 clientes.</p>
   <div class="decisions" aria-label="Decisões tomadas">
     <span class="chip">Daedalus hospeda os sites</span>
-    <span class="chip">R$ 59/mês com hospedagem</span>
-    <span class="chip">Site por faixa: R$ 497 · R$ 697 · sob medida</span>
-    <span class="chip">Subdomínio nosso no teste</span>
-    <span class="chip">Abordagem manual, WhatsApp de número separado</span>
+    <span class="chip">Três planos, sem loja de módulos</span>
+    <span class="chip">Vender só o Básico no começo</span>
+    <span class="chip">Twilio como provedor inicial</span>
+    <span class="chip">Parceiros desde cedo: indicadores</span>
     <span class="chip">Receita Federal primeiro, Google depois</span>
-    <span class="chip open">Escada de planos: a decidir</span>
-    <span class="chip open">Nichos: depende da Fase 0</span>
+    <span class="chip open">Modelo A × B: decide o teste</span>
+    <span class="chip open">WhatsApp não oficial no Básico?</span>
   </div>
 </header>
+
+<section aria-labelledby="p-title" style="display:grid;gap:16px">
+  <span class="eyebrow">Planos</span>
+  <h2 id="p-title">O que se vende e quanto custa</h2>
+  <div class="plans">
+    <div class="plan"><span class="n">Site · modelo A</span><span class="v">6 × R$ 300</span><p>Pago junto com o sistema nos 6 primeiros meses. Depois, sai da conta.</p></div>
+    <div class="plan main"><span class="n">Plano Básico</span><span class="v">R$ 197<small>/mês</small></span><p>Site hospedado, e-mail, CRM com funil, agenda, contatos. WhatsApp não oficial a decidir. Até 3 usuários.</p></div>
+    <div class="plan tbd"><span class="n">Plano 2</span><span class="v">a definir</span><p>Pelo que os clientes pedirem. Esboço de 07/10: ~R$ 347.</p></div>
+    <div class="plan tbd"><span class="n">Plano 3</span><span class="v">a definir</span><p>Pelo que os clientes pedirem. Esboço de 07/10: ~R$ 547.</p></div>
+    <div class="plan tbd"><span class="n">Alternativa · modelo B</span><span class="v">R$ 297<small>/mês</small></span><p>Site incluso, sem taxa de criação, fidelidade de 12 meses.</p></div>
+    <div class="plan tbd"><span class="n">Entrada · ideia</span><span class="v">mais barato</span><p>Site simples e formulário, para o MEI que não paga R$ 497 por mês.</p></div>
+  </div>
+  <div class="cmp">
+    <table>
+      <thead><tr><th scope="col">Modelo</th><th scope="col">Meses 1 a 6</th><th scope="col">Depois</th><th scope="col">1º ano por cliente</th><th scope="col">Conservador: 12 meses</th><th scope="col">Conservador: 24 meses</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">A · site parcelado + sistema</th><td>R$ 497/mês</td><td>R$ 197/mês</td><td>~R$ 4.164</td><td>~R$ 59 mil</td><td>~R$ 166 mil</td></tr>
+        <tr><th scope="row">B · mensalidade única</th><td>R$ 297/mês</td><td>R$ 297/mês</td><td>~R$ 3.564</td><td>~R$ 61 mil</td><td>~R$ 212 mil</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">B só compensa se converter pelo menos ~1,45 vez o A em 12 meses, ou ~1,18 vez em 24 meses. O teste divide as ligações entre as duas ofertas para medir isso. Simulação completa em <code>simulador-precos.html</code>.</p>
+</section>
 
 <section class="journey" aria-labelledby="j-title">
   <span class="eyebrow">A jornada de um cliente do nosso cliente</span>
   <h2 id="j-title">Da busca no Google até a venda</h2>
-  <p class="muted">Cada etapa mostra em que fase ela entra no produto. A promessa ao empresário é aumentar a chance de ser encontrado e converter quem já chega. Não prometemos número de leads.</p>
+  <p class="muted">Cada etapa mostra em que plano entra. A promessa ao empresário é aumentar a chance de ser encontrado e converter quem já chega. Não prometemos número de leads.</p>
   <div class="flow-scroll">
     <div class="flow" role="list">
       <div class="col" role="listitem">
-        <div class="node"><span class="tag">F1 · serviço</span><b>Perfil do Google</b><span class="muted">configurado à mão</span></div>
-        <div class="node later"><span class="tag">F3–F4</span><b>Instagram</b><span class="muted">conteúdo e posts</span></div>
-        <div class="node later"><span class="tag">F5</span><b>Anúncios</b><span class="muted">Meta e Google Ads</span></div>
+        <div class="node"><span class="tag">Básico · serviço</span><b>Google Maps</b><span class="muted">perfil configurado</span></div>
+        <div class="node later"><span class="tag">Planos 2–3</span><b>Redes sociais</b><span class="muted">integração e campanhas</span></div>
+        <div class="node later"><span class="tag">Depois</span><b>Anúncios</b><span class="muted">Meta e Google Ads</span></div>
       </div>
       <span class="arrow" aria-hidden="true">→</span>
       <div class="col" role="listitem">
-        <div class="node core"><span class="tag">F1</span><b>Site</b><span class="muted">hospedado, por nicho</span></div>
+        <div class="node core"><span class="tag">Básico</span><b>Site</b><span class="muted">hospedado, por nicho</span></div>
+        <div class="node later"><span class="tag">Planos 2–3</span><b>Páginas de captura</b><span class="muted">com teste A/B</span></div>
       </div>
       <span class="arrow" aria-hidden="true">→</span>
       <div class="col" role="listitem">
-        <div class="node core"><span class="tag">F1</span><b>Formulário</b><span class="muted">vira lead na hora</span></div>
-        <div class="node core"><span class="tag">F1</span><b>Botão WhatsApp</b><span class="muted">clique registrado</span></div>
+        <div class="node core"><span class="tag">Básico</span><b>Formulário</b><span class="muted">vira lead na hora</span></div>
+        <div class="node core"><span class="tag">Básico</span><b>Agendamento</b><span class="muted">pela agenda</span></div>
+        <div class="node later"><span class="tag">Planos 2–3</span><b>Ligação e SMS</b><span class="muted">PBX e SMS</span></div>
       </div>
       <span class="arrow" aria-hidden="true">→</span>
       <div class="col" role="listitem">
-        <div class="node core"><span class="tag">F1</span><b>Lead com origem</b><span class="muted">Google, Instagram, anúncio</span></div>
+        <div class="node core"><span class="tag">Básico</span><b>Lead com origem</b><span class="muted">Google, Instagram, parceiro</span></div>
       </div>
       <span class="arrow" aria-hidden="true">→</span>
       <div class="col" role="listitem">
-        <div class="node"><span class="tag">F1 · já existe</span><b>CRM / kanban</b><span class="muted">funil por nicho</span></div>
+        <div class="node core"><span class="tag">Básico</span><b>CRM com funil</b><span class="muted">e gestão de contatos</span></div>
+        <div class="node later"><span class="tag">Básico?</span><b>WhatsApp</b><span class="muted">não oficial a decidir; oficial nos planos 2–3</span></div>
       </div>
       <span class="arrow" aria-hidden="true">→</span>
       <div class="col" role="listitem">
-        <div class="node"><span class="tag">F1</span><b>Atender</b><span class="muted">leads não tratados</span></div>
-        <div class="node"><span class="tag">F2</span><b>Follow-up</b><span class="muted">alerta e automação</span></div>
-        <div class="node later"><span class="tag">F4</span><b>Recuperar</b><span class="muted">reativar antigos</span></div>
+        <div class="node"><span class="tag">Básico</span><b>Atender</b><span class="muted">leads não tratados</span></div>
+        <div class="node later"><span class="tag">Planos 2–3</span><b>Recuperar</b><span class="muted">e-mail marketing e campanhas</span></div>
       </div>
       <span class="arrow" aria-hidden="true">→</span>
       <div class="col" role="listitem">
-        <div class="node"><span class="tag">F2</span><b>Venda medida</b><span class="muted">relatório mensal</span></div>
+        <div class="node"><span class="tag">Básico</span><b>Venda medida</b><span class="muted">relatório mensal</span></div>
       </div>
     </div>
   </div>
   <div class="legend">
-    <span><i class="sw core"></i>peça central do MVP</span>
-    <span><i class="sw"></i>entra cedo, já existe ou é serviço</span>
-    <span><i class="sw later"></i>fase posterior</span>
+    <span><i class="sw core"></i>no plano Básico</span>
+    <span><i class="sw"></i>Básico, mais simples ou serviço</span>
+    <span><i class="sw later"></i>planos 2–3 ou depois, conforme o feedback</span>
+  </div>
+</section>
+
+<section aria-labelledby="v-title" style="display:grid;gap:24px">
+  <div style="display:grid;gap:8px">
+    <span class="eyebrow">Validação e canais</span>
+    <h2 id="v-title">Provar que vende antes de construir mais</h2>
+  </div>
+  <div class="line">
+
+    <div class="station now" id="etapa-a">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t"><span class="eyebrow">Etapa A</span><h3>Levantamento de nichos e regiões</h3><span class="status now">Em andamento</span></div>
+          <div class="price">Sorocaba pronta<small>base da Receita de 2026-09, Brasil inteiro no disco</small></div>
+        </div>
+        <p>A base da Receita dá todas as empresas ativas por nicho e cidade. O Google entra depois, empresa por empresa. A prospecção vai para o Brasil inteiro; o levantamento diz por quais nichos e regiões começar.</p>
+        <div class="grid">
+          <div class="block">
+            <h4>Sorocaba: nome + celular + 2 anos ou mais</h4>
+            <ul>
+              <li>Imobiliária: 264 · Oficina: 144 · Contabilidade: 143</li>
+              <li>Pet: 141 · Dentista: 111 · Eletricista: 110 · Estética: 90</li>
+              <li>Com o preço do modelo A, os nichos de ticket alto (dentista, clínica, contabilidade, imobiliária) são os que mais cabem</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Próximos passos</h4>
+            <ul>
+              <li>Rodar outras cidades e regiões e comparar proporções</li>
+              <li>Google para as empresas com nome fantasia</li>
+              <li>Opcional: URA do Janus como triagem de interesse</li>
+            </ul>
+          </div>
+        </div>
+        <div class="trap"><h4>Cuidado</h4><p>"Ativa" na Receita não é negócio funcionando. URA de oferta exige prefixo 0303 e respeito à lista de bloqueio do Procon-SP.</p></div>
+      </article>
+    </div>
+
+    <div class="station future" id="etapa-b">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t"><span class="eyebrow">Etapa B</span><h3>Venda do Básico pelo fundador</h3><span class="status idea">Planejada</span></div>
+          <div class="price">10 ligações por dia<small>~210 por mês</small></div>
+        </div>
+        <div class="grid">
+          <div class="block">
+            <h4>Como</h4>
+            <ul>
+              <li>Ligação, com a prévia do site da própria empresa</li>
+              <li>Metade das ligações com a oferta A, metade com a B</li>
+              <li>Registrar o que cada cliente pediu e não tinha</li>
+              <li>Fundadores: preço especial em troca de caso e depoimento</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Projeção sozinho, modelo A, 12 meses</h4>
+            <ul>
+              <li>Pessimista: ~R$ 28 mil, ~9 clientes</li>
+              <li>Conservador: ~R$ 59 mil, ~20 clientes</li>
+              <li>Moderado: ~R$ 84 mil, ~30 clientes</li>
+            </ul>
+          </div>
+        </div>
+        <div class="gate"><h4>O que esta etapa decide</h4><p>Modelo A ou B pela conversão real; conteúdo dos planos 2 e 3 pelos pedidos; hora de contratar vendedores pela conversão e pelo cancelamento dos primeiros meses.</p></div>
+      </article>
+    </div>
+
+    <div class="station future" id="parceiros">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t"><span class="eyebrow">Canal</span><h3>Parceiros</h3><span class="status idea">Esboço</span></div>
+          <div class="price">Indicador desde já<small>Revendedor com 20 clientes</small></div>
+        </div>
+        <div class="grid">
+          <div class="block">
+            <h4>Indicador</h4>
+            <ul>
+              <li>Contador, cliente satisfeito, consultor</li>
+              <li>1 parcela do site (R$ 300) + 10% da mensalidade por 12 meses</li>
+              <li>~R$ 536 no 1º ano, ~13% da receita do cliente</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Revendedor</h4>
+            <ul>
+              <li>Agência ou empresa B2B que vende e ajuda a implantar</li>
+              <li>2 parcelas (R$ 600) + 20% enquanto o cliente estiver ativo</li>
+              <li>~R$ 1.073 no 1º ano, ~26% da receita do cliente</li>
+            </ul>
+          </div>
+        </div>
+        <div class="gate"><h4>Regras principais</h4><p>Comissão só sobre o que foi recebido, setup pago depois da 2ª parcela, nada para cancelamento em 60 dias, e empresa já abordada por nós em 90 dias não conta. Detalhes em <code>programa-de-parceiros.md</code>.</p></div>
+      </article>
+    </div>
+
+    <div class="station future" id="etapa-c">
+      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
+      <article class="card">
+        <div class="card-head">
+          <div class="t"><span class="eyebrow">Etapa C</span><h3>Vendedores</h3><span class="status idea">Possibilidade</span></div>
+          <div class="price">pelo menos 3<small>só com números reais do teste</small></div>
+        </div>
+        <div class="grid">
+          <div class="block">
+            <h4>Gargalos</h4>
+            <ul>
+              <li>Produzir 1 a 2 sites por dia útil</li>
+              <li>Implantação e suporte do primeiro mês</li>
+              <li>Uma linha ou número por vendedor</li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>A favor</h4>
+            <ul>
+              <li>No modelo A, cada venda rende R$ 497 por mês nos 6 primeiros meses</li>
+              <li>A comissão pode ser boa sem quebrar a margem</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </div>
+
+  </div>
+</section>
+
+<section aria-labelledby="pb-title" style="display:grid;gap:20px">
+  <div style="display:grid;gap:8px">
+    <span class="eyebrow">Playbook de prospecção · versão 0.1</span>
+    <h2 id="pb-title">Como abordar, canal por canal</h2>
+    <p class="muted">Tudo aqui é hipótese até as primeiras 50 ligações. Cada mudança entra no registro de experimentos do playbook.</p>
+  </div>
+
+  <div class="two">
+    <div class="panel">
+      <span class="eyebrow">Princípios</span>
+      <ul>
+        <li><b>A prévia vende.</b> Mostrar o site da própria empresa, com nome, fotos e avaliações dela.</li>
+        <li><b>Resultado, não ferramenta.</b> O dono quer cliente, não CRM.</li>
+        <li><b>Sem promessa de número de leads.</b> Os números aparecem depois, no relatório.</li>
+        <li><b>Um próximo passo por contato:</b> ver a prévia, marcar 15 minutos ou receber pelo WhatsApp.</li>
+        <li><b>Registrar tudo no CRM:</b> resultado, objeção e o que o dono pediu.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <span class="eyebrow">Personalização</span>
+      <p class="muted">Da base da Receita e do Google, para cada empresa:</p>
+      <div class="decisions">
+        <span class="chip">{empresa}</span><span class="chip">{cidade}</span><span class="chip">{bairro}</span><span class="chip">{nicho}</span><span class="chip">{anos}</span><span class="chip">{nota}</span><span class="chip">{avaliacoes}</span><span class="chip">{tem_site}</span>
+      </div>
+    </div>
+  </div>
+
+  <article class="card" style="margin-bottom:0">
+    <div class="card-head">
+      <div class="t"><span class="eyebrow">Canal principal</span><h3>Telefone</h3><span class="status now">Começa por aqui</span></div>
+      <div class="price">~2 minutos<small>10 ligações por dia</small></div>
+    </div>
+    <div class="grid">
+      <div class="block">
+        <h4>Roteiro</h4>
+        <ul>
+          <li><b>Abertura:</b> "Posso te tomar um minuto?"</li>
+          <li><b>Gancho:</b> "Vi a {empresa} no Google: nota {nota}, com {avaliacoes} avaliações. Mas vocês não têm site, e quem procura acaba clicando em quem tem."</li>
+          <li><b>Dor:</b> "Hoje os clientes novos chegam como?"</li>
+          <li><b>Oferta:</b> "Já deixei um modelo pronto com o nome da {empresa}. Posso mandar pelo WhatsApp?"</li>
+          <li><b>Próximo passo:</b> pegar o WhatsApp e marcar 15 minutos.</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Objeções</h4>
+        <ul>
+          <li><b>"Já tenho Instagram."</b> O Instagram é para quem já te segue; o site, para quem procura no Google.</li>
+          <li><b>"Quanto custa?"</b> Só depois da prévia: "menos que um cliente novo por mês".</li>
+          <li><b>"Meu sobrinho faz."</b> O nosso vem com o sistema que avisa cada contato e mede os resultados.</li>
+          <li><b>"Já tentei e não deu certo."</b> Por isso a gente mede todo mês.</li>
+          <li><b>"Não é o dono."</b> Pegar o nome e o melhor horário; não deixar recado com a oferta.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="trap"><h4>Antes de escalar</h4><p>Confirmar o prefixo 0303 (Anatel) para ligação de oferta e respeitar a lista de bloqueio do Procon-SP.</p></div>
+  </article>
+
+  <div class="two">
+    <article class="card" style="margin-bottom:0">
+      <div class="card-head">
+        <div class="t"><span class="eyebrow">Depois da ligação</span><h3>WhatsApp</h3></div>
+        <div class="price">4 mensagens<small>só para quem deu o número</small></div>
+      </div>
+      <ul>
+        <li><b>Na hora:</b> o link da prévia, como combinado.</li>
+        <li><b>2 dias depois:</b> "Conseguiu ver? Se quiser ajustar algo, eu mudo."</li>
+        <li><b>5 dias depois:</b> o painel que avisa cada contato; convite para 15 minutos.</li>
+        <li><b>10 dias depois:</b> encerramento educado, deixando a porta aberta.</li>
+      </ul>
+      <div class="trap"><h4>Cuidado</h4><p>Mensagem fria pelo WhatsApp não oficial derruba o número. Número de prospecção separado do de atendimento.</p></div>
+    </article>
+    <article class="card" style="margin-bottom:0">
+      <div class="card-head">
+        <div class="t"><span class="eyebrow">Para nichos que leem e-mail</span><h3>E-mail</h3></div>
+        <div class="price">3 e-mails<small>advocacia, contabilidade, imobiliária, clínicas</small></div>
+      </div>
+      <ul>
+        <li><b>Dia 1:</b> "Fiz uma prévia do site da {empresa}", com o link e o convite para 15 minutos.</li>
+        <li><b>Dia 3:</b> lembrete da prévia, oferecendo ajustes.</li>
+        <li><b>Dia 7:</b> "Encerrando por aqui".</li>
+      </ul>
+      <div class="trap"><h4>Cuidado</h4><p>Domínio de envio separado, com SPF, DKIM e DMARC, pouco volume no começo e descadastro em todo e-mail. E-mail repetido em várias empresas é do contador.</p></div>
+    </article>
+  </div>
+
+  <div class="panel">
+    <span class="eyebrow">Outros canais, do mais barato ao mais caro</span>
+    <p class="muted">Cada site entregue vira conteúdo (com autorização do cliente): antes e depois, bastidores, o primeiro lead que chegou. O mesmo material alimenta todos os canais.</p>
+    <div class="grid">
+      <div class="block"><h4>Instagram</h4><ul><li>Antes e depois de sites</li><li>Reels: "montei o site de uma clínica em 1 hora"</li><li>Interagir com negócios locais; nada de DM fria em massa</li></ul></div>
+      <div class="block"><h4>TikTok</h4><ul><li>Bastidores e reação do dono</li><li>Tom leve; serve para marca e para atrair parceiros</li></ul></div>
+      <div class="block"><h4>YouTube</h4><ul><li>"Como aparecer no Google sendo dentista"</li><li>Shorts reaproveitando os reels</li><li>Casos com números</li></ul></div>
+      <div class="block"><h4>Google</h4><ul><li>Perfil da Empresa do próprio produto, com avaliações</li><li>Anúncios só depois de saber quanto vale um cliente</li></ul></div>
+      <div class="block"><h4>SEO no site</h4><ul><li>Uma página por nicho</li><li>Nicho + cidade só onde há caso real</li><li>Guias para o dono; "feito por" no rodapé dos sites</li></ul></div>
+      <div class="block"><h4>Local e relacionamento</h4><ul><li>Associações comerciais, Sebrae, grupos de empresários</li><li>LinkedIn para contadores e B2B</li><li>Indicação de cliente: 1 mês grátis</li></ul></div>
+    </div>
+  </div>
+
+  <div class="matrix-wrap">
+    <table>
+      <thead><tr><th scope="col">Canal</th><th scope="col">Métrica principal</th><th scope="col">Métrica de apoio</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Telefone</th><td>ligações → conversas com o dono → prévias vistas → vendas</td><td>objeções, horário que mais atende</td></tr>
+        <tr><th scope="row">WhatsApp</th><td>respostas por mensagem da sequência</td><td>em qual mensagem respondem</td></tr>
+        <tr><th scope="row">E-mail</th><td>respostas (não aberturas)</td><td>descadastros, caixa de spam</td></tr>
+        <tr><th scope="row">Redes sociais</th><td>contatos vindos do conteúdo</td><td>alcance no nicho</td></tr>
+        <tr><th scope="row">SEO</th><td>contatos pelo site do produto</td><td>posição das páginas de nicho</td></tr>
+        <tr><th scope="row">Parceiros</th><td>indicações e vendas por parceiro</td><td>tempo até a primeira indicação</td></tr>
+      </tbody>
+    </table>
   </div>
 </section>
 
 <section aria-labelledby="f-title" style="display:grid;gap:24px">
   <div style="display:grid;gap:8px">
-    <span class="eyebrow">Fases</span>
-    <h2 id="f-title">O que o produto precisa ter em cada fase</h2>
+    <span class="eyebrow">Produto</span>
+    <h2 id="f-title">O que o sistema precisa ter em cada plano</h2>
   </div>
 
   <div class="line">
 
-    <!-- Fase 0 -->
-    <div class="station now" id="fase-0">
+    <div class="station" id="basico">
       <div class="rail"><span class="dot" aria-hidden="true"></span></div>
       <article class="card">
         <div class="card-head">
-          <div class="t">
-            <span class="eyebrow">Fase 0 · alguns dias</span>
-            <h3>Descobrir onde vender</h3>
-            <span class="status now">Em andamento</span>
-          </div>
-          <div class="price">sem receita<small>custo: só tempo</small></div>
+          <div class="t"><span class="eyebrow">Plano Básico</span><h3>Site + e-mail + CRM + agenda + contatos</h3><span class="status idea">O que se vende primeiro</span></div>
+          <div class="price">R$ 197/mês<small>+ site 6 × R$ 300 (modelo A)</small></div>
         </div>
-        <p>Medir, antes de abordar alguém, quais nichos têm mais empresas ativas sem site. Primeira cidade: Sorocaba. Depois São Paulo (por bairro) e outras cidades do interior.</p>
         <div class="grid">
           <div class="block">
-            <h4>O que precisa existir</h4>
+            <h4>Para vender</h4>
             <ul>
-              <li>Script da base de CNPJ da Receita: empresas ativas por nicho e cidade <span class="have">feito</span></li>
-              <li>Sinais grátis: celular, tipo de e-mail (gratuito, contador, domínio próprio), idade</li>
-              <li>Consulta ao Google só para as empresas filtradas: site, nota, avaliações</li>
+              <li>Módulo de sites: templates por nicho, HTML gerado ao publicar, subdomínio</li>
+              <li>Formulário público por conta, com anti-spam</li>
+              <li>Origem do lead, inclusive o código do parceiro</li>
+              <li>Tela de leads não tratados e contagem de visitas</li>
+              <li>Agenda integrada ao Daedalus</li>
+              <li>Planos e cobrança na conta do cliente</li>
             </ul>
           </div>
           <div class="block">
-            <h4>No produto</h4>
-            <ul><li>Nada. É uma ferramenta interna, fora do Daedalus.</li></ul>
+            <h4>De onde vem</h4>
+            <ul>
+              <li>CRM, funil, contatos, kanban <span class="have">existe</span></li>
+              <li>Envio de e-mail (SendGrid) <span class="have">existe</span></li>
+              <li>Agenda <span class="src own">sistema próprio · integrar</span></li>
+              <li>WhatsApp não oficial <span class="have">existe</span> · na oferta a decidir</li>
+              <li>Perfil do Google Maps <span class="manual">manual</span></li>
+            </ul>
+          </div>
+          <div class="block">
+            <h4>Antes de escalar</h4>
+            <ul>
+              <li>Relatório mensal ao cliente</li>
+              <li>Editor para preencher o site em minutos</li>
+              <li>Cobrança automática do site e do sistema</li>
+              <li>Domínio próprio</li>
+            </ul>
           </div>
         </div>
-        <div class="trap">
-          <h4>Cuidado</h4>
-          <p>O e-mail cadastrado na Receita costuma ser do contador. Corretor de imóveis autônomo muitas vezes não tem CNPJ e não aparece na base. No Google, cada busca traz no máximo 60 resultados.</p>
-        </div>
-        <div class="gate">
-          <h4>Para avançar</h4>
-          <p>3 nichos escolhidos pela proporção de empresas ativas sem site, e uma lista de cerca de 90 empresas para abordar.</p>
-        </div>
+        <div class="trap"><h4>A definir</h4><p>O "e-mail" é profissional (exige domínio próprio e caixa de e-mail) ou envio pelo CRM? E o WhatsApp não oficial: sem ele o Básico perde apelo; com ele, entra o risco de banimento, que precisa de um termo de ciência.</p></div>
       </article>
     </div>
 
-    <!-- Fase 1 -->
-    <div class="station" id="fase-1">
+    <div class="station future" id="planos-2-3">
       <div class="rail"><span class="dot" aria-hidden="true"></span></div>
       <article class="card">
         <div class="card-head">
-          <div class="t">
-            <span class="eyebrow">Fase 1 · MVP</span>
-            <h3>Vender o primeiro site</h3>
-            <span class="status idea">Planejada</span>
-          </div>
-          <div class="price">R$ 497 / R$ 697 + R$ 59/mês<small>WhatsApp não oficial + R$ 29,90/mês</small></div>
+          <div class="t"><span class="eyebrow">Planos 2 e 3</span><h3>Montados pelo que os clientes pedirem</h3><span class="status idea">Depois do feedback</span></div>
+          <div class="price">a definir<small>esboço: ~R$ 347 e ~R$ 547</small></div>
         </div>
-        <p>O mínimo para fechar uma venda: um site bonito do nicho, que cai no CRM, e uma tela que mostra ao dono quem ainda não foi atendido.</p>
         <div class="grid">
           <div class="block">
-            <h4>Precisa construir</h4>
+            <h4>Já existe em sistemas próprios</h4>
             <ul>
-              <li>Módulo de sites: templates por nicho, seções por faixa de preço</li>
-              <li>HTML gerado ao publicar, guardado no S3, servido no subdomínio</li>
-              <li>Formulário público por conta, com anti-spam, sem chave de API</li>
-              <li>Origem do lead: de onde veio a visita e o clique no WhatsApp</li>
-              <li>Tela de leads não tratados</li>
-              <li>Contagem de visitas e de leads por site</li>
-              <li>Plano R$ 59 e complemento de WhatsApp na conta</li>
+              <li>PBX <span class="src own">integrar</span></li>
+              <li>SMS (Twilio) <span class="have">existe</span></li>
+              <li>Criador de campanhas, com ou sem IA <span class="src own">integrar</span></li>
+              <li>Páginas de captura em subdomínio do cliente <span class="src own">integrar</span></li>
+              <li>Teste A/B das páginas <span class="src own">integrar</span></li>
+              <li>Integração com redes sociais <span class="src own">integrar</span></li>
             </ul>
           </div>
           <div class="block">
-            <h4>Já existe</h4>
+            <h4>Falta provedor</h4>
             <ul>
-              <li>Entrada de leads com origem <code>web_form</code> <span class="have">existe</span></li>
-              <li>Kanban com automações e tabulações <span class="have">existe</span></li>
-              <li>WhatsApp não oficial (Baileys) <span class="have">existe</span></li>
-              <li>E-mail e SMS com descadastro <span class="have">existe</span></li>
+              <li>WhatsApp oficial <span class="src gap">Twilio</span></li>
+              <li>E-mail marketing <span class="src gap">SendGrid (Twilio)</span></li>
             </ul>
-          </div>
-          <div class="block">
-            <h4>Feito à mão por nós</h4>
-            <ul>
-              <li>Prévia do site da empresa abordada <span class="manual">manual</span></li>
-              <li>Configuração inicial do Perfil do Google <span class="manual">manual</span></li>
-              <li>Cobrança <span class="manual">manual</span></li>
-              <li>Funil de venda num tenant nosso do Daedalus</li>
-            </ul>
+            <h4 style="margin-top:12px">Candidato novo</h4>
+            <ul><li>Pedido automático de avaliação no Google pelo WhatsApp</li></ul>
           </div>
         </div>
-        <div class="trap">
-          <h4>Cuidado</h4>
-          <p>O Google lê mal o app em React: o site do cliente precisa ser HTML pronto. O clique no botão do WhatsApp perde a origem se não passar por um link nosso.</p>
-        </div>
-        <div class="gate">
-          <h4>Para avançar</h4>
-          <p>Cerca de 90 abordagens: 5 vendas é sinal interessante, 10 é excelente. E os assinantes continuam pagando no 2º mês.</p>
-        </div>
+        <div class="gate"><h4>Para montar</h4><p>Com 10 a 20 clientes, a lista do que pediram e não tinham decide o que entra em cada plano e o preço. Consumo (SMS, minutos, conversas do WhatsApp oficial) fica sempre por fora, repassado.</p></div>
       </article>
     </div>
 
-    <!-- Fase 2 -->
-    <div class="station future" id="fase-2">
+    <div class="station future" id="depois">
       <div class="rail"><span class="dot" aria-hidden="true"></span></div>
       <article class="card">
         <div class="card-head">
-          <div class="t">
-            <span class="eyebrow">Fase 2</span>
-            <h3>Provar o valor e reter</h3>
-            <span class="status idea">Possibilidade</span>
-          </div>
-          <div class="price">R$ 59/mês<small>mesmo preço, menos cancelamento</small></div>
+          <div class="t"><span class="eyebrow">Depois</span><h3>Anúncios e enriquecimento de dados</h3><span class="status idea">Possibilidade</span></div>
+          <div class="price">sem preço<small>sem dados para calcular</small></div>
         </div>
-        <p>O cliente só continua pagando se enxergar que o site traz gente e que nenhum contato ficou sem resposta.</p>
         <div class="grid">
           <div class="block">
-            <h4>Precisa construir</h4>
+            <h4>Anúncios</h4>
             <ul>
-              <li>Relatório mensal: visitas, leads por origem, tempo de resposta</li>
-              <li>Alerta de lead parado sem resposta</li>
-              <li>Follow-up automático pelo kanban</li>
-              <li>Páginas por serviço para o Google local ("Troca de óleo em Sorocaba")</li>
-              <li>Editor simples para o cliente trocar texto, preço e fotos</li>
-              <li>Cobrança automática</li>
-              <li>Domínio próprio do cliente, com certificado sob demanda</li>
+              <li>Meta e Google Ads como mais uma origem de lead</li>
+              <li>Relatório "orgânico × redes × Google × anúncios"</li>
             </ul>
           </div>
           <div class="block">
-            <h4>Decisões pendentes</h4>
+            <h4>Enriquecimento</h4>
             <ul>
-              <li>Domínio próprio: em nome de quem, e o que acontece se o cliente cancelar</li>
-              <li>Limites do plano: usuários, contatos, leads por mês</li>
+              <li>Completar a ficha dos contatos pela base da Receita</li>
+              <li>Só nome e contato, nunca CPF; dados do Google não ficam guardados</li>
             </ul>
           </div>
-        </div>
-        <div class="trap">
-          <h4>Cuidado</h4>
-          <p>O Traefik atual não emite bem certificado para domínios que entram a qualquer momento. Caddy ou Cloudflare for SaaS resolvem.</p>
-        </div>
-        <div class="gate">
-          <h4>Para avançar</h4>
-          <p>Cancelamento baixo nos primeiros meses, e clientes pedindo ajuda com o que postar.</p>
-        </div>
-      </article>
-    </div>
-
-    <!-- Fase 3 -->
-    <div class="station future" id="fase-3">
-      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
-      <article class="card">
-        <div class="card-head">
-          <div class="t">
-            <span class="eyebrow">Fase 3</span>
-            <h3>Conteúdo com IA</h3>
-            <span class="status idea">Possibilidade</span>
-          </div>
-          <div class="price">R$ 129/mês<small>se a escada de planos for adotada</small></div>
-        </div>
-        <p>Ajudar o empresário a postar sem virar refém de "digite seu prompt". A IA escreve; a identidade visual é nossa e fica sempre consistente.</p>
-        <div class="grid">
-          <div class="block">
-            <h4>Precisa construir</h4>
-            <ul>
-              <li>Perfil da marca: logo, cores, fontes, tom de voz, serviços, fotos</li>
-              <li>Texto por modelo de linguagem: legenda, chamada, roteiro de story</li>
-              <li>Templates de post por nicho, montados com as fotos do cliente</li>
-              <li>Geração da imagem final (PNG) a partir do template</li>
-              <li>Calendário de posts</li>
-              <li>Cota de posts por plano</li>
-            </ul>
-          </div>
-          <div class="block">
-            <h4>Fica de fora por enquanto</h4>
-            <ul>
-              <li>Publicar direto no Instagram: o cliente baixa e posta</li>
-              <li>Imagem gerada por IA: upgrade, para o custo não engolir a margem</li>
-            </ul>
-          </div>
-        </div>
-        <div class="gate">
-          <h4>Para avançar</h4>
-          <p>Clientes usando os posts toda semana, e a origem "Instagram" aparecendo nos leads.</p>
-        </div>
-      </article>
-    </div>
-
-    <!-- Fase 4 -->
-    <div class="station future" id="fase-4">
-      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
-      <article class="card">
-        <div class="card-head">
-          <div class="t">
-            <span class="eyebrow">Fase 4</span>
-            <h3>Campanhas e canais oficiais</h3>
-            <span class="status idea">Possibilidade</span>
-          </div>
-          <div class="price">R$ 249/mês<small>se a escada de planos for adotada</small></div>
-        </div>
-        <p>O empresário escolhe um objetivo ("mais agendamentos esta semana") e o sistema monta a campanha inteira: posts, story, página do site, mensagem no WhatsApp e follow-up no CRM.</p>
-        <div class="grid">
-          <div class="block">
-            <h4>Precisa construir</h4>
-            <ul>
-              <li>Campanha por objetivo, ligando conteúdo, site e CRM</li>
-              <li>Publicação direta no Instagram</li>
-              <li>Gestão do Perfil do Google e o "apareceu X vezes este mês"</li>
-              <li>WhatsApp oficial (Cloud API)</li>
-              <li>Reativação de clientes antigos</li>
-            </ul>
-          </div>
-          <div class="block">
-            <h4>Depende de terceiros</h4>
-            <ul>
-              <li>Aprovação de app pela Meta, aproveitando o processo de Tech Provider</li>
-              <li>Pedido de acesso aprovado à API do Perfil da Empresa no Google</li>
-              <li>Autorização de cada cliente nas contas dele</li>
-            </ul>
-          </div>
-        </div>
-        <div class="gate">
-          <h4>Para avançar</h4>
-          <p>Clientes satisfeitos com o orgânico e perguntando como crescer mais rápido.</p>
-        </div>
-      </article>
-    </div>
-
-    <!-- Fase 5 -->
-    <div class="station future" id="fase-5">
-      <div class="rail"><span class="dot" aria-hidden="true"></span></div>
-      <article class="card">
-        <div class="card-head">
-          <div class="t">
-            <span class="eyebrow">Fase 5</span>
-            <h3>Escala</h3>
-            <span class="status idea">Possibilidade</span>
-          </div>
-          <div class="price">anúncios e novos públicos<small>produto separado ou serviço</small></div>
-        </div>
-        <p>O funil não muda. Entram novas fontes no topo, e cresce a nossa própria máquina de prospecção.</p>
-        <div class="grid">
-          <div class="block">
-            <h4>No produto do cliente</h4>
-            <ul>
-              <li>Anúncios Meta e Google como mais uma origem de lead</li>
-              <li>Relatório "orgânico × Instagram × Google × anúncios"</li>
-              <li>Enriquecimento dos contatos pela base da Receita (só nome e contato, nunca CPF)</li>
-            </ul>
-          </div>
-          <div class="block">
-            <h4>Para nós</h4>
-            <ul>
-              <li>Prospecção automatizada com pontuação de oportunidade</li>
-              <li>Corretores autônomos e, depois, imobiliárias como produto próprio</li>
-            </ul>
-          </div>
-        </div>
-        <div class="trap">
-          <h4>Cuidado</h4>
-          <p>Dados do Google não podem ser guardados nem revendidos. Lista de prospecção somada a WhatsApp não oficial vira disparo em massa, e precisa de travas.</p>
         </div>
       </article>
     </div>
@@ -501,43 +628,44 @@ footer { color: var(--muted); font-size: 0.9rem; display: grid; gap: 6px; border
 
 <section aria-labelledby="m-title" style="display:grid;gap:16px">
   <span class="eyebrow">Visão de conjunto</span>
-  <h2 id="m-title">Capacidades por fase</h2>
-  <p class="muted">Quando cada coisa entra no produto. As fases se acumulam: o que entra numa fase continua nas seguintes.</p>
+  <h2 id="m-title">Capacidades por plano</h2>
+  <p class="muted">Onde cada funcionalidade deve entrar e de onde ela vem. Os planos 2 e 3 são candidatos, não decisão.</p>
   <div class="matrix-wrap">
     <table>
       <thead>
-        <tr><th scope="col">Capacidade</th><th class="ph" scope="col">F0</th><th class="ph" scope="col">F1</th><th class="ph" scope="col">F2</th><th class="ph" scope="col">F3</th><th class="ph" scope="col">F4</th><th class="ph" scope="col">F5</th></tr>
+        <tr><th scope="col">Capacidade</th><th class="ph" scope="col">Básico</th><th class="ph" scope="col">Planos 2–3</th><th class="ph" scope="col">Depois</th><th scope="col">Origem</th></tr>
       </thead>
       <tbody>
-        <tr class="group"><th colspan="7" scope="rowgroup">Captação</th></tr>
-        <tr><th scope="row">Levantamento Receita + Google</th><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-new">auto</td></tr>
-        <tr><th scope="row">Prévia do site para a abordagem</th><td class="c m-no">–</td><td class="c m-man">mão</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-new">auto</td></tr>
-        <tr class="group"><th colspan="7" scope="rowgroup">Site</th></tr>
-        <tr><th scope="row">Site por template, no subdomínio</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Formulário e botão de WhatsApp com origem</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Páginas por serviço e editor do cliente</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Domínio próprio</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
-        <tr class="group"><th colspan="7" scope="rowgroup">CRM e atendimento</th></tr>
-        <tr><th scope="row">Kanban, tabulações, WhatsApp não oficial</th><td class="c m-no">–</td><td class="c m-has">existe</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Leads não tratados e contagem por site</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Alerta, follow-up e relatório mensal</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">WhatsApp oficial e reativação</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td></tr>
-        <tr class="group"><th colspan="7" scope="rowgroup">Presença e conteúdo</th></tr>
-        <tr><th scope="row">Perfil do Google</th><td class="c m-no">–</td><td class="c m-man">mão</td><td class="c m-man">mão</td><td class="c m-man">mão</td><td class="c m-new">API</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Posts com IA e templates</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Publicação no Instagram e campanhas</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Anúncios como origem</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td></tr>
-        <tr class="group"><th colspan="7" scope="rowgroup">Negócio</th></tr>
-        <tr><th scope="row">Plano e complementos</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-new">R$ 129</td><td class="c m-new">R$ 249</td><td class="c m-has">·</td></tr>
-        <tr><th scope="row">Cobrança</th><td class="c m-no">–</td><td class="c m-man">mão</td><td class="c m-new">auto</td><td class="c m-has">·</td><td class="c m-has">·</td><td class="c m-has">·</td></tr>
+        <tr class="group"><th colspan="5" scope="rowgroup">Presença</th></tr>
+        <tr><th scope="row">Site por template, formulário, origem do lead</th><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td><span class="src gap">construir</span></td></tr>
+        <tr><th scope="row">Perfil do Google Maps</th><td class="c m-man">mão</td><td class="c m-has">·</td><td class="c m-has">·</td><td>serviço</td></tr>
+        <tr><th scope="row">E-mail</th><td class="c m-new">?</td><td class="c m-has">·</td><td class="c m-has">·</td><td>a definir</td></tr>
+        <tr><th scope="row">Páginas de captura e teste A/B</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td><span class="src own">sistema próprio</span></td></tr>
+        <tr class="group"><th colspan="5" scope="rowgroup">Atendimento</th></tr>
+        <tr><th scope="row">CRM com funil e gestão de contatos</th><td class="c m-has">existe</td><td class="c m-has">·</td><td class="c m-has">·</td><td><span class="src own">Daedalus</span></td></tr>
+        <tr><th scope="row">Agenda</th><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td><span class="src own">sistema próprio</span></td></tr>
+        <tr><th scope="row">WhatsApp não oficial</th><td class="c m-new">?</td><td class="c m-has">·</td><td class="c m-has">·</td><td><span class="src own">Daedalus</span></td></tr>
+        <tr><th scope="row">WhatsApp oficial</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td><span class="src gap">Twilio</span></td></tr>
+        <tr><th scope="row">SMS</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td><span class="src own">Daedalus (Twilio)</span></td></tr>
+        <tr><th scope="row">PBX</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td><span class="src own">sistema próprio</span></td></tr>
+        <tr class="group"><th colspan="5" scope="rowgroup">Marketing</th></tr>
+        <tr><th scope="row">E-mail marketing</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td><span class="src gap">SendGrid</span></td></tr>
+        <tr><th scope="row">Criador de campanhas, com ou sem IA</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td><span class="src own">sistema próprio</span></td></tr>
+        <tr><th scope="row">Integração com redes sociais</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td><span class="src own">sistema próprio</span></td></tr>
+        <tr><th scope="row">Avaliações no Google pelo WhatsApp</th><td class="c m-no">–</td><td class="c m-new">?</td><td class="c m-has">·</td><td><span class="src gap">construir</span></td></tr>
+        <tr><th scope="row">Anúncios como origem de lead</th><td class="c m-no">–</td><td class="c m-no">–</td><td class="c m-new">●</td><td><span class="src gap">construir</span></td></tr>
+        <tr class="group"><th colspan="5" scope="rowgroup">Negócio</th></tr>
+        <tr><th scope="row">Planos e cobrança na conta</th><td class="c m-new">●</td><td class="c m-has">·</td><td class="c m-has">·</td><td><span class="src gap">construir</span></td></tr>
+        <tr><th scope="row">Saldo de consumo (SMS, minutos, conversas)</th><td class="c m-no">–</td><td class="c m-new">●</td><td class="c m-has">·</td><td><span class="src gap">construir</span></td></tr>
+        <tr><th scope="row">Rastreio de parceiros</th><td class="c m-man">mão</td><td class="c m-new">●</td><td class="c m-has">·</td><td>planilha, depois sistema</td></tr>
       </tbody>
     </table>
   </div>
   <div class="legend">
-    <span><b class="m-new">●</b>&nbsp;entra nesta fase</span>
+    <span><b class="m-new">●</b>&nbsp;entra aqui</span>
+    <span><b class="m-new">?</b>&nbsp;a decidir</span>
     <span><b class="m-man">mão</b>&nbsp;feito à mão por nós</span>
     <span><b class="m-has">·</b>&nbsp;continua</span>
-    <span><b class="m-has">existe</b>&nbsp;já está no Daedalus</span>
   </div>
 </section>
 
@@ -546,30 +674,32 @@ footer { color: var(--muted); font-size: 0.9rem; display: grid; gap: 6px; border
     <span class="eyebrow">Em aberto</span>
     <h3>Decisões que faltam</h3>
     <ul>
-      <li><b>Escada de planos:</b> manter R$ 59 com complementos, ou adotar R$ 59 / 129 / 249. Sugestão: R$ 59 no teste e a escada só quando o conteúdo existir.</li>
-      <li><b>Nichos:</b> saem do levantamento da Fase 0. Hipótese: oficinas, clínicas de estética e autônomos de serviço.</li>
-      <li><b>Capital × interior:</b> comparar a região num nicho só, ou aumentar o teste.</li>
-      <li><b>Conteúdo dos sites:</b> quem produz textos e fotos, e em quanto tempo.</li>
-      <li><b>Preço do WhatsApp oficial:</b> depende do custo por conversa da Meta.</li>
+      <li><b>Modelo A ou B:</b> sai da conversão real de cada oferta no teste.</li>
+      <li><b>WhatsApp não oficial no Básico:</b> apelo para o cliente × risco de banimento.</li>
+      <li><b>E-mail do Básico:</b> profissional (exige domínio próprio) ou envio pelo CRM.</li>
+      <li><b>Conteúdo e preço dos planos 2 e 3:</b> pelos pedidos dos clientes.</li>
+      <li><b>Produto de entrada:</b> se o mercado pedir.</li>
+      <li><b>Nome do produto:</b> favorito até agora, Clientoo.</li>
+      <li><b>Comissões dos parceiros:</b> conferir contra a margem real.</li>
     </ul>
   </div>
   <div class="panel">
     <span class="eyebrow">Como medir</span>
     <h3>O funil do teste</h3>
     <ul>
-      <li>Abordagens que responderam</li>
-      <li>Sites vendidos, e em quantos dias</li>
-      <li>Sites que viraram assinatura</li>
-      <li>Assinantes ainda pagando no 2º e no 3º mês</li>
+      <li>Ligações, conversas com quem decide, prévias mostradas</li>
+      <li>Vendas por oferta (A × B) e em quantos dias</li>
+      <li>Cancelamento e inadimplência nos primeiros meses</li>
       <li>Leads por site por mês, por origem</li>
+      <li>O que cada cliente pediu e não tinha</li>
+      <li>Indicações de parceiros e quantas viraram cliente</li>
     </ul>
-    <p class="muted">Com 30 empresas por nicho, a diferença entre nichos ainda é sorte. O teste mostra se vende e por quê.</p>
   </div>
 </section>
 
 <footer>
-  <p>Nada além do levantamento da Fase 0 foi construído, e nenhum número de conversão é real ainda.</p>
-  <p>Detalhes, armadilhas e o porquê de cada decisão: <code>docs/produto/captacao-negocios-sem-site.md</code> no repositório do Daedalus.</p>
+  <p>Só o levantamento da Receita rodou (Sorocaba). Nenhuma peça do produto novo foi construída e nenhum número de conversão ou cancelamento é real ainda.</p>
+  <p>Detalhes: <code>captacao-negocios-sem-site.md</code>, <code>playbook-prospeccao.md</code>, <code>programa-de-parceiros.md</code> e <code>simulador-precos.html</code> em <code>docs/produto/</code> do repositório do Daedalus.</p>
 </footer>
 
 </div>
