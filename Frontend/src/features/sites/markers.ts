@@ -81,7 +81,8 @@ export const MARKER_GROUPS: MarkerGroup[] = [
     items: [
       {
         marker: '{{#sections.about}}',
-        description: 'Também: services, professionals, gallery, testimonials, faq, contact, map.',
+        description:
+          'Também: services, professionals, gallery, testimonials, faq, contact, map, booking.',
       },
     ],
   },
@@ -96,6 +97,16 @@ export const MARKER_GROUPS: MarkerGroup[] = [
       { marker: '{{#gallery}}', description: 'url, caption.' },
       { marker: '{{#testimonials}}', description: 'author, text.' },
       { marker: '{{#faq}}', description: 'question, answer.' },
+    ],
+  },
+  {
+    title: 'Agendamento online',
+    items: [
+      {
+        marker: '<div data-omni-booking></div>',
+        description:
+          'Onde o agendamento aparece (dentro de {{#sections.booking}}). Sem ele, entra uma seção antes do rodapé.',
+      },
     ],
   },
   {

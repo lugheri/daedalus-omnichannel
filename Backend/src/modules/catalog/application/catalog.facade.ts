@@ -17,6 +17,25 @@ export interface SiteOffering extends SiteServiceSummary {
   durationMinutes: number;
 }
 
+/** Serviço como a agenda o usa (inclusive os inativos, para o histórico). */
+export interface AgendaOffering {
+  id: string;
+  name: string;
+  durationMinutes: number;
+  priceCents: number | null;
+  showOnSite: boolean;
+  active: boolean;
+}
+
+/** Profissional como a agenda o usa: quais serviços faz. */
+export interface AgendaProfessional {
+  id: string;
+  name: string;
+  offeringIds: string[];
+  showOnSite: boolean;
+  active: boolean;
+}
+
 /** Profissional como aparece no site (sem o vínculo com o login). */
 export interface SiteProfessional {
   name: string;
@@ -37,6 +56,34 @@ export class CatalogFacade {
     const offering = await this.offerings.findById(id);
     if (!offering?.active || !offering.showOnSite) return null;
     return { id: offering.id, name: offering.name, priceCents: offering.priceCents };
+  }
+
+  /** Serviços e profissionais da conta, por nome (a agenda filtra o que precisar). */
+  async agendaCatalog(): Promise<{
+    offerings: AgendaOffering[];
+    professionals: AgendaProfessional[];
+  }> {
+    const [offerings, professionals] = await Promise.all([
+      this.offerings.list(),
+      this.professionals.list(),
+    ]);
+    return {
+      offerings: offerings.map((o) => ({
+        id: o.id,
+        name: o.name,
+        durationMinutes: o.durationMinutes,
+        priceCents: o.priceCents,
+        showOnSite: o.showOnSite,
+        active: o.active,
+      })),
+      professionals: professionals.map((p) => ({
+        id: p.id,
+        name: p.name,
+        offeringIds: [...p.offeringIds],
+        showOnSite: p.showOnSite,
+        active: p.active,
+      })),
+    };
   }
 
   /** Serviços ativos marcados "mostrar no site", por nome. */

@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink, Search, Trash2, Trophy, Undo2, X } from 'lucide-react'
-import { useDeferredValue, useState, type FormEvent } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ExternalLink, Trash2, Trophy, Undo2, X } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { FormError } from '@/components/form/form-error'
@@ -36,7 +36,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useMe } from '@/features/auth/session-context'
-import { contactsApi } from '@/features/contacts/api'
+import { ContactPicker } from '@/features/contacts/contact-picker'
 import { useMemberDirectory } from '@/features/members/api'
 import { errorMessage } from '@/lib/api/api-error'
 import { formatMoney, moneyToInput, parseMoney } from '@/lib/money'
@@ -72,82 +72,6 @@ function OwnerSelect({
         {value !== NO_OWNER && !known && <SelectItem value={value}>Membro desativado</SelectItem>}
       </SelectContent>
     </Select>
-  )
-}
-
-/** Busca de contato por nome, telefone ou e-mail. */
-function ContactPicker({
-  value,
-  onChange,
-}: {
-  value: DealContact | null
-  onChange: (contact: DealContact | null) => void
-}) {
-  const [query, setQuery] = useState('')
-  const deferred = useDeferredValue(query.trim())
-  const results = useQuery({
-    queryKey: ['contacts', 'picker', deferred],
-    queryFn: () => contactsApi.list({ q: deferred }),
-    enabled: deferred.length >= 2,
-    staleTime: 30_000,
-  })
-
-  if (value) {
-    return (
-      <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
-        <span className="truncate font-medium">{dealContactLabel(value)}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-6"
-          aria-label="Trocar contato"
-          onClick={() => onChange(null)}
-        >
-          <X />
-        </Button>
-      </div>
-    )
-  }
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="relative">
-        <Search className="text-faint pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-        <Input
-          id="deal-contact"
-          autoFocus
-          className="pl-8"
-          value={query}
-          placeholder="Nome, telefone ou e-mail"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </div>
-      {deferred.length >= 2 && (
-        <ul
-          className="max-h-48 overflow-y-auto rounded-md border"
-          aria-label="Contatos encontrados"
-        >
-          {results.isPending && <li className="text-muted-foreground p-2 text-sm">Buscando…</li>}
-          {results.data?.items.length === 0 && (
-            <li className="text-muted-foreground p-2 text-sm">Nenhum contato com esse nome.</li>
-          )}
-          {results.data?.items.slice(0, 8).map((contact) => (
-            <li key={contact.id}>
-              <button
-                type="button"
-                className="hover:bg-accent w-full px-3 py-1.5 text-left text-sm"
-                onClick={() => onChange(contact)}
-              >
-                {dealContactLabel(contact)}
-                {contact.name && contact.phone && (
-                  <span className="text-faint ml-2 text-xs">{contact.phone}</span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   )
 }
 
@@ -221,7 +145,7 @@ export function NewDealDialog({
             {!fixedContact && (
               <Field>
                 <FieldLabel htmlFor="deal-contact">Contato</FieldLabel>
-                <ContactPicker value={contact} onChange={setContact} />
+                <ContactPicker id="deal-contact" value={contact} onChange={setContact} />
               </Field>
             )}
             {!fixedBoard && (

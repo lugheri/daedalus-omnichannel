@@ -10,6 +10,7 @@ export const SITE_SECTIONS = [
   'faq',
   'contact',
   'map',
+  'booking',
 ] as const
 export type SiteSection = (typeof SITE_SECTIONS)[number]
 

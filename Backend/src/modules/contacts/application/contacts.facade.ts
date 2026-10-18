@@ -69,6 +69,29 @@ export class ContactsFacade {
    * e-mail): o contato existente (completando o que faltar) ou um novo, com
    * origem `web_chat`. Mesmas regras e erros da captura do formulário.
    */
+  /**
+   * Quem agendou pelo site: o contato existente (completando o que faltar) ou
+   * um novo, com origem `web_booking`. Mesmas regras e erros da captura.
+   */
+  async captureBookingLead(input: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+  }): Promise<{ contact: ContactSummary; created: boolean }> {
+    const capture = new CaptureLeadUseCase(
+      this.contacts,
+      this.ids,
+      this.tenant,
+      this.events,
+      this.unitOfWork,
+    );
+    const { contact, created } = await capture.execute(
+      { ...input, campaign: 'Agendamento pelo site', source: 'web_booking' },
+      { announce: false },
+    );
+    return { contact: summarize(contact), created };
+  }
+
   async captureChatLead(input: {
     name: string;
     phone: string | null;

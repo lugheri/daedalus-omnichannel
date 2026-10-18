@@ -322,6 +322,13 @@ export class FakeSiteSources implements SiteSources {
   chat(id: string): Promise<SiteChatInfo | null> {
     return Promise.resolve(this.chats.get(id) ?? null);
   }
+
+  /** Agendamento online ligado (null = desligado). */
+  bookingWidget: SiteChatInfo | null = null;
+
+  booking(): Promise<SiteChatInfo | null> {
+    return Promise.resolve(this.bookingWidget);
+  }
 }
 
 /** Domínios que "chegam" no site (o resto não responde). */

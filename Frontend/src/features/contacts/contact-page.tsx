@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePermissions } from '@/features/auth/session-context'
 import { ContactDeals } from '@/features/boards/contact-deals'
+import { ContactAppointments } from '@/features/agenda/contact-appointments'
 import { ContactSubmissions } from '@/features/forms/contact-submissions'
 import { errorMessage } from '@/lib/api/api-error'
 import { formatPhone } from '@/lib/phone'
@@ -84,6 +85,7 @@ export function ContactPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {data && <ContactDeals contact={data} />}
         <ContactHistory contactId={id} />
+        <ContactAppointments contactId={id} />
         <ContactSubmissions contactId={id} />
         <ContactNotes contactId={id} />
         <ContactMessages contactId={id} />

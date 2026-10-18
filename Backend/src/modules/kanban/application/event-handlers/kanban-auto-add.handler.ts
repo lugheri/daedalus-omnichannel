@@ -10,6 +10,7 @@ import { TenantCreatedEvent } from '../../../accounts';
 import { LeadCapturedEvent } from '../../../contacts';
 import { ConversationStartedEvent } from '../../../conversations';
 import { FormSubmittedEvent } from '../../../forms';
+import { AppointmentBookedEvent } from '../../../scheduling';
 import type { Board } from '../../domain/board.entity';
 import { BOARD_REPOSITORY, type BoardRepository } from '../ports/board.repository';
 import {
@@ -138,6 +139,33 @@ export class KanbanFormEntryHandler {
         conversationId: null,
         title: service ? (name) => `${service.name} — ${name}`.slice(0, 120) : undefined,
         valueCents: service?.priceCents ?? null,
+      });
+    }
+  }
+}
+
+/**
+ * Horário marcado PELO SITE: entra nos funis que recebem leads, como o
+ * formulário de serviço ("Corte — Ana", com o preço). Marcado pelo painel não
+ * (é a equipe atendendo quem já está em contato).
+ */
+@Injectable()
+export class KanbanBookingEntryHandler {
+  constructor(
+    @Inject(BOARD_REPOSITORY) private readonly boards: BoardRepository,
+    private readonly entry: DealEntry,
+  ) {}
+
+  @HandlesDomainEvent(AppointmentBookedEvent)
+  async handle(event: DeliveredEvent<AppointmentBookedEvent>): Promise<void> {
+    if (event.source !== 'site') return;
+    const { service } = event;
+    for (const board of await this.boards.listAcceptingLeads()) {
+      await this.entry.enter(event.tenantId, board, {
+        contactId: event.contactId,
+        conversationId: null,
+        title: (name) => `${service.name} — ${name}`.slice(0, 120),
+        valueCents: service.priceCents,
       });
     }
   }

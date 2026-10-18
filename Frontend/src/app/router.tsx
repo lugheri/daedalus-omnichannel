@@ -97,6 +97,15 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            element: <RequirePermission anyOf={['agenda:manage']} />,
+            children: [
+              {
+                path: '/agenda',
+                ...page(() => import('@/features/agenda/agenda-page'), 'AgendaPage'),
+              },
+            ],
+          },
+          {
             element: <RequirePermission anyOf={['catalog:manage']} />,
             children: [
               {

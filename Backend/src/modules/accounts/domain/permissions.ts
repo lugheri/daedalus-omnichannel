@@ -29,6 +29,7 @@ export const PERMISSIONS = [
   'catalog:manage', //          serviços e profissionais (preços, quem atende)
   'forms:manage', //            formulários do site (contato e solicitação de serviço)
   'sites:manage', //            o site da conta (e os modelos, na conta da plataforma)
+  'agenda:manage', //           ver a agenda e marcar, remarcar e cancelar horários
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

@@ -34,6 +34,7 @@ export const siteContentSchema = z.object({
     faq: z.boolean(),
     contact: z.boolean(),
     map: z.boolean(),
+    booking: z.boolean().default(true),
   }),
   gallery: z.array(z.object({ assetId: z.uuid(), caption: optional(160) })).max(MAX_GALLERY_ITEMS),
   testimonials: z

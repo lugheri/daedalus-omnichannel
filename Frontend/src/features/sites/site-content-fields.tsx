@@ -327,6 +327,10 @@ const SECTION_LABELS: Record<SiteSection, { label: string; hint: string }> = {
     hint: 'WhatsApp, telefone, e-mail, endereço, horário e o formulário.',
   },
   map: { label: 'Mapa', hint: 'Mapa do Google pelo endereço.' },
+  booking: {
+    label: 'Agendamento online',
+    hint: 'Escolher serviço e horário livre (só com o agendamento online ligado na Agenda).',
+  },
 }
 
 export function SectionsFields({ content, patch }: { content: SiteContent; patch: PatchContent }) {

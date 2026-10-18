@@ -5,6 +5,7 @@ import { AccountsModule } from '../accounts';
 import { CatalogModule } from '../catalog';
 import { ChannelsModule } from '../channels';
 import { FormsModule } from '../forms';
+import { SchedulingModule } from '../scheduling';
 import { SITE_ASSET_REPOSITORY } from './application/ports/site-asset.repository';
 import { SITE_DOMAIN_CHECKER } from './application/ports/site-domain-checker';
 import { SITE_HOSTING } from './application/ports/site-hosting';
@@ -64,6 +65,7 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
     CatalogModule,
     ChannelsModule,
     FormsModule,
+    SchedulingModule,
     BullModule.registerQueue({ name: SITES_QUEUE }),
   ],
   controllers: [SiteTemplatesController, SiteController],

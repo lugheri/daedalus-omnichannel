@@ -3,6 +3,7 @@ import { AccountsFacade } from '../../accounts';
 import { CatalogFacade } from '../../catalog';
 import { ChannelsFacade } from '../../channels';
 import { FormsFacade } from '../../forms';
+import { SchedulingFacade } from '../../scheduling';
 import type {
   SiteAccount,
   SiteChatInfo,
@@ -20,8 +21,16 @@ export class FacadeSiteSources implements SiteSources {
     private readonly catalog: CatalogFacade,
     private readonly forms: FormsFacade,
     private readonly channels: ChannelsFacade,
+    private readonly scheduling: SchedulingFacade,
     @Inject(SITES_SETTINGS) private readonly settings: SitesSettings,
   ) {}
+
+  async booking(): Promise<SiteChatInfo | null> {
+    const key = await this.scheduling.onlineBookingKey();
+    return key
+      ? { scriptUrl: `${this.settings.publicApiUrl}/v1/public/booking/widget.js`, key }
+      : null;
+  }
 
   async chat(id: string): Promise<SiteChatInfo | null> {
     const chat = await this.channels.webChat(id);

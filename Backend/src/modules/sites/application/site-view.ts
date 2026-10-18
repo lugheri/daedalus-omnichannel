@@ -22,6 +22,8 @@ export interface SiteViewInput {
   form: SiteFormInfo | null;
   /** O site terá o widget do chat (o compositor injeta o script). */
   chatEnabled?: boolean;
+  /** O agendamento online da conta está ligado (o compositor injeta o widget). */
+  bookingEnabled?: boolean;
 }
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -208,6 +210,7 @@ export function buildSiteView(input: SiteViewInput) {
       faq: on.faq && content.faq.length > 0,
       contact: on.contact && (hasContactInfo || !!contactForm),
       map: on.map && !!mapsQuery,
+      booking: on.booking && input.bookingEnabled === true,
     },
     services,
     professionals,

@@ -3,6 +3,8 @@
  */
 export {
   CatalogFacade,
+  type AgendaOffering,
+  type AgendaProfessional,
   type SiteOffering,
   type SiteProfessional,
   type SiteServiceSummary,

@@ -1,0 +1,85 @@
+// Módulo scheduling (ADR 0013). A agenda: horário semanal e bloqueios de cada
+// profissional, os agendamentos e o agendamento online. Profissional,
+// serviço e contato são de outros módulos: só os ids (com o nome e o preço do
+// serviço copiados no agendamento, para o histórico).
+
+// Horário semanal de um profissional (um registro por profissional).
+model ProfessionalSchedule {
+  professionalId String   @id @map("professional_id") @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  // 7 listas (domingo = 0) de faixas { start, end } em minutos do dia, no
+  // fuso da conta. Ver domain/weekly-hours.ts.
+  weekly         Json
+  updatedAt      DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@index([tenantId])
+  @@map("professional_schedules")
+  @@schema("scheduling")
+}
+
+// Folga, férias, compromisso: o profissional não atende nesse período.
+model TimeOff {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  professionalId String   @map("professional_id") @db.Uuid
+  startsAt       DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime @map("ends_at") @db.Timestamptz(3)
+  reason         String?
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, professionalId, startsAt])
+  @@map("time_offs")
+  @@schema("scheduling")
+}
+
+model Appointment {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  professionalId String   @map("professional_id") @db.Uuid
+  serviceId      String   @map("service_id") @db.Uuid
+  serviceName    String   @map("service_name")
+  // Preço na hora de marcar (centavos; null = sob consulta).
+  priceCents     Int?     @map("price_cents")
+  contactId      String   @map("contact_id") @db.Uuid
+  startsAt       DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime @map("ends_at") @db.Timestamptz(3)
+  // scheduled | completed | no_show | canceled
+  status         String
+  // panel | site
+  source         String
+  notes          String?
+  cancelReason   String?  @map("cancel_reason")
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @map("updated_at") @db.Timestamptz(3)
+
+  // Sobreposição (mesmo profissional, horários que se cruzam, ativos) é
+  // barrada no banco por uma EXCLUDE (btree_gist), criada na migration — o
+  // Prisma não descreve esse tipo de restrição.
+  @@index([tenantId, startsAt])
+  @@index([tenantId, professionalId, startsAt])
+  @@index([tenantId, contactId, startsAt(sort: Desc)])
+  @@map("appointments")
+  @@schema("scheduling")
+}
+
+// Agendamento online da conta (um por conta).
+model BookingSettings {
+  tenantId         String   @id @map("tenant_id") @db.Uuid
+  // Desligado: o site não mostra a agenda (a equipe continua marcando).
+  enabled          Boolean
+  // Chave pública do widget de agendamento (vai no HTML do site).
+  publicKey        String   @unique @map("public_key")
+  // Fuso da conta (IANA): o horário semanal está nele.
+  timezone         String
+  // De quanto em quanto começam os horários oferecidos (minutos).
+  slotStepMinutes  Int      @map("slot_step_minutes")
+  // Antecedência mínima para marcar pelo site (minutos).
+  minNoticeMinutes Int      @map("min_notice_minutes")
+  // Até quantos dias à frente o site mostra.
+  maxDaysAhead     Int      @map("max_days_ahead")
+  updatedAt        DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@map("booking_settings")
+  @@schema("scheduling")
+}

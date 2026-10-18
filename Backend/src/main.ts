@@ -50,13 +50,18 @@ async function bootstrap() {
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
     exposedHeaders: ['x-request-id'],
   };
-  // O widget do chat do site roda no site da conta (qualquer domínio): as
-  // rotas dele aceitam qualquer origem, SEM cookie — autenticam pela chave do
-  // widget e pelo token do visitante no Authorization (ADR 0012).
-  const chatCors = { origin: true, credentials: false, methods: ['GET', 'POST'] };
+  // Os widgets do site (chat e agendamento) rodam no site da conta (qualquer
+  // domínio): as rotas deles aceitam qualquer origem, SEM cookie — autenticam
+  // pela chave do widget (e o chat, pelo token do visitante; ADR 0012 e 0013).
+  const widgetCors = { origin: true, credentials: false, methods: ['GET', 'POST'] };
   app.enableCors({
     delegator: (request, callback) =>
-      callback(null, request.url.startsWith('/v1/public/chat/') ? chatCors : panelCors),
+      callback(
+        null,
+        request.url.startsWith('/v1/public/chat/') || request.url.startsWith('/v1/public/booking/')
+          ? widgetCors
+          : panelCors,
+      ),
   });
   // WebSocket (Socket.IO) no mesmo servidor HTTP, com adapter Redis entre réplicas.
   app.useWebSocketAdapter(new RedisIoAdapter(app));

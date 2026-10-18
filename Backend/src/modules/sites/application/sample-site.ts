@@ -81,5 +81,6 @@ export function sampleSiteInput(): SiteViewInput {
       { name: 'Lucas Pereira', title: 'Barbeiro', bio: null },
     ],
     form: { actionUrl: '#', kind: 'contact' },
+    bookingEnabled: true,
   };
 }

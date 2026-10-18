@@ -113,6 +113,7 @@ export const STARTER_TEMPLATE_HTML = `<!doctype html>
       {{#sections.professionals}}<a href="#equipe">Equipe</a>{{/sections.professionals}}
       {{#sections.gallery}}<a href="#fotos">Fotos</a>{{/sections.gallery}}
       {{#sections.faq}}<a href="#duvidas">Dúvidas</a>{{/sections.faq}}
+      {{#sections.booking}}<a href="#agendar">Agendar</a>{{/sections.booking}}
       {{#sections.contact}}<a href="#contato">Contato</a>{{/sections.contact}}
     </nav>
   </div>
@@ -217,6 +218,15 @@ export const STARTER_TEMPLATE_HTML = `<!doctype html>
     </div>
   </section>
   {{/sections.faq}}
+
+  {{#sections.booking}}
+  <section id="agendar" class="alt">
+    <div class="wrap">
+      <h2>Agende seu horário</h2>
+      <div data-omni-booking><p class="lead">Carregando os horários disponíveis…</p></div>
+    </div>
+  </section>
+  {{/sections.booking}}
 
   {{#sections.contact}}
   <section id="contato">

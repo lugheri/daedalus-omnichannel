@@ -4,9 +4,17 @@
  * - `manual`: cadastrado por alguém da equipe;
  * - `import`: importação de planilha;
  * - `web_form`: formulário do site (API de entrada de leads);
- * - `web_chat`: chat do site (o visitante se identificou para conversar).
+ * - `web_chat`: chat do site (o visitante se identificou para conversar);
+ * - `web_booking`: agendamento pelo site.
  */
-export const LEAD_SOURCES = ['whatsapp', 'manual', 'import', 'web_form', 'web_chat'] as const;
+export const LEAD_SOURCES = [
+  'whatsapp',
+  'manual',
+  'import',
+  'web_form',
+  'web_chat',
+  'web_booking',
+] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
 
 export function isLeadSource(value: string): value is LeadSource {

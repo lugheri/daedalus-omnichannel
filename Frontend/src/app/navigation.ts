@@ -85,11 +85,17 @@ export const NAV_MODULES: NavModule[] = [
     key: 'schedule',
     label: 'Agenda',
     icon: CalendarDays,
-    description: 'Serviços e profissionais',
+    description: 'Agenda, serviços e profissionais',
     groups: [
       {
         label: null,
         items: [
+          {
+            to: '/agenda',
+            label: 'Agenda',
+            icon: CalendarDays,
+            anyOf: ['agenda:manage'],
+          },
           {
             to: '/services',
             label: 'Serviços',

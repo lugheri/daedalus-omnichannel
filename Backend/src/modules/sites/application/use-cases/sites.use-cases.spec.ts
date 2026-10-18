@@ -324,6 +324,43 @@ describe('Sites', () => {
       expect(hosting.pages.get('barbearia-do-ze')).not.toContain('<script');
     });
 
+    it('online booking on: the widget and its place go into the page', async () => {
+      const template = await availableTemplate();
+      await createSite(template.id);
+      sources.bookingWidget = {
+        scriptUrl: 'https://api.test/v1/public/booking/widget.js',
+        key: 'agenda-k',
+      };
+
+      await request().execute('publish');
+      await runJobs();
+      const page = hosting.pages.get('barbearia-do-ze')!;
+      expect(page).toContain(
+        '<script src="https://api.test/v1/public/booking/widget.js" data-key="agenda-k" async></script>',
+      );
+      // O modelo de teste não tem o lugar: o compositor cria uma seção.
+      expect(page).toContain('<section id="agendar"');
+      expect(page).toContain('<div data-omni-booking></div>');
+      expect(viewOf(page.slice(0, page.indexOf('\n<section'))).sections).toMatchObject({
+        booking: true,
+      });
+
+      // Seção desligada no site: nada de agendamento.
+      await withContent((c) => (c.sections.booking = false));
+      await request().execute('publish');
+      await runJobs();
+      expect(hosting.pages.get('barbearia-do-ze')).not.toContain('data-omni-booking');
+
+      // Agendamento desligado na agenda: a seção some mesmo ligada no site.
+      await withContent((c) => (c.sections.booking = true));
+      sources.bookingWidget = null;
+      await request().execute('publish');
+      await runJobs();
+      const off = hosting.pages.get('barbearia-do-ze')!;
+      expect(off).not.toContain('data-omni-booking');
+      expect(viewOf(off).sections).toMatchObject({ booking: false });
+    });
+
     it('tenants do not see each other’s site', async () => {
       const template = await availableTemplate();
       await createSite(template.id);

@@ -12,6 +12,7 @@ import { KanbanModule } from './modules/kanban';
 import { MessagingModule } from './modules/messaging';
 import { TeamsModule } from './modules/teams';
 import { RealtimeModule } from './modules/realtime';
+import { SchedulingModule } from './modules/scheduling';
 import { SitesModule } from './modules/sites';
 import { WebChatModule } from './modules/webchat';
 import { SharedHttpModule } from './shared/http/shared-http.module';
@@ -36,6 +37,7 @@ import { SharedInfraModule } from './shared/infra/shared-infra.module';
     MessagingModule,
     CatalogModule,
     FormsModule,
+    SchedulingModule,
     SitesModule,
     WebChatModule,
     ChannelsModule,

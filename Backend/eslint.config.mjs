@@ -31,6 +31,7 @@ export default defineConfig(
       'src/shared/infra/prisma/generated/',
       // Script do widget do chat do site: JS de navegador, servido como está.
       'src/modules/webchat/http/assets/',
+      'src/modules/scheduling/http/assets/',
     ],
   },
   eslint.configs.recommended,

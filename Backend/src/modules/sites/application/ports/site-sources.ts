@@ -29,8 +29,11 @@ export interface SiteSources {
   form(id: string): Promise<SiteFormInfo | null>;
   /** Chat do site LIGADO da conta (o script do widget), ou null. */
   chat(id: string): Promise<SiteChatInfo | null>;
+  /** Agendamento online LIGADO da conta (o script do widget), ou null. */
+  booking(): Promise<SiteChatInfo | null>;
 }
 
+/** Um widget que vai no site (chat, agendamento): o script e a chave. */
 export interface SiteChatInfo {
   /** `<script src>` do widget (na API). */
   scriptUrl: string;

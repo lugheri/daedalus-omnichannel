@@ -35,11 +35,12 @@ export class SiteComposer {
         this.hosting.enabled ? this.hosting.mediaUrl(publicAssetKey(asset)) : null,
       ]),
     );
-    const [services, professionals, form, chat] = await Promise.all([
+    const [services, professionals, form, chat, booking] = await Promise.all([
       this.sources.services(),
       this.sources.professionals(),
       content.contactFormId ? this.sources.form(content.contactFormId) : Promise.resolve(null),
       content.chatChannelId ? this.sources.chat(content.chatChannelId) : Promise.resolve(null),
+      content.sections.booking ? this.sources.booking() : Promise.resolve(null),
     ]);
     const view = buildSiteView({
       content,
@@ -49,9 +50,13 @@ export class SiteComposer {
       professionals,
       form,
       chatEnabled: chat !== null,
+      bookingEnabled: booking !== null,
     });
-    const html = this.renderer.render(templateHtml, view);
-    return chat ? withChatWidget(html, chat, options.preview === true) : html;
+    const preview = options.preview === true;
+    let html = this.renderer.render(templateHtml, view);
+    if (booking) html = withWidget(withBookingPlace(html), booking, preview);
+    if (chat) html = withWidget(html, chat, preview);
+    return html;
   }
 }
 
@@ -59,12 +64,32 @@ function attr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
+function insertBefore(html: string, marker: string, piece: string): string | null {
+  const at = html.toLowerCase().lastIndexOf(marker);
+  return at === -1 ? null : `${html.slice(0, at)}${piece}\n${html.slice(at)}`;
+}
+
 /**
- * O script do widget do chat antes do `</body>` (no fim, se o modelo não
- * tiver um): qualquer modelo ganha o chat sem mudar uma linha.
+ * O script de um widget (chat, agendamento) antes do `</body>` (no fim, se o
+ * modelo não tiver um): qualquer modelo ganha o widget sem mudar uma linha.
  */
-export function withChatWidget(html: string, chat: SiteChatInfo, preview: boolean): string {
-  const tag = `<script src="${attr(chat.scriptUrl)}" data-key="${attr(chat.key)}"${preview ? ' data-preview="1"' : ''} async></script>`;
-  const at = html.toLowerCase().lastIndexOf('</body>');
-  return at === -1 ? `${html}\n${tag}` : `${html.slice(0, at)}${tag}\n${html.slice(at)}`;
+export function withWidget(html: string, widget: SiteChatInfo, preview: boolean): string {
+  const tag = `<script src="${attr(widget.scriptUrl)}" data-key="${attr(widget.key)}"${preview ? ' data-preview="1"' : ''} async></script>`;
+  return insertBefore(html, '</body>', tag) ?? `${html}\n${tag}`;
+}
+
+/**
+ * O lugar do agendamento: o modelo marca com `<div data-omni-booking>` (o
+ * inicial tem uma seção "Agende seu horário"); modelo sem o lugar ganha uma
+ * seção antes do rodapé.
+ */
+function withBookingPlace(html: string): string {
+  if (html.includes('data-omni-booking')) return html;
+  const place =
+    '<section id="agendar" style="padding:48px 20px;max-width:1100px;margin:0 auto"><div data-omni-booking></div></section>';
+  return (
+    insertBefore(html, '<footer', place) ??
+    insertBefore(html, '</body>', place) ??
+    `${html}\n${place}`
+  );
 }

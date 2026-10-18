@@ -11,6 +11,8 @@ export const SITE_SECTIONS = [
   'faq',
   'contact',
   'map',
+  /** Agendamento online (só aparece com ele ligado na agenda). */
+  'booking',
 ] as const;
 export type SiteSection = (typeof SITE_SECTIONS)[number];
 
@@ -87,6 +89,7 @@ export function defaultSiteContent(businessName: string): SiteContent {
       faq: true,
       contact: true,
       map: true,
+      booking: true,
     },
     gallery: [],
     testimonials: [],

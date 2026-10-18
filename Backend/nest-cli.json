@@ -8,6 +8,10 @@
       {
         "include": "modules/webchat/http/assets/**/*",
         "watchAssets": true
+      },
+      {
+        "include": "modules/scheduling/http/assets/**/*",
+        "watchAssets": true
       }
     ]
   }

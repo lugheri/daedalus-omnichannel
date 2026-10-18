@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
+  Clock,
   Globe,
   KeyRound,
   MoreHorizontal,
@@ -40,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { ScheduleDialog } from '@/features/agenda/schedule-dialog'
 import { useMemberNames } from '@/features/members/api'
 import { errorMessage } from '@/lib/api/api-error'
 import { catalogApi, catalogKeys, useProfessionals, useServices, type Professional } from './api'
@@ -52,6 +54,7 @@ export function ProfessionalsPage() {
   const memberName = useMemberNames()
   const [editing, setEditing] = useState<Professional | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Professional | null>(null)
+  const [scheduling, setScheduling] = useState<Professional | null>(null)
   const items = [...(professionals.data ?? [])].sort((a, b) => Number(b.active) - Number(a.active))
   const serviceNames = (ids: string[]) =>
     services.data
@@ -83,7 +86,7 @@ export function ProfessionalsPage() {
     <>
       <PageHeader
         title="Profissionais"
-        description="Quem atende e quais serviços faz. Não precisa ter login no sistema."
+        description="Quem atende, quais serviços faz e em que horários. Não precisa ter login no sistema."
         actions={
           <Button onClick={() => setEditing('new')}>
             <Plus />
@@ -167,6 +170,10 @@ export function ProfessionalsPage() {
                         <Pencil />
                         Editar
                       </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setScheduling(professional)}>
+                        <Clock />
+                        Horários e bloqueios
+                      </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => toggle.mutate(professional)}>
                         {professional.active ? <PowerOff /> : <Power />}
                         {professional.active ? 'Desativar' : 'Reativar'}
@@ -194,6 +201,14 @@ export function ProfessionalsPage() {
           open
           professional={editing === 'new' ? undefined : editing}
           onOpenChange={(open) => !open && setEditing(null)}
+        />
+      )}
+
+      {scheduling && (
+        <ScheduleDialog
+          key={scheduling.id}
+          professional={scheduling}
+          onOpenChange={(open) => !open && setScheduling(null)}
         />
       )}
 
