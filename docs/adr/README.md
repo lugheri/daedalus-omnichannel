@@ -17,6 +17,7 @@ ADRs não são editados depois de aceitos: quando uma decisão muda, cria-se um 
 | [0009](0009-hierarquia-de-contas.md) | Hierarquia de contas: conta-mãe, revendedores e acesso delegado | Aceito |
 | [0010](0010-modulo-de-sites.md) | Módulo de sites: modelos com marcadores e publicação pela fila | Aceito |
 | [0011](0011-dominio-proprio-dos-sites.md) | Domínio próprio dos sites pelo túnel da Cloudflare | Aceito |
+| [0012](0012-chat-do-site.md) | Chat do site e canais com tipo | Aceito |
 
 ## Modelo
 

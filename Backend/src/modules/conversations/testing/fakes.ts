@@ -123,9 +123,27 @@ export class FakeContactDirectory implements ContactDirectory {
   findOrCreateByPhone(input: { phone: string; name: string | null }): Promise<ContactInfo> {
     const existing = this.mine().find((c) => c.phone === input.phone);
     if (existing) return Promise.resolve(existing);
-    const contact = { id: `contact-${++this.seq}`, tenantId: this.tenant.tenantId, ...input };
+    const contact = {
+      id: `contact-${++this.seq}`,
+      tenantId: this.tenant.tenantId,
+      email: null,
+      ...input,
+    };
     this.contacts.push(contact);
     return Promise.resolve(contact);
+  }
+
+  /** Contato já existente (ex.: visitante do chat do site, sem telefone). */
+  add(input: { name: string | null; phone?: string | null; email?: string | null }): ContactInfo {
+    const contact = {
+      id: `contact-${++this.seq}`,
+      tenantId: this.tenant.tenantId,
+      name: input.name,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+    };
+    this.contacts.push(contact);
+    return contact;
   }
 
   private mine() {
@@ -139,10 +157,17 @@ export class FakeChannelGateway implements ChannelGateway {
   failEnqueue = false;
   /** Equipe de cada canal (o resto fica na fila geral). */
   readonly teams = new Map<string, string>();
+  /** Canais de chat do site (o resto é WhatsApp). */
+  readonly webChats = new Set<string>();
 
   findByIds(ids: string[]): Promise<ChannelInfo[]> {
     return Promise.resolve(
-      ids.map((id) => ({ id, name: `Canal ${id}`, teamId: this.teams.get(id) ?? null })),
+      ids.map((id) => ({
+        id,
+        name: `Canal ${id}`,
+        teamId: this.teams.get(id) ?? null,
+        kind: this.webChats.has(id) ? ('web_chat' as const) : ('whatsapp' as const),
+      })),
     );
   }
 

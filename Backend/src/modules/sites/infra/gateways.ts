@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountsFacade } from '../../accounts';
 import { CatalogFacade } from '../../catalog';
+import { ChannelsFacade } from '../../channels';
 import { FormsFacade } from '../../forms';
 import type {
   SiteAccount,
+  SiteChatInfo,
   SiteFormInfo,
   SiteProfessionalItem,
   SiteServiceItem,
@@ -17,8 +19,18 @@ export class FacadeSiteSources implements SiteSources {
   constructor(
     private readonly catalog: CatalogFacade,
     private readonly forms: FormsFacade,
+    private readonly channels: ChannelsFacade,
     @Inject(SITES_SETTINGS) private readonly settings: SitesSettings,
   ) {}
+
+  async chat(id: string): Promise<SiteChatInfo | null> {
+    const chat = await this.channels.webChat(id);
+    if (!chat?.active) return null;
+    return {
+      scriptUrl: `${this.settings.publicApiUrl}/v1/public/chat/widget.js`,
+      key: chat.publicKey,
+    };
+  }
 
   services(): Promise<SiteServiceItem[]> {
     return this.catalog.siteOfferings();

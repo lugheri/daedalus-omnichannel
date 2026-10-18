@@ -42,11 +42,15 @@ export function MessageBubble({
             outbound && !failed ? 'text-primary-foreground/70' : 'text-muted-foreground',
           )}
         >
-          {outbound && !message.senderMembershipId && message.status === 'sent' && (
-            <span className="flex items-center gap-0.5" title="Enviada pelo celular">
-              <Smartphone className="size-3" /> celular ·
-            </span>
-          )}
+          {/* Sem remetente nem automação = respondida no celular (só no WhatsApp). */}
+          {outbound &&
+            !message.senderMembershipId &&
+            !message.automated &&
+            message.status === 'sent' && (
+              <span className="flex items-center gap-0.5" title="Enviada pelo celular">
+                <Smartphone className="size-3" /> celular ·
+              </span>
+            )}
           <span>{messageTime(message.sentAt)}</span>
           {outbound && message.status === 'pending' && (
             // Ícones do Lucide são aria-hidden: o rótulo fica no span.

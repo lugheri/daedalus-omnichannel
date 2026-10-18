@@ -18,6 +18,8 @@ export class PurgeConnectorSessionHandler {
 
   @HandlesDomainEvent(ChannelRemovedEvent)
   async handle(event: DeliveredEvent<ChannelRemovedEvent>): Promise<void> {
+    // Chat do site não tem sessão no conector.
+    if (event.provider !== 'whatsapp_baileys') return;
     await this.jobs.add(
       PurgeWhatsAppSession,
       { channelId: event.aggregateId },

@@ -38,6 +38,11 @@ export class ChannelMessageReceivedEvent extends DomainEvent {
       externalId: string;
       contactPhone: string | null;
       contactHandle: string;
+      /**
+       * Contato já identificado pelo canal (chat do site: o visitante se
+       * identificou antes de escrever). null = achar pelo telefone.
+       */
+      contactId?: string | null;
       contactName: string | null;
       /** true = enviada pelo próprio número (ex.: respondida no celular). */
       fromMe: boolean;

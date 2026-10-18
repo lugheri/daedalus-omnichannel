@@ -2,10 +2,16 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import type { TransactionalAdapterPrisma } from '@nestjs-cls/transactional-adapter-prisma';
 import { Inject, Injectable } from '@nestjs/common';
 import { TENANT_CONTEXT, type TenantContext } from '../../../shared/application/tenant-context';
+import { Prisma } from '../../../shared/infra/prisma/generated/client';
 import type { ChannelModel } from '../../../shared/infra/prisma/generated/models';
 import type { PrismaService } from '../../../shared/infra/prisma/prisma.service';
 import type { ChannelRepository } from '../application/ports/channel.repository';
-import { Channel, type ChannelProvider, type ChannelStatus } from '../domain/channel.entity';
+import {
+  Channel,
+  type ChannelProvider,
+  type ChannelStatus,
+  type WebChatSettings,
+} from '../domain/channel.entity';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -55,6 +61,13 @@ export class PrismaChannelRepository implements ChannelRepository {
     });
   }
 
+  async findByPublicKeyAsSystem(publicKey: string): Promise<Channel | null> {
+    if (!publicKey || publicKey.length > 100) return null;
+    // Sem filtro de tenant DE PROPÓSITO: a chave é o que diz a conta (ver o port).
+    const row = await this.txHost.tx.channel.findUnique({ where: { publicKey } });
+    return row ? toDomain(row) : null;
+  }
+
   async delete(channel: Channel): Promise<void> {
     await this.txHost.tx.channel.deleteMany({
       where: { id: channel.id, tenantId: this.tenant.tenantId },
@@ -73,10 +86,12 @@ function toDomain(row: ChannelModel): Channel {
     teamId: row.teamId,
     createdAt: row.createdAt,
     statusAt: row.statusAt,
+    publicKey: row.publicKey,
+    settings: (row.settings as WebChatSettings | null) ?? null,
   });
 }
 
-function toPersistence(channel: Channel): ChannelModel {
+function toPersistence(channel: Channel) {
   return {
     id: channel.id,
     tenantId: channel.tenantId,
@@ -88,5 +103,7 @@ function toPersistence(channel: Channel): ChannelModel {
     teamId: channel.teamId,
     createdAt: channel.createdAt,
     statusAt: channel.statusAt,
+    publicKey: channel.publicKey,
+    settings: channel.settings ? { ...channel.settings } : Prisma.DbNull,
   };
 }

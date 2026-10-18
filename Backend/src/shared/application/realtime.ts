@@ -8,8 +8,20 @@
  * mande o sinal só para as salas de quem pode ver o recurso.
  */
 export interface RealtimeNotifier {
-  emit(rooms: readonly string[], event: string, data: Record<string, unknown>): Promise<void>;
+  /** `namespace`: padrão = o do painel; o do chat do site é `WEB_CHAT_NAMESPACE`. */
+  emit(
+    rooms: readonly string[],
+    event: string,
+    data: Record<string, unknown>,
+    namespace?: string,
+  ): Promise<void>;
 }
+
+/**
+ * Conexões dos visitantes do chat do site (ADR 0012): outro namespace, com
+ * autenticação própria (token do visitante, não o login do painel).
+ */
+export const WEB_CHAT_NAMESPACE = '/chat';
 
 export const REALTIME_NOTIFIER = Symbol('RealtimeNotifier');
 
@@ -23,4 +35,6 @@ export const RealtimeRooms = {
   member: (membershipId: string) => `member:${membershipId}`,
   permission: (tenantId: string, permission: string) => `tenant:${tenantId}:perm:${permission}`,
   teamPermission: (teamId: string, permission: string) => `team:${teamId}:perm:${permission}`,
+  /** O visitante do chat do site (no namespace `WEB_CHAT_NAMESPACE`). */
+  webChatVisitor: (channelId: string, contactId: string) => `webchat:${channelId}:${contactId}`,
 };

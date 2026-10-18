@@ -6,6 +6,7 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   manual: 'Cadastro manual',
   import: 'Importação',
   web_form: 'Formulário do site',
+  web_chat: 'Chat do site',
 }
 
 export const LEAD_SOURCES = Object.keys(LEAD_SOURCE_LABELS) as LeadSource[]

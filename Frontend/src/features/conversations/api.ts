@@ -14,11 +14,12 @@ export interface Conversation {
   lastMessageAt: string
   lastMessagePreview: string | null
   createdAt: string
-  contact: { id: string; name: string | null; phone: string | null }
+  contact: { id: string; name: string | null; phone: string | null; email: string | null }
   /** null = fila geral. */
   team: { id: string; name: string } | null
   /** `name` null = canal removido (a conversa fica como histórico). */
-  channel: { id: string; name: string | null }
+  /** `kind` null = canal removido. */
+  channel: { id: string; name: string | null; kind: 'whatsapp' | 'web_chat' | null }
 }
 
 /** Recorte da lista: todas (no meu escopo), só as minhas, ou só as sem responsável. */

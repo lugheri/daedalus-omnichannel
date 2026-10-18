@@ -86,32 +86,67 @@ export class CreateWhatsAppChannelUseCase {
   }
 }
 
-/** (Re)conectar: depois de desconectado, ou se o canal ficou pendente. */
+/**
+ * (Re)conectar. WhatsApp: depois de desconectado, ou se ficou pendente (o
+ * conector gera o QR code). Chat do site: liga o widget, na hora.
+ */
 @Injectable()
 export class ConnectChannelUseCase {
   constructor(
     @Inject(CHANNEL_REPOSITORY) private readonly channels: ChannelRepository,
     @Inject(JOB_QUEUE) private readonly jobs: JobQueue,
+    @Inject(EVENT_BUS) private readonly events: EventBus,
+    @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(channelId: string): Promise<void> {
     const channel = await load(this.channels, channelId);
+    if (channel.isWebChat)
+      return toggleWebChat(
+        { channels: this.channels, events: this.events, unitOfWork: this.unitOfWork },
+        channel,
+        true,
+      );
     await this.jobs.add(StartWhatsAppSession, { channelId, tenantId: channel.tenantId });
   }
 }
 
-/** Desconectar e desfazer o pareamento (reconectar exigirá novo QR code). */
+/**
+ * WhatsApp: desconectar e desfazer o pareamento (reconectar exigirá novo QR
+ * code). Chat do site: desliga o widget (some do site).
+ */
 @Injectable()
 export class DisconnectChannelUseCase {
   constructor(
     @Inject(CHANNEL_REPOSITORY) private readonly channels: ChannelRepository,
     @Inject(JOB_QUEUE) private readonly jobs: JobQueue,
+    @Inject(EVENT_BUS) private readonly events: EventBus,
+    @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(channelId: string): Promise<void> {
-    await load(this.channels, channelId);
+    const channel = await load(this.channels, channelId);
+    if (channel.isWebChat)
+      return toggleWebChat(
+        { channels: this.channels, events: this.events, unitOfWork: this.unitOfWork },
+        channel,
+        false,
+      );
     await this.jobs.add(StopWhatsAppSession, { channelId, logout: true });
   }
+}
+
+/** Liga/desliga o chat do site, com o evento de status (como os relatos do conector). */
+async function toggleWebChat(
+  deps: { channels: ChannelRepository; events: EventBus; unitOfWork: UnitOfWork },
+  channel: Channel,
+  enabled: boolean,
+): Promise<void> {
+  channel.setWebChatEnabled(enabled, new Date());
+  await deps.unitOfWork.run(async () => {
+    await deps.channels.save(channel);
+    await deps.events.publish(channel.pullEvents());
+  });
 }
 
 /**
@@ -166,6 +201,7 @@ export class SendTestMessageUseCase {
 
   async execute(input: { channelId: string; to: string; text: string }): Promise<string> {
     const channel = await load(this.channels, input.channelId);
+    channel.assertWhatsApp();
     const messageId = this.ids.generate();
     await this.sender.send(channel, { messageId, to: input.to, text: input.text });
     return messageId;

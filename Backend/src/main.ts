@@ -43,12 +43,20 @@ async function bootstrap() {
     limits: { files: 1, fields: 5, fileSize: config.mediaMaxBytes },
   });
   // Só o frontend conhecido pode chamar a API pelo navegador, com cookies.
-  app.enableCors({
+  const panelCors = {
     origin: [...config.corsOrigins],
     credentials: true,
     // O @fastify/cors libera só GET/HEAD/POST por padrão.
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
     exposedHeaders: ['x-request-id'],
+  };
+  // O widget do chat do site roda no site da conta (qualquer domínio): as
+  // rotas dele aceitam qualquer origem, SEM cookie — autenticam pela chave do
+  // widget e pelo token do visitante no Authorization (ADR 0012).
+  const chatCors = { origin: true, credentials: false, methods: ['GET', 'POST'] };
+  app.enableCors({
+    delegator: (request, callback) =>
+      callback(null, request.url.startsWith('/v1/public/chat/') ? chatCors : panelCors),
   });
   // WebSocket (Socket.IO) no mesmo servidor HTTP, com adapter Redis entre réplicas.
   app.useWebSocketAdapter(new RedisIoAdapter(app));

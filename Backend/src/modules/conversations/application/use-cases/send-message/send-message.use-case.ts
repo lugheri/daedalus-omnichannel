@@ -1,9 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ID_GENERATOR, type IdGenerator } from '../../../../../shared/application/id-generator';
-import { ContactWithoutPhoneError } from '../../../domain/errors/contact-without-phone.error';
 import { Message } from '../../../domain/message.entity';
 import { CHANNEL_GATEWAY, type ChannelGateway } from '../../ports/channel-gateway';
-import { CONTACT_DIRECTORY, type ContactDirectory } from '../../ports/contact-directory';
+import { ConversationRecipient } from '../../conversation-recipient';
 import { TextDelivery } from '../../text-delivery';
 import { VisibleConversations } from '../../visible-conversations';
 
@@ -14,17 +13,16 @@ import { VisibleConversations } from '../../visible-conversations';
 @Injectable()
 export class SendMessageUseCase {
   constructor(
-    @Inject(CONTACT_DIRECTORY) private readonly contacts: ContactDirectory,
     @Inject(CHANNEL_GATEWAY) private readonly channels: ChannelGateway,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     private readonly visible: VisibleConversations,
     private readonly delivery: TextDelivery,
+    private readonly recipient: ConversationRecipient,
   ) {}
 
   async execute(input: { conversationId: string; text: string }): Promise<Message> {
     const { conversation, member } = await this.visible.load(input.conversationId);
-    const contact = await this.contacts.findById(conversation.contactId);
-    if (!contact?.phone) throw new ContactWithoutPhoneError();
+    const { to } = await this.recipient.of(conversation);
     // Falha cedo (409) se o canal caiu, em vez de gravar uma mensagem fadada a falhar.
     await this.channels.assertCanSend(conversation.channelId);
 
@@ -35,6 +33,6 @@ export class SendMessageUseCase {
       text: input.text,
       senderMembershipId: member.membershipId,
     });
-    return this.delivery.deliver(conversation, message, contact.phone);
+    return this.delivery.deliver(conversation, message, to);
   }
 }

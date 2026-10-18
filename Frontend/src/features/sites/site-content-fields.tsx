@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { useWebChatChannels } from '@/features/channels/api'
 import { useForms } from '@/features/forms/api'
 import { usePermissions } from '@/features/auth/session-context'
 import {
@@ -331,7 +332,9 @@ const SECTION_LABELS: Record<SiteSection, { label: string; hint: string }> = {
 export function SectionsFields({ content, patch }: { content: SiteContent; patch: PatchContent }) {
   const { can } = usePermissions()
   const canForms = can('forms:manage')
+  const canChannels = can('channels:manage')
   const forms = useForms()
+  const chats = useWebChatChannels(canChannels)
   const options = useMemo(
     () => (forms.data ?? []).filter((f) => f.active || f.id === content.contactFormId),
     [forms.data, content.contactFormId],
@@ -386,6 +389,36 @@ export function SectionsFields({ content, patch }: { content: SiteContent; patch
           </Select>
           <FieldDescription>
             Os envios viram contatos e negócios no funil. Crie formulários em Site › Formulários.
+          </FieldDescription>
+        </Field>
+      )}
+      {canChannels && (
+        <Field>
+          <FieldLabel htmlFor="site-chat">Chat do site</FieldLabel>
+          <Select
+            value={content.chatChannelId ?? 'none'}
+            onValueChange={(value) =>
+              patch((c) => {
+                c.chatChannelId = value === 'none' ? null : value
+              })
+            }
+          >
+            <SelectTrigger id="site-chat">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem chat</SelectItem>
+              {chats.data?.map((chat) => (
+                <SelectItem key={chat.id} value={chat.id}>
+                  {chat.name}
+                  {chat.status !== 'connected' && ' (desligado)'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FieldDescription>
+            Um botão de chat no canto do site; as conversas chegam na caixa de entrada. Crie o chat
+            em Configurações › Canais.
           </FieldDescription>
         </Field>
       )}

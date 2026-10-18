@@ -10,6 +10,7 @@ import { Contact } from '../../../domain/contact.entity';
 import { Email } from '../../../domain/email.vo';
 import { ContactWithoutIdentifierError } from '../../../domain/errors/contact-without-identifier.error';
 import { LeadCapturedEvent } from '../../../domain/events/lead-captured.event';
+import type { LeadSource } from '../../../domain/lead-source';
 import { Phone } from '../../../domain/phone.vo';
 import { CONTACT_REPOSITORY, type ContactRepository } from '../../ports/contact.repository';
 
@@ -19,6 +20,8 @@ export interface CaptureLeadInput {
   email?: string | null;
   /** Campanha / página do formulário → `sourceDetail`. */
   campaign?: string | null;
+  /** Origem de contato novo (padrão: formulário do site). */
+  source?: LeadSource;
 }
 
 /**
@@ -75,7 +78,7 @@ export class CaptureLeadUseCase {
         name: input.name,
         phone: phone?.value,
         email: email?.value,
-        source: 'web_form',
+        source: input.source ?? 'web_form',
         sourceDetail: input.campaign,
       });
       await this.contacts.save(contact);

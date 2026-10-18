@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AppConfig } from '../../config/app-config';
 import { AccountsModule } from '../accounts';
 import { CatalogModule } from '../catalog';
+import { ChannelsModule } from '../channels';
 import { FormsModule } from '../forms';
 import { SITE_ASSET_REPOSITORY } from './application/ports/site-asset.repository';
 import { SITE_DOMAIN_CHECKER } from './application/ports/site-domain-checker';
@@ -61,6 +62,7 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
   imports: [
     AccountsModule,
     CatalogModule,
+    ChannelsModule,
     FormsModule,
     BullModule.registerQueue({ name: SITES_QUEUE }),
   ],

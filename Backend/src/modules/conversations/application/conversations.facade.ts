@@ -15,6 +15,10 @@ import {
   AssignBySystemUseCase,
   SendAutomatedMessageUseCase,
 } from './use-cases/system-actions/system-actions.use-cases';
+import {
+  WebChatHistoryUseCase,
+  type WebChatHistoryItem,
+} from './use-cases/web-chat-history/web-chat-history.use-case';
 import { VisibleConversations } from './visible-conversations';
 
 /** Resumo de uma conversa para outros módulos (ex.: o card do kanban). */
@@ -50,7 +54,20 @@ export class ConversationsFacade {
     private readonly visible: VisibleConversations,
     private readonly sendAutomated: SendAutomatedMessageUseCase,
     private readonly assignBySystem: AssignBySystemUseCase,
+    private readonly webChatHistoryUseCase: WebChatHistoryUseCase,
   ) {}
+
+  /**
+   * Histórico do visitante do chat do site (rota pública do widget, no tenant
+   * do canal): ver o use case para o que entra.
+   */
+  webChatHistory(input: {
+    channelId: string;
+    contactId: string;
+    since: Date;
+  }): Promise<WebChatHistoryItem[]> {
+    return this.webChatHistoryUseCase.execute(input);
+  }
 
   /** Das conversas informadas, as que o membro atual vê (na ordem dos ids). */
   async visibleSummaries(ids: string[]): Promise<ConversationSummary[]> {

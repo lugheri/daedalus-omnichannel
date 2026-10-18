@@ -5,16 +5,16 @@ import { ID_GENERATOR, type IdGenerator } from '../../../../../shared/applicatio
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../../shared/application/unit-of-work';
 import { baseMimeType, mediaKindOf } from '../../../../../shared/domain/media-type';
 import type { Conversation } from '../../../domain/conversation.entity';
-import { ContactWithoutPhoneError } from '../../../domain/errors/contact-without-phone.error';
+import { ChannelTextOnlyError } from '../../../domain/errors/channel-text-only.error';
 import { EmptyAttachmentError } from '../../../domain/errors/empty-attachment.error';
 import { Message } from '../../../domain/message.entity';
 import { CHANNEL_GATEWAY, type ChannelGateway } from '../../ports/channel-gateway';
-import { CONTACT_DIRECTORY, type ContactDirectory } from '../../ports/contact-directory';
 import {
   CONVERSATION_REPOSITORY,
   type ConversationRepository,
 } from '../../ports/conversation.repository';
 import { MESSAGE_REPOSITORY, type MessageRepository } from '../../ports/message.repository';
+import { ConversationRecipient } from '../../conversation-recipient';
 import { VisibleConversations } from '../../visible-conversations';
 
 export interface SendAttachmentInput {
@@ -35,20 +35,20 @@ export class SendAttachmentUseCase {
   constructor(
     @Inject(CONVERSATION_REPOSITORY) private readonly conversations: ConversationRepository,
     @Inject(MESSAGE_REPOSITORY) private readonly messages: MessageRepository,
-    @Inject(CONTACT_DIRECTORY) private readonly contacts: ContactDirectory,
     @Inject(CHANNEL_GATEWAY) private readonly channels: ChannelGateway,
     @Inject(FILE_STORAGE) private readonly storage: FileStorage,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(EVENT_BUS) private readonly events: EventBus,
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
     private readonly visible: VisibleConversations,
+    private readonly recipient: ConversationRecipient,
   ) {}
 
   async execute(input: SendAttachmentInput): Promise<Message> {
     if (input.content.length === 0) throw new EmptyAttachmentError();
     const { conversation, member } = await this.visible.load(input.conversationId);
-    const contact = await this.contacts.findById(conversation.contactId);
-    if (!contact?.phone) throw new ContactWithoutPhoneError();
+    const { to, kind } = await this.recipient.of(conversation);
+    if (kind !== 'whatsapp') throw new ChannelTextOnlyError();
     await this.channels.assertCanSend(conversation.channelId);
 
     const messageId = this.ids.generate();
@@ -73,7 +73,7 @@ export class SendAttachmentUseCase {
       await this.channels.sendMedia({
         channelId: conversation.channelId,
         messageId,
-        to: contact.phone,
+        to,
         media,
         caption: message.text,
       });

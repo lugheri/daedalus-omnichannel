@@ -20,6 +20,8 @@ export interface SiteViewInput {
   services: SiteServiceItem[];
   professionals: SiteProfessionalItem[];
   form: SiteFormInfo | null;
+  /** O site terá o widget do chat (o compositor injeta o script). */
+  chatEnabled?: boolean;
 }
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -213,6 +215,9 @@ export function buildSiteView(input: SiteViewInput) {
     testimonials: content.testimonials.map((t) => ({ author: t.author, text: t.text })),
     faq: content.faq.map((f) => ({ question: f.question, answer: f.answer })),
     contactForm,
+    // O botão do chat fica no canto inferior direito: o modelo pode subir o
+    // seu botão de WhatsApp (`{{#chat.enabled}}`).
+    chat: { enabled: input.chatEnabled === true },
   };
 }
 

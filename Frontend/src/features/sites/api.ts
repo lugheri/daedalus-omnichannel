@@ -34,6 +34,8 @@ export interface SiteContent {
   testimonials: { author: string; text: string }[]
   faq: { question: string; answer: string }[]
   contactFormId: string | null
+  /** Chat do site (canal) que aparece no site, ou null. */
+  chatChannelId: string | null
   seo: { title: string | null; description: string | null }
 }
 

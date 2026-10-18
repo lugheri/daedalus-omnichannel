@@ -25,6 +25,7 @@ export class ChannelMessagesHandler {
       channelId: event.aggregateId,
       externalId: message.externalId,
       contactPhone: message.contactPhone,
+      contactId: message.contactId ?? null,
       contactName: message.contactName,
       fromMe: message.fromMe,
       kind: message.kind,

@@ -27,6 +27,9 @@ import {
 } from '../../testing/fakes';
 import { ConversationTabulator } from '../conversation-tabulator';
 import { ConversationsFacade } from '../conversations.facade';
+import { ConversationRecipient } from '../conversation-recipient';
+import { WebChatHistoryUseCase } from './web-chat-history/web-chat-history.use-case';
+import { ChannelTextOnlyError } from '../../domain/errors/channel-text-only.error';
 import { TextDelivery } from '../text-delivery';
 import {
   AssignBySystemUseCase,
@@ -106,8 +109,9 @@ describe('Conversations', () => {
       ...overrides,
     });
   const delivery = () => new TextDelivery(conversations, messages, channels, events, uow);
+  const recipient = () => new ConversationRecipient(channels, contacts);
   const send = (conversationId: string, text = 'Olá! Como posso ajudar?') =>
-    new SendMessageUseCase(contacts, channels, ids, visible, delivery()).execute({
+    new SendMessageUseCase(channels, ids, visible, delivery(), recipient()).execute({
       conversationId,
       text,
     });
@@ -121,8 +125,9 @@ describe('Conversations', () => {
       teams,
       new InMemoryDispositionRepository(tenant, history),
       visible,
-      new SendAutomatedMessageUseCase(conversations, contacts, channels, ids, delivery()),
+      new SendAutomatedMessageUseCase(conversations, channels, ids, delivery(), recipient()),
       new AssignBySystemUseCase(conversations, teams, access, events, uow),
+      new WebChatHistoryUseCase(conversations, messages),
     );
   };
   const teams = new FakeTeamDirectory([
@@ -212,7 +217,7 @@ describe('Conversations', () => {
     it('refuses to reply to a contact without phone', async () => {
       await record();
       const conversation = await onlyConversation();
-      contacts.findById = () => Promise.resolve({ id: 'x', name: null, phone: null });
+      contacts.findById = () => Promise.resolve({ id: 'x', name: null, phone: null, email: null });
 
       await expect(send(conversation.id)).rejects.toThrow(ContactWithoutPhoneError);
     });
@@ -463,13 +468,13 @@ describe('Conversations', () => {
       new SendAttachmentUseCase(
         conversations,
         messages,
-        contacts,
         channels,
         storage,
         ids,
         events,
         uow,
         visible,
+        recipient(),
       ).execute({
         conversationId,
         content: Buffer.from('fake-jpeg'),
@@ -560,5 +565,88 @@ describe('Conversations', () => {
     ).execute({ limit: 20, contactId: maria.conversation.contactId });
 
     expect(history.items.map((v) => v.conversation.id)).toEqual([maria.conversation.id]);
+  });
+
+  describe('web chat', () => {
+    const visitor = () => contacts.add({ name: 'Ana', email: 'ana@exemplo.com' });
+    const fromVisitor = (contactId: string, externalId: string, text = 'Vocês abrem sábado?') =>
+      record({
+        channelId: 'chat-1',
+        externalId,
+        contactPhone: null,
+        contactId,
+        contactName: 'Ana',
+        text,
+        sentAt: new Date().toISOString(),
+      });
+
+    beforeEach(() => channels.webChats.add('chat-1'));
+
+    it('records a visitor message for the contact the widget identified (no phone needed)', async () => {
+      const ana = visitor();
+      expect(await fromVisitor(ana.id, 'cli-1')).toBe('recorded');
+      expect(await fromVisitor(ana.id, 'cli-1')).toBe('duplicate');
+      const conversation = await onlyConversation();
+      expect(conversation.contactId).toBe(ana.id);
+      expect(conversation.channelId).toBe('chat-1');
+      // Contato que não existe (token adulterado, contato apagado): ignorada.
+      expect(await fromVisitor('contact-999', 'cli-2')).toBe('skipped');
+    });
+
+    it('replies go to the visitor (the contact), not to a phone; attachments are refused', async () => {
+      const ana = visitor();
+      await fromVisitor(ana.id, 'cli-1');
+      const conversation = await onlyConversation();
+      await send(conversation.id, 'Abrimos sim, das 8h às 14h!');
+      expect(channels.sent.at(-1)).toMatchObject({ channelId: 'chat-1', to: ana.id });
+
+      await expect(
+        new SendAttachmentUseCase(
+          conversations,
+          messages,
+          channels,
+          new InMemoryFileStorage(),
+          ids,
+          events,
+          uow,
+          visible,
+          recipient(),
+        ).execute({
+          conversationId: conversation.id,
+          content: Buffer.from('x'),
+          mimeType: 'image/png',
+          fileName: 'a.png',
+          caption: null,
+        }),
+      ).rejects.toThrow(ChannelTextOnlyError);
+    });
+
+    it("the visitor's history starts at the session and has only text", async () => {
+      const ana = visitor();
+      await fromVisitor(ana.id, 'cli-old', 'Mensagem de antes');
+      const sessionStart = new Date(Date.now() + 5);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      await fromVisitor(ana.id, 'cli-1', 'Oi de novo');
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await send((await onlyConversation()).id, 'Olá, Ana!');
+
+      const history = await facade().webChatHistory({
+        channelId: 'chat-1',
+        contactId: ana.id,
+        since: sessionStart,
+      });
+      expect(history.map((m) => [m.direction, m.text, m.clientId])).toEqual([
+        ['inbound', 'Oi de novo', 'cli-1'],
+        ['outbound', 'Olá, Ana!', null],
+      ]);
+      tenant.switchTo('tenant-b');
+      expect(
+        await facade().webChatHistory({
+          channelId: 'chat-1',
+          contactId: ana.id,
+          since: new Date(0),
+        }),
+      ).toEqual([]);
+    });
   });
 });

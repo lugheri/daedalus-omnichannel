@@ -5,6 +5,7 @@ import type { SiteHosting } from '../application/ports/site-hosting';
 import type { SiteRenderer } from '../application/ports/site-renderer';
 import type {
   SiteAccount,
+  SiteChatInfo,
   SiteFormInfo,
   SiteProfessionalItem,
   SiteServiceItem,
@@ -303,6 +304,8 @@ export class FakeSiteSources implements SiteSources {
   serviceItems: SiteServiceItem[] = [];
   professionalItems: SiteProfessionalItem[] = [];
   forms = new Map<string, SiteFormInfo>();
+  /** Chats ligados (o resto: desligado ou inexistente). */
+  chats = new Map<string, SiteChatInfo>();
 
   services(): Promise<SiteServiceItem[]> {
     return Promise.resolve(this.serviceItems);
@@ -314,6 +317,10 @@ export class FakeSiteSources implements SiteSources {
 
   form(id: string): Promise<SiteFormInfo | null> {
     return Promise.resolve(this.forms.get(id) ?? null);
+  }
+
+  chat(id: string): Promise<SiteChatInfo | null> {
+    return Promise.resolve(this.chats.get(id) ?? null);
   }
 }
 

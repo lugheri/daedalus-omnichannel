@@ -2,17 +2,16 @@ import { Inject, Injectable } from '@nestjs/common';
 import { EVENT_BUS, type EventBus } from '../../../../../shared/application/event-bus';
 import { ID_GENERATOR, type IdGenerator } from '../../../../../shared/application/id-generator';
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../../shared/application/unit-of-work';
-import { ContactWithoutPhoneError } from '../../../domain/errors/contact-without-phone.error';
 import { ConversationNotFoundError } from '../../../domain/errors/conversation-not-found.error';
 import { Message } from '../../../domain/message.entity';
 import { CHANNEL_GATEWAY, type ChannelGateway } from '../../ports/channel-gateway';
-import { CONTACT_DIRECTORY, type ContactDirectory } from '../../ports/contact-directory';
 import {
   CONVERSATION_REPOSITORY,
   type ConversationRepository,
 } from '../../ports/conversation.repository';
 import { MEMBER_ACCESS, type MemberAccess } from '../../ports/member-access';
 import { TEAM_DIRECTORY, type TeamDirectory } from '../../ports/team-directory';
+import { ConversationRecipient } from '../../conversation-recipient';
 import { TextDelivery } from '../../text-delivery';
 import {
   applyTransfer,
@@ -29,17 +28,16 @@ import {
 export class SendAutomatedMessageUseCase {
   constructor(
     @Inject(CONVERSATION_REPOSITORY) private readonly conversations: ConversationRepository,
-    @Inject(CONTACT_DIRECTORY) private readonly contacts: ContactDirectory,
     @Inject(CHANNEL_GATEWAY) private readonly channels: ChannelGateway,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     private readonly delivery: TextDelivery,
+    private readonly recipient: ConversationRecipient,
   ) {}
 
   async execute(input: { conversationId: string; text: string }): Promise<Message> {
     const conversation = await this.conversations.findById(input.conversationId);
     if (!conversation) throw new ConversationNotFoundError();
-    const contact = await this.contacts.findById(conversation.contactId);
-    if (!contact?.phone) throw new ContactWithoutPhoneError();
+    const { to } = await this.recipient.of(conversation);
     await this.channels.assertCanSend(conversation.channelId);
 
     const message = Message.automated(this.ids.generate(), {
@@ -48,7 +46,7 @@ export class SendAutomatedMessageUseCase {
       channelId: conversation.channelId,
       text: input.text,
     });
-    return this.delivery.deliver(conversation, message, contact.phone);
+    return this.delivery.deliver(conversation, message, to);
   }
 }
 

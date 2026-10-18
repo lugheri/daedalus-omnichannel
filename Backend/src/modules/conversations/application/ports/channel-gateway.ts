@@ -4,9 +4,13 @@ import type { MessageMedia } from '../../domain/message.entity';
  * O que conversations precisa do módulo channels, nos termos de conversations.
  * Adapter em infra/ sobre a ChannelsFacade.
  */
+/** O tipo do canal, nos termos de conversations. */
+export type ChannelKind = 'whatsapp' | 'web_chat';
+
 export interface ChannelInfo {
   id: string;
   name: string;
+  kind: ChannelKind;
   /** Equipe que recebe as conversas novas do canal. */
   teamId: string | null;
 }

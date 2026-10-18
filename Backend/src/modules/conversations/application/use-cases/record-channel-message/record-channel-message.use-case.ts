@@ -20,6 +20,8 @@ export interface ChannelMessageInput {
   channelId: string;
   externalId: string;
   contactPhone: string | null;
+  /** Contato já identificado pelo canal (chat do site); senão, pelo telefone. */
+  contactId?: string | null;
   contactName: string | null;
   fromMe: boolean;
   kind: MessageKind;
@@ -32,7 +34,8 @@ export type RecordResult = 'recorded' | 'duplicate' | 'skipped';
 
 /**
  * Mensagem que passou pelo canal (evento do módulo channels, no worker):
- * acha ou cria o contato pelo telefone, acha ou abre a conversa e registra a
+ * acha ou cria o contato pelo telefone (ou usa o contato que o canal já
+ * identificou, no chat do site), acha ou abre a conversa e registra a
  * mensagem — tudo numa transação.
  *
  * Idempotente pelo id do provedor: a mesma mensagem entregue duas vezes é
@@ -55,23 +58,23 @@ export class RecordChannelMessageUseCase {
   ) {}
 
   async execute(input: ChannelMessageInput): Promise<RecordResult> {
-    if (!input.contactPhone) {
+    if (!input.contactPhone && !input.contactId) {
       // Contatos identificados só por LID (sem telefone) ainda não são
       // suportados: o contato precisa de telefone para ser respondido.
       this.logger.warn(`Mensagem ${input.externalId} sem telefone do contato; ignorada`);
       return 'skipped';
     }
-    const phone = input.contactPhone;
 
     return this.unitOfWork.run(async () => {
       if (await this.messages.existsByExternalId(input.channelId, input.externalId)) {
         return 'duplicate';
       }
 
-      const contact = await this.contacts.findOrCreateByPhone({
-        phone,
-        name: input.fromMe ? null : input.contactName,
-      });
+      const contact = await this.contactOf(input);
+      if (!contact) {
+        this.logger.warn(`Mensagem ${input.externalId} de contato inexistente; ignorada`);
+        return 'skipped';
+      }
       const conversation =
         (await this.conversations.findByChannelAndContact(input.channelId, contact.id)) ??
         (await this.startConversation(input.channelId, contact.id));
@@ -95,6 +98,14 @@ export class RecordChannelMessageUseCase {
       await this.messages.save(message);
       await this.events.publish([...conversation.pullEvents(), ...message.pullEvents()]);
       return 'recorded';
+    });
+  }
+
+  private async contactOf(input: ChannelMessageInput): Promise<{ id: string } | null> {
+    if (input.contactId) return this.contacts.findById(input.contactId);
+    return this.contacts.findOrCreateByPhone({
+      phone: input.contactPhone as string,
+      name: input.fromMe ? null : input.contactName,
     });
   }
 

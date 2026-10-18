@@ -39,6 +39,7 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
   - `worker` (`node dist/worker.js`) — consumidores de fila;
   - `whatsapp-connector` (`node dist/whatsapp-connector.js`) — conexões persistentes do Baileys (com estado; cada número pertence a uma instância). Tratado como serviço à parte: só fala com o resto por filas/eventos no Redis e tem tabelas próprias ([ADR 0006](docs/adr/0006-canais-whatsapp.md)).
 - **WhatsApp:** API oficial (Cloud API, empresa como Tech Provider da Meta) e não oficial (Baileys), atrás da mesma abstração no módulo `channels`. O Baileys é o canal inicial do MVP (clientes cientes).
+- **Chat do site** ([ADR 0012](docs/adr/0012-chat-do-site.md)): canal `web_chat`; o widget (script servido pela API) roda no site da conta e fala só com as rotas públicas `/v1/public/chat` (CORS aberto só nelas, sem cookie) e com o namespace Socket.IO `/chat`, autenticado por um token próprio do visitante.
 - **Arquivos:** S3 em produção, MinIO em desenvolvimento — mesmo adapter (API S3), muda só a configuração.
 - Configuração 100% por variáveis de ambiente (12-factor). Segredos via Docker secrets em produção, lidos pela convenção **`VAR_FILE`** (ex.: `JWT_SECRET_FILE=/run/secrets/jwt_secret`); `.env` só em desenvolvimento e nunca versionado — manter os `.env.example` atualizados, **só com valores de exemplo** (nunca uma senha usada de verdade, nem de dev: o GitHub alerta).
 - Todo serviço expõe health checks (`/health/live`, `/health/ready`) e faz graceful shutdown (SIGTERM).

@@ -64,6 +64,37 @@ export class ContactsFacade {
     return { contact: summarize(contact), created };
   }
 
+  /**
+   * Visitante do chat do site que se identificou (nome + telefone e/ou
+   * e-mail): o contato existente (completando o que faltar) ou um novo, com
+   * origem `web_chat`. Mesmas regras e erros da captura do formulário.
+   */
+  async captureChatLead(input: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+    channelName: string;
+  }): Promise<{ contact: ContactSummary; created: boolean }> {
+    const capture = new CaptureLeadUseCase(
+      this.contacts,
+      this.ids,
+      this.tenant,
+      this.events,
+      this.unitOfWork,
+    );
+    const { contact, created } = await capture.execute(
+      {
+        name: input.name,
+        phone: input.phone,
+        email: input.email,
+        campaign: input.channelName,
+        source: 'web_chat',
+      },
+      { announce: false },
+    );
+    return { contact: summarize(contact), created };
+  }
+
   async findById(id: string): Promise<ContactSummary | null> {
     const contact = await this.contacts.findById(id);
     return contact ? summarize(contact) : null;

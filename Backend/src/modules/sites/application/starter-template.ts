@@ -93,6 +93,8 @@ export const STARTER_TEMPLATE_HTML = `<!doctype html>
 
   .wa-float { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: 58px; height: 58px; border-radius: 50%; background: #25d366; display: grid; place-items: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
   .wa-float svg { width: 30px; height: 30px; fill: #fff; }
+  /* Com o chat do site, o botão dele fica no canto: o do WhatsApp sobe. */
+  .wa-float.with-chat { bottom: 92px; }
 
   @media (max-width: 720px) {
     .menu { display: none; }
@@ -252,7 +254,7 @@ export const STARTER_TEMPLATE_HTML = `<!doctype html>
 </footer>
 
 {{#business.whatsappUrl}}
-<a class="wa-float" href="{{business.whatsappUrl}}" aria-label="Conversar no WhatsApp">
+<a class="wa-float{{#chat.enabled}} with-chat{{/chat.enabled}}" href="{{business.whatsappUrl}}" aria-label="Conversar no WhatsApp">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.4 1.05 4.58 2.77 6.19L4 22l4.94-1.9c.97.27 1.99.4 3.06.4 5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>
 </a>
 {{/business.whatsappUrl}}

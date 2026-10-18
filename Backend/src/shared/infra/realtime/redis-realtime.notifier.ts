@@ -18,10 +18,16 @@ export class RedisRealtimeNotifier implements RealtimeNotifier {
     this.emitter = new Emitter(redis);
   }
 
-  emit(rooms: readonly string[], event: string, data: Record<string, unknown>): Promise<void> {
+  emit(
+    rooms: readonly string[],
+    event: string,
+    data: Record<string, unknown>,
+    namespace?: string,
+  ): Promise<void> {
     if (rooms.length === 0) return Promise.resolve();
     try {
-      this.emitter.to([...rooms]).emit(event, data);
+      const target = namespace ? this.emitter.of(namespace) : this.emitter;
+      target.to([...rooms]).emit(event, data);
     } catch (error) {
       // Aviso perdido não é dado perdido: a tela se corrige no próximo refetch.
       this.logger.warn(`Aviso em tempo real não enviado (${event}): ${String(error)}`);

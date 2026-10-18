@@ -99,6 +99,15 @@ export const MARKER_GROUPS: MarkerGroup[] = [
     ],
   },
   {
+    title: 'Chat do site',
+    items: [
+      {
+        marker: '{{#chat.enabled}}',
+        description: 'O site tem o botão do chat (canto inferior direito): suba o seu botão.',
+      },
+    ],
+  },
+  {
     title: 'Formulário de contato',
     items: [
       {

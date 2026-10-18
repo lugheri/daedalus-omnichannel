@@ -38,6 +38,10 @@ export class InMemoryChannelRepository implements ChannelRepository {
     return Promise.resolve();
   }
 
+  findByPublicKeyAsSystem(publicKey: string): Promise<Channel | null> {
+    return Promise.resolve(this.items.find((c) => c.publicKey === publicKey) ?? null);
+  }
+
   delete(channel: Channel): Promise<void> {
     const tenantId = this.tenant.tenantId;
     this.items = this.items.filter((c) => !(c.id === channel.id && c.tenantId === tenantId));
@@ -50,5 +54,14 @@ export class FakeQrCodeReader implements QrCodeReader {
 
   read(channelId: string): Promise<string | null> {
     return Promise.resolve(this.codes.get(channelId) ?? null);
+  }
+}
+
+/** Chave do widget previsível nos testes. */
+export class SequentialPublicKeyGenerator {
+  private next = 1;
+
+  generate(): string {
+    return `chave-${this.next++}`;
   }
 }

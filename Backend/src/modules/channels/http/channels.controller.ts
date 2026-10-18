@@ -22,6 +22,10 @@ import {
   SendTestMessageUseCase,
   SetChannelTeamUseCase,
 } from '../application/use-cases/manage-channels.use-case';
+import {
+  CreateWebChatChannelUseCase,
+  UpdateWebChatChannelUseCase,
+} from '../application/use-cases/web-chat.use-cases';
 import type { Channel } from '../domain/channel.entity';
 import {
   channelTeamSchema,
@@ -30,6 +34,8 @@ import {
   type ChannelTeamDto,
   type CreateChannelDto,
   type TestMessageDto,
+  webChatSettingsSchema,
+  type WebChatSettingsDto,
 } from './dto/channel.dto';
 
 const idParam = z.uuid();
@@ -45,6 +51,9 @@ const present = (channel: Channel, teamName: string | null = null) => ({
   statusReason: channel.statusReason,
   statusAt: channel.statusAt.toISOString(),
   createdAt: channel.createdAt.toISOString(),
+  // Chat do site: a chave do widget e o que o visitante vê (null nos de WhatsApp).
+  publicKey: channel.publicKey,
+  settings: channel.settings,
 });
 
 @RequirePermissions('channels:manage')
@@ -53,6 +62,8 @@ export class ChannelsController {
   constructor(
     private readonly listChannels: ListChannelsUseCase,
     private readonly createChannel: CreateWhatsAppChannelUseCase,
+    private readonly createWebChat: CreateWebChatChannelUseCase,
+    private readonly updateWebChat: UpdateWebChatChannelUseCase,
     private readonly connectChannel: ConnectChannelUseCase,
     private readonly disconnectChannel: DisconnectChannelUseCase,
     private readonly getQrCode: GetChannelQrCodeUseCase,
@@ -70,7 +81,17 @@ export class ChannelsController {
 
   @Post()
   async create(@Body(new ZodValidationPipe(createChannelSchema)) body: CreateChannelDto) {
-    return present(await this.createChannel.execute(body));
+    const create = body.type === 'web_chat' ? this.createWebChat : this.createChannel;
+    return present(await create.execute({ name: body.name }));
+  }
+
+  /** Chat do site: título, saudação, cor e (`rotateKey`) chave nova do widget. */
+  @Patch(':id/web-chat')
+  async webChat(
+    @Param('id', new ZodValidationPipe(idParam)) id: string,
+    @Body(new ZodValidationPipe(webChatSettingsSchema)) body: WebChatSettingsDto,
+  ) {
+    return present(await this.updateWebChat.execute(id, body));
   }
 
   /** Status + QR code atual. O front consulta a cada poucos segundos durante o pareamento. */

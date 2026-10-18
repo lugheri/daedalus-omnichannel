@@ -49,7 +49,7 @@ export function isSameDay(a: string, b: string): boolean {
 
 /** Nome do contato; sem nome, o telefone formatado. */
 export function contactLabel(contact: Conversation['contact']): string {
-  return contact.name ?? (contact.phone ? formatPhone(contact.phone) : 'Contato')
+  return contact.name ?? (contact.phone ? formatPhone(contact.phone) : (contact.email ?? 'Contato'))
 }
 
 export function contactInitials(contact: Conversation['contact']): string {

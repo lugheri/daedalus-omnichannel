@@ -194,7 +194,7 @@ export class PreviewSiteUseCase {
       ? normalizeSiteContent(input.content)
       : (site?.content ?? defaultSiteContent((await this.account.current()).name));
     const url = site && this.hosting.enabled ? publicUrl(this.hosting, site) : null;
-    return this.composer.render(template.html, content, url);
+    return this.composer.render(template.html, content, url, { preview: true });
   }
 }
 

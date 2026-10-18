@@ -13,6 +13,7 @@ import { MessagingModule } from './modules/messaging';
 import { TeamsModule } from './modules/teams';
 import { RealtimeModule } from './modules/realtime';
 import { SitesModule } from './modules/sites';
+import { WebChatModule } from './modules/webchat';
 import { SharedHttpModule } from './shared/http/shared-http.module';
 import { PrismaModule } from './shared/infra/prisma/prisma.module';
 import { SharedInfraModule } from './shared/infra/shared-infra.module';
@@ -36,6 +37,7 @@ import { SharedInfraModule } from './shared/infra/shared-infra.module';
     CatalogModule,
     FormsModule,
     SitesModule,
+    WebChatModule,
     ChannelsModule,
     RealtimeModule,
   ],

@@ -57,6 +57,8 @@ export interface SiteContent {
   faq: { question: string; answer: string }[];
   /** Formulário do módulo forms mostrado na seção de contato. */
   contactFormId: string | null;
+  /** Chat do site (canal do módulo channels) que aparece no site, ou null. */
+  chatChannelId: string | null;
   seo: { title: string | null; description: string | null };
 }
 
@@ -90,6 +92,7 @@ export function defaultSiteContent(businessName: string): SiteContent {
     testimonials: [],
     faq: [],
     contactFormId: null,
+    chatChannelId: null,
     seo: { title: null, description: null },
   };
 }
@@ -171,6 +174,7 @@ export function normalizeSiteContent(input: SiteContent): SiteContent {
     testimonials,
     faq,
     contactFormId: input.contactFormId ?? null,
+    chatChannelId: input.chatChannelId ?? null,
     seo: { title: text(input.seo.title), description: text(input.seo.description) },
   };
 }

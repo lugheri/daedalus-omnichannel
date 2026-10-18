@@ -24,7 +24,14 @@ const anyModulePublicApi = { element: { type: 'module' }, file: { categories: 'p
 
 export default defineConfig(
   {
-    ignores: ['dist/', 'node_modules/', 'eslint.config.mjs', 'src/shared/infra/prisma/generated/'],
+    ignores: [
+      'dist/',
+      'node_modules/',
+      'eslint.config.mjs',
+      'src/shared/infra/prisma/generated/',
+      // Script do widget do chat do site: JS de navegador, servido como está.
+      'src/modules/webchat/http/assets/',
+    ],
   },
   eslint.configs.recommended,
   tseslint.configs.recommendedTypeChecked,

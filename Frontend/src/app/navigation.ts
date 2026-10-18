@@ -154,7 +154,7 @@ export const NAV_MODULES: NavModule[] = [
         items: [
           {
             to: '/settings/channels',
-            label: 'WhatsApp',
+            label: 'Canais',
             icon: MessageCircle,
             anyOf: ['channels:manage'],
           },

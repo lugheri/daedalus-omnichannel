@@ -99,10 +99,25 @@ export class FakeTenantContext implements TenantContext {
 
 /** Guarda os avisos em tempo real emitidos, com as salas de destino. */
 export class RecordingRealtimeNotifier implements RealtimeNotifier {
-  readonly emitted: { rooms: string[]; event: string; data: Record<string, unknown> }[] = [];
+  readonly emitted: {
+    rooms: string[];
+    event: string;
+    data: Record<string, unknown>;
+    namespace?: string;
+  }[] = [];
 
-  emit(rooms: readonly string[], event: string, data: Record<string, unknown>): Promise<void> {
-    this.emitted.push({ rooms: [...rooms].sort(), event, data });
+  emit(
+    rooms: readonly string[],
+    event: string,
+    data: Record<string, unknown>,
+    namespace?: string,
+  ): Promise<void> {
+    this.emitted.push({
+      rooms: [...rooms].sort(),
+      event,
+      data,
+      ...(namespace ? { namespace } : {}),
+    });
     return Promise.resolve();
   }
 }

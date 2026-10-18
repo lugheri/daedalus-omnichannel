@@ -1,5 +1,5 @@
-// Módulo channels. Um canal = uma conexão de atendimento de um tenant
-// (hoje: um número de WhatsApp via Baileys).
+// Módulo channels. Um canal = uma conexão de atendimento de um tenant: um
+// número de WhatsApp (Baileys) ou o chat do site (ADR 0012).
 
 model Channel {
   id           String   @id @db.Uuid
@@ -13,6 +13,10 @@ model Channel {
   teamId       String?  @map("team_id") @db.Uuid
   createdAt    DateTime @map("created_at") @db.Timestamptz(3)
   statusAt     DateTime @map("status_at") @db.Timestamptz(3)
+  // Chat do site: chave pública do widget (vai no HTML do site) e as
+  // configurações dele (título, saudação, cor). null nos de WhatsApp.
+  publicKey    String?  @unique @map("public_key")
+  settings     Json?
 
   @@index([tenantId, id(sort: Desc)])
   @@map("channels")

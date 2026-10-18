@@ -6,6 +6,7 @@ export interface ContactInfo {
   id: string;
   name: string | null;
   phone: string | null;
+  email: string | null;
 }
 
 export interface ContactDirectory {

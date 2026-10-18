@@ -32,8 +32,13 @@ export class ContactsFacadeDirectory implements ContactDirectory {
 export class ChannelsFacadeGateway implements ChannelGateway {
   constructor(private readonly channels: ChannelsFacade) {}
 
-  findByIds(ids: string[]): Promise<ChannelInfo[]> {
-    return this.channels.findByIds(ids);
+  async findByIds(ids: string[]): Promise<ChannelInfo[]> {
+    return (await this.channels.findByIds(ids)).map((c) => ({
+      id: c.id,
+      name: c.name,
+      teamId: c.teamId,
+      kind: c.provider === 'web_chat' ? 'web_chat' : 'whatsapp',
+    }));
   }
 
   assertCanSend(channelId: string): Promise<void> {

@@ -70,6 +70,7 @@ export class RecordInboundMessageUseCase {
           externalId: message.externalId,
           contactPhone: message.contactPhone,
           contactHandle: message.contactJid,
+          contactId: null,
           contactName: message.contactName,
           fromMe: message.fromMe,
           kind: message.kind,

@@ -28,6 +28,8 @@ import {
 } from './application/use-cases/update-conversation/update-conversation.use-cases';
 import { VisibleConversations } from './application/visible-conversations';
 import { ConversationsFacade } from './application/conversations.facade';
+import { ConversationRecipient } from './application/conversation-recipient';
+import { WebChatHistoryUseCase } from './application/use-cases/web-chat-history/web-chat-history.use-case';
 import { TextDelivery } from './application/text-delivery';
 import {
   AssignBySystemUseCase,
@@ -74,6 +76,8 @@ import { PrismaMessageRepository } from './infra/prisma-message.repository';
   providers: [
     VisibleConversations,
     ConversationsFacade,
+    WebChatHistoryUseCase,
+    ConversationRecipient,
     TextDelivery,
     // Sistema (automações, pela facade)
     SendAutomatedMessageUseCase,

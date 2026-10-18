@@ -23,16 +23,22 @@ const createSchema = z.object({
 })
 type CreateForm = z.infer<typeof createSchema>
 
-/** Novo canal de WhatsApp. Ao criar, já abre o pareamento (QR code). */
+/**
+ * Novo canal. WhatsApp: ao criar, já abre o pareamento (QR code). Chat do
+ * site: já nasce ligado; abre a configuração (título, cor, código).
+ */
 export function CreateChannelDialog({
-  open,
+  type,
   onOpenChange,
   onCreated,
 }: {
-  open: boolean
+  /** null = fechado. */
+  type: 'whatsapp' | 'web_chat' | null
   onOpenChange: (open: boolean) => void
   onCreated: (channel: Channel) => void
 }) {
+  const open = type !== null
+  const webChat = type === 'web_chat'
   const queryClient = useQueryClient()
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -40,7 +46,8 @@ export function CreateChannelDialog({
   })
 
   const create = useMutation({
-    mutationFn: channelsApi.create,
+    mutationFn: (values: CreateForm) =>
+      channelsApi.create({ name: values.name, type: type ?? 'whatsapp' }),
     onSuccess: (channel) => {
       void queryClient.invalidateQueries({ queryKey: channelsQueryKey, exact: true })
       close(false)
@@ -60,9 +67,11 @@ export function CreateChannelDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Novo canal de WhatsApp</DialogTitle>
+          <DialogTitle>{webChat ? 'Novo chat do site' : 'Novo canal de WhatsApp'}</DialogTitle>
           <DialogDescription>
-            Conexão não oficial (via WhatsApp Web). Use um número dedicado ao atendimento.
+            {webChat
+              ? 'Um botão de chat no site: o visitante se identifica e conversa com a equipe pela caixa de entrada.'
+              : 'Conexão não oficial (via WhatsApp Web). Use um número dedicado ao atendimento.'}
           </DialogDescription>
         </DialogHeader>
         <form id="channel-form" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
@@ -72,7 +81,7 @@ export function CreateChannelDialog({
               form={form}
               name="name"
               label="Nome"
-              placeholder="Ex.: Comercial, Suporte"
+              placeholder={webChat ? 'Ex.: Chat do site' : 'Ex.: Comercial, Suporte'}
               autoFocus
             />
           </FieldGroup>
@@ -82,7 +91,7 @@ export function CreateChannelDialog({
             Cancelar
           </Button>
           <Button type="submit" form="channel-form" disabled={create.isPending}>
-            {create.isPending ? 'Criando…' : 'Criar e conectar'}
+            {create.isPending ? 'Criando…' : webChat ? 'Criar' : 'Criar e conectar'}
           </Button>
         </DialogFooter>
       </DialogContent>

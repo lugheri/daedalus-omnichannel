@@ -27,6 +27,15 @@ export interface SiteSources {
   professionals(): Promise<SiteProfessionalItem[]>;
   /** Formulário ativo da conta, ou null. */
   form(id: string): Promise<SiteFormInfo | null>;
+  /** Chat do site LIGADO da conta (o script do widget), ou null. */
+  chat(id: string): Promise<SiteChatInfo | null>;
+}
+
+export interface SiteChatInfo {
+  /** `<script src>` do widget (na API). */
+  scriptUrl: string;
+  /** Chave pública do widget (`data-key`). */
+  key: string;
 }
 
 export const SITE_SOURCES = Symbol('SiteSources');

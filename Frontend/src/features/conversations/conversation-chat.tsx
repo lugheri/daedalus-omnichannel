@@ -33,6 +33,7 @@ import { useDispositionLookup, useDispositions } from '@/features/dispositions/a
 import { DispositionBadge } from '@/features/dispositions/disposition-badge'
 import { ApiError, errorMessage } from '@/lib/api/api-error'
 import { formatPhone } from '@/lib/phone'
+import { ChannelKindIcon } from './channel-kind-icon'
 import {
   conversationKeys,
   conversationsApi,
@@ -198,7 +199,13 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
                 )}
               </h2>
               <p className="text-muted-foreground truncate text-xs">
-                {data.contact.name && data.contact.phone && `${formatPhone(data.contact.phone)} · `}
+                {data.contact.name &&
+                  contactAddress(data.contact) &&
+                  `${contactAddress(data.contact)} · `}
+                <ChannelKindIcon
+                  kind={data.channel.kind}
+                  className="mr-1 inline size-3 align-[-2px]"
+                />
                 {data.channel.name ?? 'Canal removido'}
                 {data.team && ` · ${data.team.name}`}
               </p>
@@ -403,16 +410,19 @@ export function ConversationChat({ id, backTo }: { id: string; backTo: string })
             event.target.value = ''
           }}
         />
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label="Anexar arquivo"
-          disabled={channelRemoved}
-          onClick={() => fileInput.current?.click()}
-        >
-          <Paperclip />
-        </Button>
+        {/* O chat do site só troca texto (por enquanto). */}
+        {data?.channel.kind !== 'web_chat' && (
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label="Anexar arquivo"
+            disabled={channelRemoved}
+            onClick={() => fileInput.current?.click()}
+          >
+            <Paperclip />
+          </Button>
+        )}
         <Textarea
           aria-label="Mensagem"
           placeholder={
@@ -468,4 +478,9 @@ function addOptimistic(queryClient: QueryClient, conversationId: string, text: s
         }
       : data,
   )
+}
+
+/** Como falar com o contato fora daqui: o telefone (formatado) ou o e-mail. */
+function contactAddress(contact: { phone: string | null; email: string | null }): string | null {
+  return contact.phone ? formatPhone(contact.phone) : contact.email
 }

@@ -43,6 +43,7 @@ export const siteContentSchema = z.object({
     .array(z.object({ question: z.string().max(200), answer: z.string().max(1500) }))
     .max(MAX_FAQ_ITEMS),
   contactFormId: z.uuid().nullable().default(null),
+  chatChannelId: z.uuid().nullable().default(null),
   seo: z.object({ title: optional(120), description: optional(300) }),
 });
 

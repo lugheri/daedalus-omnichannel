@@ -289,6 +289,41 @@ describe('Sites', () => {
       expect((await sites.findCurrent())?.content.contactFormId).toBeNull();
     });
 
+    it('the chosen web chat goes into the page (preview mode in the preview)', async () => {
+      const template = await availableTemplate();
+      await createSite(template.id);
+      sources.chats.set('chat-1', {
+        scriptUrl: 'https://api.test/v1/public/chat/widget.js',
+        key: 'k1',
+      });
+      await withContent((c) => (c.chatChannelId = 'chat-1'));
+
+      const preview = await new PreviewSiteUseCase(
+        sites,
+        templates,
+        account,
+        hosting,
+        composer(),
+      ).execute({});
+      expect(preview).toContain('data-key="k1" data-preview="1"');
+
+      await request().execute('publish');
+      await runJobs();
+      const page = hosting.pages.get('barbearia-do-ze')!;
+      expect(page).toContain(
+        '<script src="https://api.test/v1/public/chat/widget.js" data-key="k1" async></script>',
+      );
+      expect(page).not.toContain('data-preview');
+      // O modelo fica sabendo, para abrir espaço ao botão do chat.
+      expect(viewOf(page.slice(0, page.indexOf('\n<script'))).chat).toEqual({ enabled: true });
+
+      // Chat desligado ou removido: some do site na próxima publicação.
+      sources.chats.clear();
+      await request().execute('publish');
+      await runJobs();
+      expect(hosting.pages.get('barbearia-do-ze')).not.toContain('<script');
+    });
+
     it('tenants do not see each other’s site', async () => {
       const template = await availableTemplate();
       await createSite(template.id);

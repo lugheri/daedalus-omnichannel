@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronDown, MessageCircle, MessagesSquare, MoreHorizontal, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/page-header'
@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -37,11 +38,13 @@ import { ChannelStatusBadge } from './channel-status-badge'
 import { statusReasonLabel } from './status-reason'
 import { ChannelTeamDialog } from './channel-team-dialog'
 import { ConnectChannelDialog } from './connect-channel-dialog'
+import { WebChatDialog } from './web-chat-dialog'
 
 export function ChannelsPage() {
   const queryClient = useQueryClient()
   const channels = useChannels()
-  const [creating, setCreating] = useState(false)
+  const [creating, setCreating] = useState<'whatsapp' | 'web_chat' | null>(null)
+  const [configuring, setConfiguring] = useState<Channel | null>(null)
   const [pairingId, setPairingId] = useState<string | null>(null)
   const [testing, setTesting] = useState<Channel | null>(null)
   const [disconnecting, setDisconnecting] = useState<Channel | null>(null)
@@ -54,15 +57,16 @@ export function ChannelsPage() {
     mutationFn: (channel: Channel) => channelsApi.connect(channel.id),
     onSuccess: (_, channel) => {
       void refresh()
-      setPairingId(channel.id)
+      if (channel.provider === 'web_chat') toast.success('Chat ligado: o widget volta ao site.')
+      else setPairingId(channel.id)
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
 
   const disconnect = useMutation({
     mutationFn: (channel: Channel) => channelsApi.disconnect(channel.id),
-    onSuccess: () => {
-      toast.success('Canal desconectado.')
+    onSuccess: (_, channel) => {
+      toast.success(channel.provider === 'web_chat' ? 'Chat desligado.' : 'Canal desconectado.')
       void refresh()
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -80,13 +84,28 @@ export function ChannelsPage() {
   return (
     <>
       <PageHeader
-        title="WhatsApp"
-        description="Números de WhatsApp conectados ao atendimento."
+        title="Canais"
+        description="Por onde os clientes falam com a equipe: números de WhatsApp e o chat do site."
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus />
-            Novo canal
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus />
+                Novo canal
+                <ChevronDown />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setCreating('whatsapp')}>
+                <MessageCircle />
+                WhatsApp
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCreating('web_chat')}>
+                <MessagesSquare />
+                Chat do site
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 
@@ -95,6 +114,7 @@ export function ChannelsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead>Número</TableHead>
               <TableHead>Equipe</TableHead>
               <TableHead>Status</TableHead>
@@ -104,24 +124,35 @@ export function ChannelsPage() {
           <TableBody>
             {channels.isPending && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <Skeleton className="h-8" />
                 </TableCell>
               </TableRow>
             )}
             {channels.data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
-                  Nenhum canal ainda. Crie um para conectar seu WhatsApp.
+                <TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
+                  Nenhum canal ainda. Conecte um WhatsApp ou crie o chat do site.
                 </TableCell>
               </TableRow>
             )}
             {channels.data?.map((channel) => {
               const connected = channel.status === 'connected'
-              const reason = connected ? null : statusReasonLabel(channel)
+              const webChat = channel.provider === 'web_chat'
+              const reason = connected || webChat ? null : statusReasonLabel(channel)
               return (
                 <TableRow key={channel.id}>
                   <TableCell className="font-medium">{channel.name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      {webChat ? (
+                        <MessagesSquare className="size-4" />
+                      ) : (
+                        <MessageCircle className="size-4" />
+                      )}
+                      {webChat ? 'Chat do site' : 'WhatsApp'}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     {channel.phoneNumber ? formatPhone(channel.phoneNumber) : '—'}
                   </TableCell>
@@ -130,7 +161,13 @@ export function ChannelsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col items-start gap-1">
-                      <ChannelStatusBadge status={channel.status} />
+                      {webChat ? (
+                        <Badge variant={connected ? 'success' : 'secondary'}>
+                          {connected ? 'Ligado' : 'Desligado'}
+                        </Badge>
+                      ) : (
+                        <ChannelStatusBadge status={channel.status} />
+                      )}
                       {reason && <span className="text-muted-foreground text-xs">{reason}</span>}
                     </div>
                   </TableCell>
@@ -142,7 +179,18 @@ export function ChannelsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {connected ? (
+                        {webChat ? (
+                          <>
+                            <DropdownMenuItem onSelect={() => setConfiguring(channel)}>
+                              Configurar e código do site
+                            </DropdownMenuItem>
+                            {!connected && (
+                              <DropdownMenuItem onSelect={() => connect.mutate(channel)}>
+                                Ligar
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        ) : connected ? (
                           <DropdownMenuItem onSelect={() => setTesting(channel)}>
                             Enviar mensagem de teste
                           </DropdownMenuItem>
@@ -154,12 +202,12 @@ export function ChannelsPage() {
                         <DropdownMenuItem onSelect={() => setTeamOf(channel)}>
                           Definir equipe
                         </DropdownMenuItem>
-                        {channel.status !== 'logged_out' && (
+                        {channel.status !== 'logged_out' && (!webChat || connected) && (
                           <DropdownMenuItem
                             variant="destructive"
                             onSelect={() => setDisconnecting(channel)}
                           >
-                            Desconectar
+                            {webChat ? 'Desligar' : 'Desconectar'}
                           </DropdownMenuItem>
                         )}
                         {REMOVABLE.has(channel.status) && (
@@ -181,10 +229,19 @@ export function ChannelsPage() {
       </div>
 
       <CreateChannelDialog
-        open={creating}
-        onOpenChange={setCreating}
-        onCreated={(channel) => setPairingId(channel.id)}
+        type={creating}
+        onOpenChange={(open) => !open && setCreating(null)}
+        onCreated={(channel) =>
+          channel.provider === 'web_chat' ? setConfiguring(channel) : setPairingId(channel.id)
+        }
       />
+      {configuring && (
+        <WebChatDialog
+          key={configuring.id}
+          channel={configuring}
+          onOpenChange={(open) => !open && setConfiguring(null)}
+        />
+      )}
       <ConnectChannelDialog channelId={pairingId} onOpenChange={() => setPairingId(null)} />
       <TestMessageDialog channel={testing} onOpenChange={() => setTesting(null)} />
       <ChannelTeamDialog channel={teamOf} onOpenChange={() => setTeamOf(null)} />
@@ -195,16 +252,20 @@ export function ChannelsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desconectar {disconnecting?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {disconnecting?.provider === 'web_chat' ? 'Desligar' : 'Desconectar'}{' '}
+              {disconnecting?.name}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              O número deixa de receber e enviar mensagens por aqui. Para reconectar, será preciso
-              escanear um novo QR code.
+              {disconnecting?.provider === 'web_chat'
+                ? 'O botão do chat some dos sites e novas mensagens não chegam. As conversas continuam na caixa de entrada.'
+                : 'O número deixa de receber e enviar mensagens por aqui. Para reconectar, será preciso escanear um novo QR code.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => disconnecting && disconnect.mutate(disconnecting)}>
-              Desconectar
+              {disconnecting?.provider === 'web_chat' ? 'Desligar' : 'Desconectar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -215,8 +276,9 @@ export function ChannelsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remover o canal {removing?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              O canal sai da lista e a sessão do WhatsApp guardada é apagada. Para usar o número de
-              novo, crie outro canal e escaneie um novo QR code.
+              {removing?.provider === 'web_chat'
+                ? 'O canal sai da lista e o código colado nos sites para de funcionar. As conversas continuam na caixa de entrada.'
+                : 'O canal sai da lista e a sessão do WhatsApp guardada é apagada. Para usar o número de novo, crie outro canal e escaneie um novo QR code.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api/client'
 
-export type LeadSource = 'whatsapp' | 'manual' | 'import' | 'web_form'
+export type LeadSource = 'whatsapp' | 'manual' | 'import' | 'web_form' | 'web_chat'
 
 export interface Contact {
   id: string

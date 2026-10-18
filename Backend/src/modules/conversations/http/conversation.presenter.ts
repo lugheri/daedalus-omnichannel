@@ -16,11 +16,12 @@ export const ConversationPresenter = {
     lastMessagePreview: conversation.lastMessagePreview,
     createdAt: conversation.createdAt.toISOString(),
     contact: contact
-      ? { id: contact.id, name: contact.name, phone: contact.phone }
-      : { id: conversation.contactId, name: null, phone: null },
+      ? { id: contact.id, name: contact.name, phone: contact.phone, email: contact.email }
+      : { id: conversation.contactId, name: null, phone: null, email: null },
     channel: channel
-      ? { id: channel.id, name: channel.name }
-      : { id: conversation.channelId, name: null },
+      ? { id: channel.id, name: channel.name, kind: channel.kind }
+      : // Canal removido: o tipo não se sabe mais.
+        { id: conversation.channelId, name: null, kind: null },
   }),
 };
 

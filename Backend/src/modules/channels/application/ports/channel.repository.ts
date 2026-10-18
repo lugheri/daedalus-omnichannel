@@ -7,6 +7,11 @@ export interface ChannelRepository {
   findByIds(ids: string[]): Promise<Channel[]>;
   list(): Promise<Channel[]>;
   delete(channel: Channel): Promise<void>;
+  /**
+   * Chat do site pela chave pública do widget — SEM filtro de tenant, de
+   * propósito: a chave é o que diz a conta (como a chave dos formulários).
+   */
+  findByPublicKeyAsSystem(publicKey: string): Promise<Channel | null>;
   /** Equipe excluída: os canais dela ficam sem equipe. */
   clearTeam(teamId: string): Promise<void>;
 }

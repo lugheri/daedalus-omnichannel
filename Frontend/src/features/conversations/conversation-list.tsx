@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { useMemberNames } from '@/features/members/api'
 import { useConversations, type AssigneeFilter, type ConversationStatus } from './api'
+import { ChannelKindIcon } from './channel-kind-icon'
 import { contactInitials, contactLabel, listTime } from './format'
 
 const TABS: { value: ConversationStatus; label: string }[] = [
@@ -138,7 +139,8 @@ export function ConversationList({
                     </Badge>
                   )}
                 </div>
-                <span className="text-muted-foreground block truncate text-xs">
+                <span className="text-muted-foreground flex items-center gap-1 truncate text-xs">
+                  <ChannelKindIcon kind={conversation.channel.kind} className="size-3" />
                   {[
                     conversation.channel.name ?? 'Canal removido',
                     conversation.team?.name,
