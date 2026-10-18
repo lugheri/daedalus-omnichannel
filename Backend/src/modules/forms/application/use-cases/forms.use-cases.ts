@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  PLAN_ENTITLEMENTS,
+  type PlanEntitlements,
+} from '../../../../shared/application/plan-entitlements';
 import { EVENT_BUS, type EventBus } from '../../../../shared/application/event-bus';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/id-generator';
 import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/application/tenant-context';
@@ -51,9 +55,11 @@ export class CreateFormUseCase {
     @Inject(PUBLIC_KEY_GENERATOR) private readonly keys: PublicKeyGenerator,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(PLAN_ENTITLEMENTS) private readonly plan: PlanEntitlements,
   ) {}
 
   async execute(input: FormSettings & { kind: string }): Promise<Form> {
+    await this.plan.ensureRoom('forms', (await this.forms.list()).length);
     const form = Form.create(this.ids.generate(), {
       ...input,
       tenantId: this.tenant.tenantId,

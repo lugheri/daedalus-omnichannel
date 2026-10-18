@@ -95,7 +95,7 @@ Decisões de produto:
   variantes (o erro é o mesmo para todas).
 - Mudar o conteúdo de uma variante no meio do teste mistura números de
   versões diferentes: o painel oferece "Recomeçar contagem".
-- Limite de 30 landing pages por conta até os planos (passo 9).
+- Quantas landing pages e se há teste A/B são do plano da conta (ADR 0015).
 - Uma landing no domínio sem www (`barbearia.com.br/promo`) cai no
   redirecionamento da raiz do domínio (ADR 0011) e perde o caminho; os links
   devem usar o host principal.

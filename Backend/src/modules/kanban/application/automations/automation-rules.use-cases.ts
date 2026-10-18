@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  PLAN_ENTITLEMENTS,
+  type PlanEntitlements,
+} from '../../../../shared/application/plan-entitlements';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/id-generator';
 import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/application/tenant-context';
 import {
@@ -84,6 +88,7 @@ export class CreateAutomationUseCase {
     @Inject(AUTOMATION_RULE_REPOSITORY) private readonly rules: AutomationRuleRepository,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(PLAN_ENTITLEMENTS) private readonly plan: PlanEntitlements,
   ) {}
 
   async execute(
@@ -95,6 +100,7 @@ export class CreateAutomationUseCase {
       enabled?: boolean;
     },
   ): Promise<AutomationRule> {
+    await this.plan.ensureFeature('automations');
     const board = await this.boards.get(boardId);
     board.column(input.columnId);
     if ((await this.rules.countForColumn(input.columnId)) >= MAX_RULES_PER_COLUMN) {

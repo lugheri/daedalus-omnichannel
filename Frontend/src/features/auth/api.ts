@@ -34,6 +34,18 @@ export interface Me {
   parent: AccountRef | null
   /** Entrou vindo de uma conta acima (acesso da conta-mãe): de qual. */
   delegatedFrom: AccountRef | null
+  /**
+   * O plano da conta (ADR 0015): só para montar a tela (desligar o que não
+   * está incluso). A API confere tudo por conta própria.
+   */
+  plan: {
+    id: string | null
+    name: string | null
+    /** A conta da plataforma: sem limite. */
+    unlimited: boolean
+    limits: Record<string, number | null>
+    features: Record<string, boolean>
+  }
 }
 
 export type SessionStart = AuthTokensResponse & { tenant: Tenant }

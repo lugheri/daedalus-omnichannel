@@ -1,8 +1,10 @@
 import {
+  FakeTenantContext,
   ImmediateUnitOfWork,
   InMemoryActorContext,
   SequentialIdGenerator,
 } from '../../../shared/testing/fakes';
+import { TenantEntitlements } from '../application/tenant-entitlements';
 import { CurrentAccess } from '../application/current-access';
 import { ResolveAccessUseCase } from '../application/use-cases/resolve-access/resolve-access.use-case';
 import { DEFAULT_ROLES, type SystemRoleKey } from '../domain/default-roles';
@@ -15,6 +17,7 @@ import {
   InMemoryAccessCache,
   InMemoryInvitationRepository,
   InMemoryMembershipRepository,
+  InMemoryPlanRepository,
   InMemoryRoleRepository,
   InMemoryTenantRepository,
   SequentialInvitationTokenGenerator,
@@ -38,6 +41,8 @@ export async function accountScenario() {
   const tokens = new SequentialInvitationTokenGenerator();
   const ids = new SequentialIdGenerator();
   const unitOfWork = new ImmediateUnitOfWork();
+  const plans = new InMemoryPlanRepository(tenants);
+  const entitlements = new TenantEntitlements(new FakeTenantContext(TENANT_ID), tenants, plans);
   const currentAccess = new CurrentAccess(
     actors,
     new ResolveAccessUseCase(memberships, roles, tenants, cache),
@@ -92,6 +97,8 @@ export async function accountScenario() {
     ids,
     unitOfWork,
     currentAccess,
+    plans,
+    entitlements,
     settings: { appUrl: 'https://app.test' },
     addMember,
     actAs,

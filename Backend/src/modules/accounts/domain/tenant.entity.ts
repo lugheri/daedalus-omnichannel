@@ -18,6 +18,8 @@ export interface TenantProps {
   isRoot?: boolean;
   /** Revendedor: pode criar contas abaixo (quem decide é a conta de cima). */
   allowsChildren?: boolean;
+  /** Plano da conta (ADR 0015); null/ausente = o plano padrão. */
+  planId?: string | null;
 }
 
 /**
@@ -87,6 +89,15 @@ export class Tenant extends AggregateRoot<TenantProps> {
   /** Pode criar contas filhas? */
   get canCreateChildren(): boolean {
     return this.isRoot || (this.props.allowsChildren ?? false);
+  }
+
+  /** Troca o plano (null = volta ao padrão). Quem pode dar qual plano é regra do use case. */
+  setPlan(planId: string | null): void {
+    this.props.planId = planId;
+  }
+
+  get planId(): string | null {
+    return this.props.planId ?? null;
   }
 
   /** Pendura uma conta sem mãe debaixo de outra (ex.: ao definir a raiz). */

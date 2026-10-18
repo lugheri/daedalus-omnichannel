@@ -1,4 +1,5 @@
 import {
+  FakePlanEntitlements,
   FakeTenantContext,
   ImmediateUnitOfWork,
   RecordingEventBus,
@@ -60,6 +61,7 @@ const hhmm = (instant: Date) => {
 };
 
 describe('Scheduling', () => {
+  let plan: FakePlanEntitlements;
   let tenant: FakeTenantContext;
   let appointments: InMemoryAppointmentRepository;
   let schedules: InMemoryScheduleRepository;
@@ -76,6 +78,7 @@ describe('Scheduling', () => {
     zonedToUtc(date, Number(time.slice(0, 2)) * 60 + Number(time.slice(3)), SP);
 
   beforeEach(() => {
+    plan = new FakePlanEntitlements();
     tenant = new FakeTenantContext('tenant-a');
     keys = new SequentialBookingKeys();
     appointments = new InMemoryAppointmentRepository(tenant);
@@ -144,7 +147,9 @@ describe('Scheduling', () => {
       date,
     });
   const enableOnline = () =>
-    new UpdateBookingSettingsUseCase(settingsRepo, keys, settings()).execute({ enabled: true });
+    new UpdateBookingSettingsUseCase(settingsRepo, keys, settings(), plan).execute({
+      enabled: true,
+    });
 
   describe('panel', () => {
     it('free slots come from the default week until hours are set', async () => {
@@ -251,6 +256,14 @@ describe('Scheduling', () => {
         ).appointments,
       ).toHaveLength(0);
     });
+  });
+
+  it('turning online booking on needs it in the plan (already on keeps working)', async () => {
+    await enableOnline();
+    plan.missing.add('onlineBooking');
+    await expect(enableOnline()).resolves.toBeDefined();
+    settingsRepo.items.splice(0);
+    await expect(enableOnline()).rejects.toMatchObject({ code: 'PLAN_FEATURE_ONLINE_BOOKING' });
   });
 
   describe('online booking (site)', () => {

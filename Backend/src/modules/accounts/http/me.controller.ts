@@ -2,6 +2,7 @@ import { Controller, Get, Inject } from '@nestjs/common';
 import { ACTOR_CONTEXT, type ActorContext } from '../../../shared/application/actor-context';
 import { GetMeUseCase } from '../application/use-cases/get-me/get-me.use-case';
 import { ListMyAccountsUseCase } from '../application/use-cases/my-accounts/my-accounts.use-cases';
+import { presentAccountPlan } from './plans.presenter';
 import { TenantPresenter } from './tenant.presenter';
 
 /** Qualquer membro autenticado pode ver os próprios dados — sem permissão específica. */
@@ -15,7 +16,7 @@ export class MeController {
 
   @Get()
   async me() {
-    const { user, tenant, access, parent, delegatedFrom } = await this.getMe.execute(
+    const { user, tenant, access, parent, delegatedFrom, plan } = await this.getMe.execute(
       this.actors.actor,
     );
     const brief = (t: typeof parent) => t && { id: t.id, name: t.name };
@@ -30,6 +31,8 @@ export class MeController {
       parent: brief(parent),
       /** Entrou vindo de uma conta acima: qual (o front mostra o aviso e "voltar"). */
       delegatedFrom: brief(delegatedFrom),
+      /** O plano da conta (ADR 0015): para a tela; a API confere por conta própria. */
+      plan: presentAccountPlan(plan),
     };
   }
 

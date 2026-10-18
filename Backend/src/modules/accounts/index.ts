@@ -6,6 +6,8 @@ export {
   type AccountSummary,
   type MemberAccess,
 } from './application/accounts.facade';
+export type { AccountPlan } from './application/tenant-entitlements';
+export type { Plan } from './domain/plan.entity';
 export { DesignateRootAccountUseCase } from './application/use-cases/child-accounts/child-accounts.use-cases';
 export { AccountsModule } from './accounts.module';
 export type { SystemRoleKey } from './domain/default-roles';

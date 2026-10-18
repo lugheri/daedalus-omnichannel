@@ -16,6 +16,9 @@ model Tenant {
   isRoot         Boolean  @default(false) @map("is_root")
   // Revendedor: pode criar contas abaixo (a raiz sempre pode). Quem decide é a conta de cima.
   allowsChildren Boolean  @default(false) @map("allows_children")
+  // Plano (ADR 0015); null = o plano padrão.
+  planId         String?  @map("plan_id") @db.Uuid
+  plan           Plan?    @relation(fields: [planId], references: [id], onDelete: Restrict)
   createdAt      DateTime @map("created_at") @db.Timestamptz(3)
 
   roles       Role[]
@@ -24,7 +27,32 @@ model Tenant {
 
   @@index([parentId])
   @@index([ancestors], type: Gin)
+  @@index([planId])
   @@map("tenants")
+  @@schema("accounts")
+}
+
+// Planos (ADR 0015): catálogo da plataforma, sem tenant. Limites e recursos
+// em JSON pelas chaves do catálogo fixo no código (shared/domain/plan-entitlement.ts).
+// Um só padrão (índice único parcial na migration, fora do Prisma).
+model Plan {
+  id          String   @id @db.Uuid
+  name        String
+  description String?
+  // { "members": 5, "landingPages": null, ... } — null = sem limite.
+  limits      Json
+  // { "campaigns": true, ... }
+  features    Json
+  // Revendedores podem dar este plano às contas abaixo deles.
+  resellable  Boolean
+  isDefault   Boolean  @map("is_default")
+  archived    Boolean
+  createdAt   DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @map("updated_at") @db.Timestamptz(3)
+
+  tenants Tenant[]
+
+  @@map("plans")
   @@schema("accounts")
 }
 

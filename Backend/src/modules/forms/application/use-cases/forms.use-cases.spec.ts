@@ -1,4 +1,5 @@
 import {
+  FakePlanEntitlements,
   FakeTenantContext,
   ImmediateUnitOfWork,
   RecordingEventBus,
@@ -25,6 +26,7 @@ import {
 } from './forms.use-cases';
 
 describe('Forms', () => {
+  let plan: FakePlanEntitlements;
   let tenant: FakeTenantContext;
   let submissions: InMemorySubmissionRepository;
   let forms: InMemoryFormRepository;
@@ -38,6 +40,7 @@ describe('Forms', () => {
   ]);
 
   beforeEach(() => {
+    plan = new FakePlanEntitlements();
     tenant = new FakeTenantContext('tenant-a');
     submissions = new InMemorySubmissionRepository(tenant);
     forms = new InMemoryFormRepository(tenant, submissions);
@@ -53,7 +56,7 @@ describe('Forms', () => {
       successUrl?: string | null;
     } = {},
   ) =>
-    new CreateFormUseCase(forms, keys, tenant, ids).execute({
+    new CreateFormUseCase(forms, keys, tenant, ids, plan).execute({
       name: input.name ?? 'Contato do site',
       kind: input.kind ?? 'contact',
       campaign: input.campaign ?? null,
@@ -130,6 +133,12 @@ describe('Forms', () => {
       await new DeleteFormUseCase(forms).execute(form.id);
       expect(submissions.items).toHaveLength(0);
     });
+  });
+
+  it('the plan limits how many forms the account has', async () => {
+    plan.limits.forms = 1;
+    await create();
+    await expect(create()).rejects.toMatchObject({ code: 'PLAN_LIMIT_FORMS' });
   });
 
   describe('public submission', () => {

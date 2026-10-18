@@ -4,6 +4,7 @@ import { HealthModule } from './health/health.module';
 import { AccountsModule } from './modules/accounts';
 import { CatalogModule } from './modules/catalog';
 import { ChannelsModule } from './modules/channels';
+import { UsageModule } from './modules/usage';
 import { ContactsModule } from './modules/contacts';
 import { ConversationsModule } from './modules/conversations';
 import { FormsModule } from './modules/forms';
@@ -38,6 +39,7 @@ import { SharedInfraModule } from './shared/infra/shared-infra.module';
     CatalogModule,
     FormsModule,
     SchedulingModule,
+    UsageModule,
     SitesModule,
     WebChatModule,
     ChannelsModule,

@@ -45,6 +45,30 @@ const MESSAGES: Record<string, string> = {
   AUTH_ACCOUNT_ACCESS_DENIED: 'Você não tem acesso ativo a esta conta.',
   ACCOUNT_NOT_ACCESSIBLE: 'Você não tem acesso a esta conta (ou ela está suspensa).',
   CHILD_ACCOUNT_NOT_FOUND: 'Conta não encontrada abaixo desta.',
+  PLAN_LIMIT_MEMBERS:
+    'O plano da conta chegou ao limite de membros (contando os convites pendentes). Veja em Configurações › Meu plano.',
+  PLAN_LIMIT_WHATSAPP_CHANNELS:
+    'O plano da conta chegou ao limite de números de WhatsApp. Veja em Configurações › Meu plano.',
+  PLAN_LIMIT_WEB_CHAT_CHANNELS:
+    'O plano da conta chegou ao limite de chats do site. Veja em Configurações › Meu plano.',
+  PLAN_LIMIT_FORMS:
+    'O plano da conta chegou ao limite de formulários. Veja em Configurações › Meu plano.',
+  PLAN_LIMIT_LANDING_PAGES:
+    'O plano da conta chegou ao limite de landing pages. Veja em Configurações › Meu plano.',
+  PLAN_LIMIT_CHILD_ACCOUNTS:
+    'O plano da conta chegou ao limite de contas clientes. Veja em Configurações › Meu plano.',
+  PLAN_FEATURE_CAMPAIGNS: 'Campanhas não estão no plano da conta.',
+  PLAN_FEATURE_AUTOMATIONS: 'Automações do funil não estão no plano da conta.',
+  PLAN_FEATURE_ONLINE_BOOKING: 'Agendamento online não está no plano da conta.',
+  PLAN_FEATURE_AB_TESTING: 'Teste A/B não está no plano da conta.',
+  PLAN_INVALID_NAME: 'O nome do plano precisa ter entre 1 e 60 caracteres.',
+  PLAN_INVALID_LIMIT: 'Limite inválido: use um número inteiro de 0 a 100.000 (ou deixe vazio).',
+  PLAN_NOT_FOUND: 'Plano não encontrado.',
+  PLAN_IN_USE: 'Há contas neste plano. Arquive em vez de excluir.',
+  PLAN_IS_DEFAULT: 'Este é o plano padrão: escolha outro padrão antes.',
+  PLANS_ROOT_ONLY: 'Os planos são mantidos só na conta da plataforma.',
+  PLAN_NOT_ASSIGNABLE:
+    'Esta conta não pode dar este plano (arquivado ou não liberado para revenda).',
   CHILD_ACCOUNTS_NOT_ALLOWED:
     'Esta conta não pode criar contas abaixo dela. Fale com quem gerencia a sua conta.',
   AUTH_INVALID_ACCESS_TOKEN: 'Sua sessão expirou. Entre novamente.',
@@ -221,7 +245,6 @@ const MESSAGES: Record<string, string> = {
   LANDING_UNKNOWN_FORM: 'Formulário não encontrado ou pausado.',
   LANDING_SITE_REQUIRED: 'Crie o site da empresa primeiro: a landing page mora no endereço dele.',
   LANDING_IS_LIVE: 'Tire a landing page do ar antes de excluir.',
-  LANDING_LIMIT_REACHED: 'A conta chegou ao limite de 30 landing pages.',
   SITES_NOT_CONFIGURED: 'A publicação de sites não está configurada neste servidor.',
   FORM_INVALID_NAME: 'O nome do formulário precisa ter entre 1 e 80 caracteres.',
   FORM_INVALID_KIND: 'Tipo de formulário inválido.',

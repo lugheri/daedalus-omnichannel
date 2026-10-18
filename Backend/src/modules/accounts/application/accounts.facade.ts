@@ -5,6 +5,8 @@ import type { Permission } from '../domain/permissions';
 import { CurrentAccess } from './current-access';
 import { MEMBERSHIP_REPOSITORY, type MembershipRepository } from './ports/membership.repository';
 import { TENANT_REPOSITORY, type TenantRepository } from './ports/tenant.repository';
+import { INVITATION_REPOSITORY, type InvitationRepository } from './ports/invitation.repository';
+import { TenantEntitlements, type AccountPlan } from './tenant-entitlements';
 import { ResolveAccessUseCase } from './use-cases/resolve-access/resolve-access.use-case';
 
 /** O membro da requisição atual, como outros módulos o enxergam. */
@@ -34,7 +36,25 @@ export class AccountsFacade {
     @Inject(MEMBERSHIP_REPOSITORY) private readonly memberships: MembershipRepository,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
     @Inject(TENANT_REPOSITORY) private readonly tenants: TenantRepository,
+    @Inject(INVITATION_REPOSITORY) private readonly invitations: InvitationRepository,
+    private readonly entitlements: TenantEntitlements,
   ) {}
+
+  /** O plano da conta atual (ADR 0015). */
+  currentPlan(): Promise<AccountPlan> {
+    return this.entitlements.of(this.tenant.tenantId);
+  }
+
+  /** O que a conta atual usa do que é do accounts: membros (com convites pendentes) e contas filhas. */
+  async planUsage(): Promise<{ members: number; childAccounts: number }> {
+    const id = this.tenant.tenantId;
+    const [active, pending, children] = await Promise.all([
+      this.memberships.countActiveMembers(id),
+      this.invitations.countPending(id),
+      this.tenants.countChildren(id),
+    ]);
+    return { members: active + pending, childAccounts: children };
+  }
 
   /**
    * O ator da requisição entrou nesta conta vindo de uma conta acima (acesso

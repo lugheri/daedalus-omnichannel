@@ -14,6 +14,11 @@ export interface SiteFormSummary {
 export class FormsFacade {
   constructor(@Inject(FORM_REPOSITORY) private readonly forms: FormRepository) {}
 
+  /** Quantos formulários a conta atual tem (o uso do plano). */
+  async count(): Promise<number> {
+    return (await this.forms.list()).length;
+  }
+
   /** Formulário ATIVO da conta atual, ou null (pausado ou excluído: o site fica sem). */
   async siteForm(id: string): Promise<SiteFormSummary | null> {
     const form = await this.forms.findById(id);

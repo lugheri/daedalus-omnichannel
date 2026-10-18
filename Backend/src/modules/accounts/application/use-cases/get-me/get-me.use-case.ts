@@ -5,6 +5,7 @@ import type { Tenant } from '../../../domain/tenant.entity';
 import type { AccountAccess } from '../../account-access';
 import { IDENTITY_GATEWAY, type IdentityGateway } from '../../ports/identity.gateway';
 import { TENANT_REPOSITORY, type TenantRepository } from '../../ports/tenant.repository';
+import { TenantEntitlements, type AccountPlan } from '../../tenant-entitlements';
 import { ResolveAccessUseCase } from '../resolve-access/resolve-access.use-case';
 
 export interface Me {
@@ -15,6 +16,8 @@ export interface Me {
   parent: Tenant | null;
   /** Acesso delegado: a conta de onde a pessoa veio. */
   delegatedFrom: Tenant | null;
+  /** O plano da conta (a tela esconde ou desliga o que ele não inclui). */
+  plan: AccountPlan;
 }
 
 /**
@@ -28,6 +31,7 @@ export class GetMeUseCase {
     private readonly resolveAccess: ResolveAccessUseCase,
     @Inject(IDENTITY_GATEWAY) private readonly identity: IdentityGateway,
     @Inject(TENANT_REPOSITORY) private readonly tenants: TenantRepository,
+    private readonly entitlements: TenantEntitlements,
   ) {}
 
   async execute(actor: Actor): Promise<Me> {
@@ -48,6 +52,7 @@ export class GetMeUseCase {
       access,
       parent: byId(tenant.parentId),
       delegatedFrom: byId(access.delegatedFromTenantId),
+      plan: await this.entitlements.of(tenant.id),
     };
   }
 }

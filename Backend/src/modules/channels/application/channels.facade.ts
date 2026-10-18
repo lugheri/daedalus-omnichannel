@@ -44,6 +44,13 @@ export class ChannelsFacade {
     private readonly receiveWebChat: ReceiveWebChatMessageUseCase,
   ) {}
 
+  /** Quantos canais a conta atual tem de cada tipo (o uso do plano). */
+  async countByKind(): Promise<{ whatsapp: number; webChat: number }> {
+    const all = await this.channels.list();
+    const webChat = all.filter((c) => c.isWebChat).length;
+    return { whatsapp: all.length - webChat, webChat };
+  }
+
   /**
    * Chat do site pela chave pública do widget, em QUALQUER conta (a chave é o
    * que diz a conta). null = chave desconhecida ou canal de outro tipo.

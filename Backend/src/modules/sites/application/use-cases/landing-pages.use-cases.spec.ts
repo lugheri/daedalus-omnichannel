@@ -1,4 +1,5 @@
 import {
+  FakePlanEntitlements,
   FakeTenantContext,
   InMemoryFileStorage,
   RecordingJobQueue,
@@ -56,6 +57,7 @@ import {
 } from './site.use-cases';
 
 describe('Landing pages', () => {
+  let plan: FakePlanEntitlements;
   let tenant: FakeTenantContext;
   let account: FakeSiteAccount;
   let sites: InMemorySiteRepository;
@@ -70,6 +72,7 @@ describe('Landing pages', () => {
   let ids: SequentialIdGenerator;
 
   beforeEach(() => {
+    plan = new FakePlanEntitlements();
     tenant = new FakeTenantContext('platform');
     account = new FakeSiteAccount(tenant, {
       platform: { name: 'Daedalus', slug: 'daedalus', isRoot: true },
@@ -140,7 +143,16 @@ describe('Landing pages', () => {
     }
   };
   const create = (input: { path?: string; templateId: string; formId?: string | null }) =>
-    new CreateLandingPageUseCase(pages, sites, templates, sources, hosting, tenant, ids).execute({
+    new CreateLandingPageUseCase(
+      pages,
+      sites,
+      templates,
+      sources,
+      hosting,
+      tenant,
+      ids,
+      plan,
+    ).execute({
       name: 'Dia dos Pais',
       path: input.path ?? 'dia-dos-pais',
       templateId: input.templateId,
@@ -270,6 +282,7 @@ describe('Landing pages', () => {
         templates,
         hosting,
         ids,
+        plan,
       ).execute(page.id, { copyFrom: null });
       const [a, b] = added.details.page.variants;
       expect(b).toMatchObject({ code: 'b', name: 'Variante B', weight: 50 });
@@ -413,6 +426,21 @@ describe('Landing pages', () => {
     });
   });
 
+  it('the plan limits landing pages and the A/B test', async () => {
+    const { landingTemplate } = await setup();
+    plan.limits.landingPages = 1;
+    const { page } = await create({ templateId: landingTemplate.id });
+    await expect(create({ templateId: landingTemplate.id, path: 'outra' })).rejects.toMatchObject({
+      code: 'PLAN_LIMIT_LANDING_PAGES',
+    });
+    plan.missing.add('abTesting');
+    await expect(
+      new AddLandingVariantUseCase(pages, sites, templates, hosting, ids, plan).execute(page.id, {
+        copyFrom: null,
+      }),
+    ).rejects.toMatchObject({ code: 'PLAN_FEATURE_AB_TESTING' });
+  });
+
   describe('numbers', () => {
     const live = async () => {
       const { landingTemplate } = await setup();
@@ -423,6 +451,7 @@ describe('Landing pages', () => {
         templates,
         hosting,
         ids,
+        plan,
       ).execute(page.id, { copyFrom: null });
       return { page: details.page, a: details.page.variants[0], b: details.page.variants[1] };
     };

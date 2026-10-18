@@ -4,6 +4,7 @@ import type {
   JobQueue,
 } from '../../../shared/application/job-queue';
 import {
+  FakePlanEntitlements,
   FakeTenantContext,
   ImmediateUnitOfWork,
   InMemoryActorContext,
@@ -81,6 +82,7 @@ class ChannelDown extends DomainError {
 }
 
 describe('Automations', () => {
+  let plan: FakePlanEntitlements;
   let tenant: FakeTenantContext;
   let boards: InMemoryBoardRepository;
   let deals: InMemoryDealRepository;
@@ -100,6 +102,7 @@ describe('Automations', () => {
   let board: Board;
 
   beforeEach(async () => {
+    plan = new FakePlanEntitlements();
     tenant = new FakeTenantContext('tenant-a');
     deals = new InMemoryDealRepository(tenant);
     boards = new InMemoryBoardRepository(tenant, deals);
@@ -136,10 +139,14 @@ describe('Automations', () => {
     trigger: AutomationTrigger,
     ruleActions: AutomationAction[] = [],
   ) =>
-    new CreateAutomationUseCase(new BoardsReader(boards), references(), rules, tenant, ids).execute(
-      board.id,
-      { columnId: col(column), trigger, actions: ruleActions },
-    );
+    new CreateAutomationUseCase(
+      new BoardsReader(boards),
+      references(),
+      rules,
+      tenant,
+      ids,
+      plan,
+    ).execute(board.id, { columnId: col(column), trigger, actions: ruleActions });
   const reader = () => new BoardsReader(boards);
   const visibility = () => new DealVisibility(new FakeDealAccess(), conversations, contacts);
   /** Negócio ligado à conversa (ou só do contato, com `{ contactId }`). */
@@ -195,12 +202,22 @@ describe('Automations', () => {
         bad({ type: 'card_idle', minutes: 5 }, [{ type: 'move', columnId: 'other-board-column' }]),
       ).rejects.toMatchObject({ code: 'AUTOMATION_INVALID_MOVE' });
       await expect(
-        new CreateAutomationUseCase(reader(), references(), rules, tenant, ids).execute(board.id, {
-          columnId: 'nope',
-          trigger: { type: 'customer_replied' },
-          actions: [],
-        }),
+        new CreateAutomationUseCase(reader(), references(), rules, tenant, ids, plan).execute(
+          board.id,
+          {
+            columnId: 'nope',
+            trigger: { type: 'customer_replied' },
+            actions: [],
+          },
+        ),
       ).rejects.toThrow(ColumnNotFoundError);
+    });
+
+    it('only with automations in the plan', async () => {
+      plan.missing.add('automations');
+      await expect(create('Lead', { type: 'customer_replied' })).rejects.toMatchObject({
+        code: 'PLAN_FEATURE_AUTOMATIONS',
+      });
     });
 
     it('at most 10 rules per column', async () => {
@@ -477,6 +494,7 @@ describe('Automations', () => {
         rules,
         tenant,
         ids,
+        plan,
       ).execute(otherBoard.id, {
         columnId: otherBoard.firstColumn.id,
         trigger: { type: 'card_idle', minutes: 5 },

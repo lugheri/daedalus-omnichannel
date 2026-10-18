@@ -37,6 +37,8 @@ describe('Member management', () => {
       s.cache,
       s.identity,
       s.unitOfWork,
+      s.invitations,
+      s.entitlements,
     );
     await s.addMember('owner', 'owner');
     await s.addMember('admin', 'admin');

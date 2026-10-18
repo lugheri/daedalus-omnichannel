@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Copy, LogIn, MoreHorizontal, Plus, Power, PowerOff, Store } from 'lucide-react'
+import { Copy, Layers, LogIn, MoreHorizontal, Plus, Power, PowerOff, Store } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -26,6 +26,13 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -36,6 +43,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useSession } from '@/features/auth/session-context'
+import { planKeys, useAssignablePlans } from '@/features/plans/api'
 import { errorMessage } from '@/lib/api/api-error'
 import { accountKeys, accountsApi, useChildAccounts, type ChildAccount } from './api'
 
@@ -53,6 +61,7 @@ const STATUS = {
  * "acesso da conta-mãe" (registrado para a conta ver).
  */
 export function ChildAccountsPage() {
+  const [planFor, setPlanFor] = useState<ChildAccount | null>(null)
   const accounts = useChildAccounts()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -122,6 +131,7 @@ export function ChildAccountsPage() {
             <TableRow>
               <TableHead>Conta</TableHead>
               <TableHead className="hidden md:table-cell">Gerenciada por</TableHead>
+              <TableHead className="hidden lg:table-cell">Plano</TableHead>
               <TableHead>Situação</TableHead>
               <TableHead className="hidden sm:table-cell">Desde</TableHead>
               <TableHead className="w-32" />
@@ -130,14 +140,14 @@ export function ChildAccountsPage() {
           <TableBody>
             {accounts.isPending && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <Skeleton className="h-8" />
                 </TableCell>
               </TableRow>
             )}
             {!accounts.isPending && items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
                   {query ? 'Nenhuma conta com esse nome.' : 'Nenhuma conta abaixo desta ainda.'}
                 </TableCell>
               </TableRow>
@@ -157,6 +167,9 @@ export function ChildAccountsPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground hidden md:table-cell">
                   {account.depth > 1 ? account.parentName : 'Esta conta'}
+                </TableCell>
+                <TableCell className="text-muted-foreground hidden lg:table-cell">
+                  {account.planName ?? 'Padrão'}
                 </TableCell>
                 <TableCell>
                   <Badge variant={STATUS[account.status].variant}>
@@ -201,6 +214,10 @@ export function ChildAccountsPage() {
                             ? 'Deixar de ser revendedor'
                             : 'Tornar revendedor'}
                         </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setPlanFor(account)}>
+                          <Layers />
+                          Trocar o plano
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {account.status === 'suspended' ? (
                           <DropdownMenuItem
@@ -229,6 +246,13 @@ export function ChildAccountsPage() {
       </div>
 
       {creating && <NewChildAccountDialog onOpenChange={setCreating} />}
+      {planFor && (
+        <ChangePlanDialog
+          key={planFor.id}
+          account={planFor}
+          onOpenChange={(open) => !open && setPlanFor(null)}
+        />
+      )}
     </>
   )
 }
@@ -248,10 +272,17 @@ function NewChildAccountDialog({ onOpenChange }: { onOpenChange: (open: boolean)
   const [accountName, setAccountName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   const [reseller, setReseller] = useState(false)
+  const [planId, setPlanId] = useState(DEFAULT_PLAN)
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
 
   const create = useMutation({
-    mutationFn: () => accountsApi.create({ accountName, ownerEmail, allowsChildren: reseller }),
+    mutationFn: () =>
+      accountsApi.create({
+        accountName,
+        ownerEmail,
+        allowsChildren: reseller,
+        planId: planId === DEFAULT_PLAN ? null : planId,
+      }),
     onSuccess: ({ inviteUrl: url }) => {
       void queryClient.invalidateQueries({ queryKey: accountKeys.children })
       setInviteUrl(url)
@@ -330,6 +361,7 @@ function NewChildAccountDialog({ onOpenChange }: { onOpenChange: (open: boolean)
                     Quem vai administrar a conta do lado do cliente.
                   </FieldDescription>
                 </Field>
+                <PlanSelect id="child-plan" value={planId} onChange={setPlanId} />
                 <div className="flex items-start gap-2">
                   <Checkbox
                     id="child-reseller"
@@ -359,6 +391,99 @@ function NewChildAccountDialog({ onOpenChange }: { onOpenChange: (open: boolean)
             </DialogFooter>
           </>
         )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Valor do Select para "o plano padrão" (sem plano escolhido). */
+const DEFAULT_PLAN = 'default'
+
+/** Os planos que esta conta pode dar (a plataforma: todos; o revendedor: os de revenda). */
+function PlanSelect({
+  id,
+  value,
+  onChange,
+  current,
+}: {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  /** O plano atual, mesmo que não esteja mais na escolha (arquivado). */
+  current?: { id: string; name: string } | null
+}) {
+  const plans = useAssignablePlans()
+  const options = plans.data ?? []
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>Plano</FieldLabel>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={DEFAULT_PLAN}>O plano padrão</SelectItem>
+          {current && !options.some((p) => p.id === current.id) && (
+            <SelectItem value={current.id}>{current.name}</SelectItem>
+          )}
+          {options.map((plan) => (
+            <SelectItem key={plan.id} value={plan.id}>
+              {plan.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <FieldDescription>Limites e recursos da conta. Dá para trocar depois.</FieldDescription>
+    </Field>
+  )
+}
+
+function ChangePlanDialog({
+  account,
+  onOpenChange,
+}: {
+  account: ChildAccount
+  onOpenChange: (open: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const [planId, setPlanId] = useState(account.planId ?? DEFAULT_PLAN)
+  const save = useMutation({
+    mutationFn: () => accountsApi.setPlan(account.id, planId === DEFAULT_PLAN ? null : planId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountKeys.children })
+      void queryClient.invalidateQueries({ queryKey: planKeys.all })
+      toast.success(`Plano de ${account.name} trocado. Vale na hora.`)
+      onOpenChange(false)
+    },
+  })
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Plano de {account.name}</DialogTitle>
+          <DialogDescription>
+            Plano menor não desliga nada: só barra o que for criado acima do limite.
+          </DialogDescription>
+        </DialogHeader>
+        <FieldGroup>
+          <FormError error={save.error} />
+          <PlanSelect
+            id="change-plan"
+            value={planId}
+            onChange={setPlanId}
+            current={
+              account.planId ? { id: account.planId, name: account.planName ?? 'Atual' } : null
+            }
+          />
+        </FieldGroup>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+            {save.isPending ? 'Salvando…' : 'Salvar'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

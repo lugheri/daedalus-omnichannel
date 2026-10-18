@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  PLAN_ENTITLEMENTS,
+  type PlanEntitlements,
+} from '../../../../shared/application/plan-entitlements';
 import { EVENT_BUS, type EventBus } from '../../../../shared/application/event-bus';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/id-generator';
 import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/application/tenant-context';
@@ -27,9 +31,12 @@ export class CreateWebChatChannelUseCase {
     @Inject(PUBLIC_KEY_GENERATOR) private readonly keys: PublicKeyGenerator,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(PLAN_ENTITLEMENTS) private readonly plan: PlanEntitlements,
   ) {}
 
   async execute(input: { name: string }): Promise<Channel> {
+    const chats = (await this.channels.list()).filter((c) => c.isWebChat).length;
+    await this.plan.ensureRoom('webChatChannels', chats);
     const channel = Channel.createWebChat(this.ids.generate(), {
       tenantId: this.tenant.tenantId,
       name: input.name,

@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { WHATSAPP_CONNECTOR_QUEUE } from '../../contracts/whatsapp-connector.contract';
+import { AccountsModule } from '../accounts';
 import { ChannelSender } from './application/channel-sender';
 import { ChannelsFacade } from './application/channels.facade';
 import { CHANNEL_REPOSITORY } from './application/ports/channel.repository';
@@ -44,7 +45,12 @@ import { TeamsModule } from '../teams';
  * módulo webchat.
  */
 @Module({
-  imports: [TeamsModule, BullModule.registerQueue({ name: WHATSAPP_CONNECTOR_QUEUE })],
+  // AccountsModule: os limites do plano (PLAN_ENTITLEMENTS, ADR 0015).
+  imports: [
+    AccountsModule,
+    TeamsModule,
+    BullModule.registerQueue({ name: WHATSAPP_CONNECTOR_QUEUE }),
+  ],
   controllers: [ChannelsController],
   providers: [
     ListChannelsUseCase,

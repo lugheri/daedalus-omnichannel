@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { z } from 'zod';
 import { ACTOR_CONTEXT, type ActorContext } from '../../../shared/application/actor-context';
@@ -18,6 +19,7 @@ import {
   ListParentAccessesUseCase,
   SetChildAccountStatusUseCase,
 } from '../application/use-cases/child-accounts/child-accounts.use-cases';
+import { SetChildAccountPlanUseCase } from '../application/use-cases/plans/plans.use-cases';
 import { RequirePermissions } from './require-permissions.decorator';
 import { TenantPresenter } from './tenant.presenter';
 
@@ -27,8 +29,11 @@ const createSchema = z.object({
   ownerEmail: z.string().max(320),
   /** Revendedor: a conta nova pode criar contas abaixo dela. */
   allowsChildren: z.boolean().default(false),
+  /** Plano da conta nova (null = o padrão). */
+  planId: z.uuid().nullable().default(null),
 });
 const updateSchema = z.object({ allowsChildren: z.boolean() });
+const planSchema = z.object({ planId: z.uuid().nullable() });
 
 /**
  * Hierarquia de contas (ADR 0009). Contas filhas: `accounts:children`. Entrar
@@ -41,6 +46,7 @@ export class ChildAccountsController {
     private readonly createChild: CreateChildAccountUseCase,
     private readonly setStatus: SetChildAccountStatusUseCase,
     private readonly parentAccesses: ListParentAccessesUseCase,
+    private readonly setPlan: SetChildAccountPlanUseCase,
     @Inject(ACTOR_CONTEXT) private readonly actors: ActorContext,
   ) {}
 
@@ -49,11 +55,13 @@ export class ChildAccountsController {
   @Get('children')
   async children() {
     return (await this.listChildren.execute(this.actors.actor)).map(
-      ({ tenant, parentName, depth }) => ({
+      ({ tenant, parentName, depth, planName }) => ({
         ...TenantPresenter.toHttp(tenant),
         parentId: tenant.parentId,
         parentName,
         depth,
+        planId: tenant.planId,
+        planName,
         createdAt: tenant.createdAt.toISOString(),
       }),
     );
@@ -93,6 +101,17 @@ export class ChildAccountsController {
     @Body(new ZodValidationPipe(updateSchema)) body: z.infer<typeof updateSchema>,
   ) {
     return TenantPresenter.toHttp(await this.setStatus.execute(this.actors.actor, id, body));
+  }
+
+  /** Troca o plano (null = o padrão). O revendedor só dá os planos liberados para revenda. */
+  @RequirePermissions('accounts:children')
+  @Put('children/:id/plan')
+  async plan(
+    @Param('id', idParam) id: string,
+    @Body(new ZodValidationPipe(planSchema)) body: z.infer<typeof planSchema>,
+  ) {
+    const tenant = await this.setPlan.execute(this.actors.actor, id, body.planId);
+    return { ...TenantPresenter.toHttp(tenant), planId: tenant.planId };
   }
 
   /** Quem de uma conta acima entrou nesta (a conta acessada vê). */

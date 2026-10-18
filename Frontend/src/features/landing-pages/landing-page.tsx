@@ -71,6 +71,7 @@ import {
 import { LandingContentFields } from './landing-content-fields'
 import { NO_FORM } from './landing-format'
 import { LandingStatus } from './landing-status'
+import { NOT_IN_PLAN, usePlanFeature } from '@/features/plans/use-plan-feature'
 
 interface VariantDraft {
   name: string
@@ -98,6 +99,7 @@ export function LandingPagePage() {
 }
 
 function LandingEditor({ page }: { page: LandingPage }) {
+  const canTest = usePlanFeature('abTesting')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const templates = useAvailableTemplates('landing')
@@ -334,7 +336,8 @@ function LandingEditor({ page }: { page: LandingPage }) {
         <Button
           variant="outline"
           size="sm"
-          disabled={page.variants.length >= MAX_VARIANTS || busy}
+          disabled={page.variants.length >= MAX_VARIANTS || busy || !canTest}
+          title={canTest ? undefined : NOT_IN_PLAN}
           onClick={() => addVariant.mutate()}
         >
           <Copy />

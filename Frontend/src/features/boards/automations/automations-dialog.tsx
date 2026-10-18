@@ -22,6 +22,7 @@ import type { Board, BoardColumn } from '../api'
 import { automationKeys, automationsApi, useAutomationRuns, type Automation } from './api'
 import { describeAction, describeTrigger, RESULT_LABELS, type Names } from './describe'
 import { RuleForm } from './rule-form'
+import { NOT_IN_PLAN, usePlanFeature } from '@/features/plans/use-plan-feature'
 
 const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -40,6 +41,7 @@ export function AutomationsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const canAutomate = usePlanFeature('automations')
   const queryClient = useQueryClient()
   const teams = useTeams(open)
   const dispositions = useDispositions()
@@ -151,7 +153,13 @@ export function AutomationsDialog({
               ))}
             </ul>
             {rules.length < 10 && (
-              <Button variant="outline" className="self-start" onClick={() => setEditing('new')}>
+              <Button
+                variant="outline"
+                className="self-start"
+                disabled={!canAutomate}
+                title={canAutomate ? undefined : NOT_IN_PLAN}
+                onClick={() => setEditing('new')}
+              >
                 <Plus />
                 Nova automação
               </Button>

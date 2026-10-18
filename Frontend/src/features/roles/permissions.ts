@@ -10,7 +10,12 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: string; lab
         { key: 'account:manage', label: 'Faturamento, dados e exclusão da conta (só Owner)' },
         {
           key: 'accounts:children',
-          label: 'Contas clientes: criar, suspender e entrar nelas (em conta revendedora)',
+          label:
+            'Contas clientes: criar, suspender, entrar e trocar o plano (em conta revendedora)',
+        },
+        {
+          key: 'plans:manage',
+          label: 'Catálogo de planos (só tem efeito na conta da plataforma)',
         },
         { key: 'members:manage', label: 'Convidar, desativar e trocar o cargo de membros' },
         { key: 'roles:manage', label: 'Criar e editar cargos' },

@@ -8,6 +8,8 @@ export interface InvitationRepository {
   findPendingByEmail(tenantId: string, email: string): Promise<Invitation | null>;
   listPending(tenantId: string): Promise<Invitation[]>;
   countPendingWithRole(tenantId: string, roleId: string): Promise<number>;
+  /** Convites pendentes da conta (ocupam lugar no limite de membros do plano). */
+  countPending(tenantId: string): Promise<number>;
 }
 
 export const INVITATION_REPOSITORY = Symbol('InvitationRepository');

@@ -3,6 +3,11 @@ import { UNIT_OF_WORK, type UnitOfWork } from '../../../../../shared/application
 import { CannotDisableSelfError } from '../../../domain/errors/cannot-disable-self.error';
 import { assertCanGrant } from '../../account-access';
 import { CurrentAccess } from '../../current-access';
+import {
+  INVITATION_REPOSITORY,
+  type InvitationRepository,
+} from '../../ports/invitation.repository';
+import { TenantEntitlements } from '../../tenant-entitlements';
 import { ACCESS_CACHE, type AccessCache } from '../../ports/access-cache';
 import { IDENTITY_GATEWAY, type IdentityGateway } from '../../ports/identity.gateway';
 import {
@@ -26,6 +31,8 @@ export class SetMemberStatusUseCase {
     @Inject(ACCESS_CACHE) private readonly cache: AccessCache,
     @Inject(IDENTITY_GATEWAY) private readonly identity: IdentityGateway,
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
+    @Inject(INVITATION_REPOSITORY) private readonly invitations: InvitationRepository,
+    private readonly entitlements: TenantEntitlements,
   ) {}
 
   async execute(input: { membershipId: string; active: boolean }): Promise<void> {
@@ -43,6 +50,13 @@ export class SetMemberStatusUseCase {
       assertCanGrant(access, role.permissions);
 
       if (input.active) {
+        // Voltar ocupa um lugar no plano (o que já está ativo não conta de novo).
+        if (!membership.isActive) {
+          const used =
+            (await this.memberships.countActiveMembers(access.tenantId)) +
+            (await this.invitations.countPending(access.tenantId));
+          await this.entitlements.roomFor(access.tenantId, 'members', used);
+        }
         membership.enable();
       } else {
         await ensureAnotherOwnerRemains(this.memberships, membership, role);

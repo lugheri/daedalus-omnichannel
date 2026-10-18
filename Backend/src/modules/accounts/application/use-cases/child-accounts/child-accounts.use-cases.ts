@@ -26,13 +26,18 @@ import {
 } from '../../ports/parent-access.repository';
 import { ROLE_REPOSITORY, type RoleRepository } from '../../ports/role.repository';
 import { TENANT_REPOSITORY, type TenantRepository } from '../../ports/tenant.repository';
+import { PLAN_REPOSITORY, type PlanRepository } from '../../ports/plan.repository';
+import { TenantEntitlements } from '../../tenant-entitlements';
 import { uniqueSlugFor } from '../../unique-slug';
+import { assertAssignable, loadPlan } from '../plans/plans.use-cases';
 
 /** Conta abaixo da atual, com o nome da mãe e a profundidade (1 = filha direta). */
 export interface ChildAccountView {
   tenant: Tenant;
   parentName: string | null;
   depth: number;
+  /** Nome do plano escolhido (null = o padrão). */
+  planName: string | null;
 }
 
 /**
@@ -41,17 +46,25 @@ export interface ChildAccountView {
  */
 @Injectable()
 export class ListChildAccountsUseCase {
-  constructor(@Inject(TENANT_REPOSITORY) private readonly tenants: TenantRepository) {}
+  constructor(
+    @Inject(TENANT_REPOSITORY) private readonly tenants: TenantRepository,
+    @Inject(PLAN_REPOSITORY) private readonly plans: PlanRepository,
+  ) {}
 
   async execute(actor: Actor): Promise<ChildAccountView[]> {
     const current = await this.tenants.findById(actor.tenantId);
     if (!current) return [];
-    const descendants = await this.tenants.listDescendants(current.id);
+    const [descendants, plans] = await Promise.all([
+      this.tenants.listDescendants(current.id),
+      this.plans.list(),
+    ]);
     const names = new Map([current, ...descendants].map((t) => [t.id, t.name]));
+    const planNames = new Map(plans.map((p) => [p.id, p.name]));
     return descendants.map((tenant) => ({
       tenant,
       parentName: tenant.parentId ? (names.get(tenant.parentId) ?? null) : null,
       depth: tenant.ancestors.length - current.ancestors.length,
+      planName: tenant.planId ? (planNames.get(tenant.planId) ?? null) : null,
     }));
   }
 }
@@ -73,23 +86,40 @@ export class CreateChildAccountUseCase {
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(EVENT_BUS) private readonly events: EventBus,
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
+    @Inject(PLAN_REPOSITORY) private readonly plans: PlanRepository,
+    private readonly entitlements: TenantEntitlements,
   ) {}
 
   async execute(
     actor: Actor,
-    input: { accountName: string; ownerEmail: string; allowsChildren?: boolean },
+    input: {
+      accountName: string;
+      ownerEmail: string;
+      allowsChildren?: boolean;
+      /** Plano da conta nova (null/ausente = o padrão). */
+      planId?: string | null;
+    },
   ): Promise<{ tenant: Tenant; inviteUrl: string }> {
     const { token, hash } = this.tokens.generate();
     const tenant = await this.unitOfWork.run(async () => {
       const parent = await this.tenants.findById(actor.tenantId);
       if (!parent) throw new ChildAccountNotFoundError();
       if (!parent.canCreateChildren) throw new ChildrenNotAllowedError();
+      // Plano do revendedor: quantas contas diretamente abaixo dele.
+      await this.entitlements.roomFor(
+        parent.id,
+        'childAccounts',
+        await this.tenants.countChildren(parent.id),
+      );
+      const plan = input.planId ? await loadPlan(this.plans, input.planId) : null;
+      if (plan) assertAssignable(parent, plan, null);
       const tenant = Tenant.create(this.ids.generate(), {
         name: input.accountName,
         slug: await uniqueSlugFor(this.tenants, this.ids, input.accountName),
         parent,
         allowsChildren: input.allowsChildren ?? false,
       });
+      if (plan) tenant.setPlan(plan.id);
       const roles = DEFAULT_ROLES.map((template) =>
         Role.fromTemplate(this.ids.generate(), tenant.id, template),
       );

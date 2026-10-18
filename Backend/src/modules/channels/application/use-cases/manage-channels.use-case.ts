@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  PLAN_ENTITLEMENTS,
+  type PlanEntitlements,
+} from '../../../../shared/application/plan-entitlements';
+import {
   StartWhatsAppSession,
   StopWhatsAppSession,
 } from '../../../../contracts/whatsapp-connector.contract';
@@ -70,9 +74,12 @@ export class CreateWhatsAppChannelUseCase {
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(JOB_QUEUE) private readonly jobs: JobQueue,
+    @Inject(PLAN_ENTITLEMENTS) private readonly plan: PlanEntitlements,
   ) {}
 
   async execute(input: { name: string }): Promise<Channel> {
+    const whatsapp = (await this.channels.list()).filter((c) => !c.isWebChat).length;
+    await this.plan.ensureRoom('whatsappChannels', whatsapp);
     const channel = Channel.createWhatsApp(this.ids.generate(), {
       tenantId: this.tenant.tenantId,
       name: input.name,

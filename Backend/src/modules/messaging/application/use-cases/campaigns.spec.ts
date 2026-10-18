@@ -4,6 +4,7 @@ import type {
   JobQueue,
 } from '../../../../shared/application/job-queue';
 import {
+  FakePlanEntitlements,
   FakeSecretCipher,
   FakeTenantContext,
   ImmediateUnitOfWork,
@@ -118,6 +119,12 @@ class TenantRecordingJobQueue implements JobQueue {
 }
 
 describe('Campaigns', () => {
+  let plan: FakePlanEntitlements;
+
+  it('only with campaigns in the plan', async () => {
+    plan.missing.add('campaigns');
+    await expect(create()).rejects.toMatchObject({ code: 'PLAN_FEATURE_CAMPAIGNS' });
+  });
   let tenant: FakeTenantContext;
   let campaigns: InMemoryCampaignRepository;
   let providers: InMemoryMessagingProviderRepository;
@@ -131,6 +138,7 @@ describe('Campaigns', () => {
   const cipher = new FakeSecretCipher();
 
   beforeEach(async () => {
+    plan = new FakePlanEntitlements();
     tenant = new FakeTenantContext('tenant-a');
     campaigns = new InMemoryCampaignRepository(tenant);
     providers = new InMemoryMessagingProviderRepository(tenant);
@@ -181,7 +189,7 @@ describe('Campaigns', () => {
   const create = (
     over: Partial<{ channel: 'email' | 'sms'; body: string; audience: CampaignAudience }> = {},
   ) =>
-    new CreateCampaignUseCase(campaigns, actors, tenant, ids).execute({
+    new CreateCampaignUseCase(campaigns, actors, tenant, ids, plan).execute({
       name: 'Feira',
       channel: 'sms',
       body: 'Oi {{nome}}, obrigado pela visita!',

@@ -8,6 +8,9 @@ export interface ChildAccount extends Tenant {
   parentName: string | null
   /** 1 = filha direta; 2 = neta... */
   depth: number
+  /** Plano escolhido (null = o padrão). */
+  planId: string | null
+  planName: string | null
   createdAt: string
 }
 
@@ -19,7 +22,12 @@ export interface ParentAccess {
 
 export const accountsApi = {
   children: () => api<ChildAccount[]>('/v1/accounts/children'),
-  create: (input: { accountName: string; ownerEmail: string; allowsChildren: boolean }) =>
+  create: (input: {
+    accountName: string
+    ownerEmail: string
+    allowsChildren: boolean
+    planId: string | null
+  }) =>
     api<{ account: Tenant; inviteUrl: string }>('/v1/accounts/children', {
       method: 'POST',
       body: input,
@@ -30,6 +38,9 @@ export const accountsApi = {
   /** Revendedor: pode criar contas abaixo. */
   setReseller: (id: string, allowsChildren: boolean) =>
     api<Tenant>(`/v1/accounts/children/${id}`, { method: 'PATCH', body: { allowsChildren } }),
+  /** Troca o plano (null = o padrão). */
+  setPlan: (id: string, planId: string | null) =>
+    api<Tenant>(`/v1/accounts/children/${id}/plan`, { method: 'PUT', body: { planId } }),
   /** Quem de uma conta acima entrou nesta. */
   parentAccesses: () => api<ParentAccess[]>('/v1/accounts/parent-accesses'),
 }

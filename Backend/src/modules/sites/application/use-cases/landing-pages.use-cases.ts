@@ -1,4 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  PLAN_ENTITLEMENTS,
+  type PlanEntitlements,
+} from '../../../../shared/application/plan-entitlements';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/id-generator';
 import { JOB_QUEUE, type JobQueue } from '../../../../shared/application/job-queue';
 import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/application/tenant-context';
@@ -39,9 +43,6 @@ import {
 import { SITE_REPOSITORY, type SiteRepository } from '../ports/site.repository';
 import { landingLocation, requestLandingPublication } from '../landing-location';
 import { choosableTemplate } from '../template-choice';
-
-/** Por conta, até virem os planos (passo 9). */
-export const MAX_LANDING_PAGES = 30;
 
 async function loadPage(pages: LandingPageRepository, id: string): Promise<LandingPage> {
   const page = await pages.findById(id);
@@ -144,6 +145,7 @@ export class CreateLandingPageUseCase {
     @Inject(SITE_HOSTING) private readonly hosting: SiteHosting,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(PLAN_ENTITLEMENTS) private readonly plan: PlanEntitlements,
   ) {}
 
   async execute(input: {
@@ -154,9 +156,7 @@ export class CreateLandingPageUseCase {
   }): Promise<LandingDetails> {
     const site = await this.sites.findCurrent();
     if (!site) throw new InvalidSiteError('LANDING_SITE_REQUIRED');
-    if ((await this.pages.count()) >= MAX_LANDING_PAGES) {
-      throw new SiteConflictError('LANDING_LIMIT_REACHED');
-    }
+    await this.plan.ensureRoom('landingPages', await this.pages.count());
     const template = await choosableTemplate(this.templates, input.templateId, null, 'landing');
     await assertForm(this.sources, input.formId);
     const page = LandingPage.create(this.ids.generate(), {
@@ -231,12 +231,15 @@ export class AddLandingVariantUseCase {
     @Inject(SITE_TEMPLATE_REPOSITORY) private readonly templates: SiteTemplateRepository,
     @Inject(SITE_HOSTING) private readonly hosting: SiteHosting,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(PLAN_ENTITLEMENTS) private readonly plan: PlanEntitlements,
   ) {}
 
   async execute(
     id: string,
     input: { copyFrom: string | null },
   ): Promise<{ details: LandingDetails; variant: LandingVariant }> {
+    // Variante nova = teste A/B (o plano decide).
+    await this.plan.ensureFeature('abTesting');
     const page = await loadPage(this.pages, id);
     const source = input.copyFrom ? page.variant(input.copyFrom) : page.variants[0];
     const variant = page.addVariant(this.ids.generate(), source);

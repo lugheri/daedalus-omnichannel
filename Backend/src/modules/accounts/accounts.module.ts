@@ -28,6 +28,20 @@ import {
   SetChildAccountStatusUseCase,
 } from './application/use-cases/child-accounts/child-accounts.use-cases';
 import { GetMeUseCase } from './application/use-cases/get-me/get-me.use-case';
+import { PLAN_REPOSITORY } from './application/ports/plan.repository';
+import { PLAN_ENTITLEMENTS_PROVIDER, TenantEntitlements } from './application/tenant-entitlements';
+import {
+  CreatePlanUseCase,
+  DeletePlanUseCase,
+  ListAssignablePlansUseCase,
+  ListPlansUseCase,
+  PlanKeeper,
+  SetChildAccountPlanUseCase,
+  SetDefaultPlanUseCase,
+  UpdatePlanUseCase,
+} from './application/use-cases/plans/plans.use-cases';
+import { PlansController } from './http/plans.controller';
+import { PrismaPlanRepository } from './infra/prisma-plan.repository';
 import { PARENT_ACCESS_REPOSITORY } from './application/ports/parent-access.repository';
 import { ChildAccountsController } from './http/child-accounts.controller';
 import { PrismaParentAccessRepository } from './infra/prisma-parent-access.repository';
@@ -103,6 +117,7 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     InvitationsController,
     InvitationAcceptanceController,
     RolesController,
+    PlansController,
   ],
   providers: [
     // Autenticação e acesso
@@ -142,7 +157,19 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     CreateRoleUseCase,
     UpdateRoleUseCase,
     DeleteRoleUseCase,
+    // Planos (ADR 0015)
+    TenantEntitlements,
+    PLAN_ENTITLEMENTS_PROVIDER,
+    PlanKeeper,
+    ListPlansUseCase,
+    CreatePlanUseCase,
+    UpdatePlanUseCase,
+    SetDefaultPlanUseCase,
+    DeletePlanUseCase,
+    ListAssignablePlansUseCase,
+    SetChildAccountPlanUseCase,
     // Adapters
+    { provide: PLAN_REPOSITORY, useClass: PrismaPlanRepository },
     { provide: TENANT_REPOSITORY, useClass: PrismaTenantRepository },
     { provide: PARENT_ACCESS_REPOSITORY, useClass: PrismaParentAccessRepository },
     { provide: ROLE_REPOSITORY, useClass: PrismaRoleRepository },
@@ -160,6 +187,13 @@ import { RedisAccessCache } from './infra/redis-access-cache';
     },
   ],
   // ApiKeyGuard e o use case que ele usa: rotas de outros módulos usam @ApiKeyAuth().
-  exports: [AccountsFacade, ApiKeyGuard, AuthenticateApiKeyUseCase, DesignateRootAccountUseCase],
+  // PLAN_ENTITLEMENTS: os limites do plano para os outros módulos (ADR 0015).
+  exports: [
+    AccountsFacade,
+    ApiKeyGuard,
+    AuthenticateApiKeyUseCase,
+    DesignateRootAccountUseCase,
+    PLAN_ENTITLEMENTS_PROVIDER.provide,
+  ],
 })
 export class AccountsModule {}

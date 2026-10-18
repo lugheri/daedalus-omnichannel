@@ -5,10 +5,17 @@ import type { EventBus } from '../application/event-bus';
 import type { FileStorage } from '../application/file-storage';
 import type { IdGenerator } from '../application/id-generator';
 import type { EnqueueOptions, JobDefinition, JobQueue } from '../application/job-queue';
+import type { PlanEntitlements } from '../application/plan-entitlements';
 import type { RealtimeNotifier } from '../application/realtime';
 import { TenantNotResolvedError, type TenantContext } from '../application/tenant-context';
 import type { UnitOfWork } from '../application/unit-of-work';
 import type { DomainEvent } from '../domain/domain-event';
+import {
+  PlanFeatureUnavailableError,
+  PlanLimitReachedError,
+  type PlanFeature,
+  type PlanLimit,
+} from '../domain/plan-entitlement';
 
 /**
  * Implementações falsas dos ports do shared kernel, para testes unitários.
@@ -158,5 +165,24 @@ export class FakeSecretCipher implements SecretCipher {
     const match = /^sealed\((.*)\)$/.exec(sealed);
     if (!match) throw new Error('not sealed by FakeSecretCipher');
     return Buffer.from(match[1], 'base64').toString();
+  }
+}
+
+/** Plano de teste: tudo liberado até o teste definir um limite ou tirar um recurso. */
+export class FakePlanEntitlements implements PlanEntitlements {
+  readonly limits: Partial<Record<PlanLimit, number>> = {};
+  readonly missing = new Set<PlanFeature>();
+
+  ensureRoom(limit: PlanLimit, used: number): Promise<void> {
+    const max = this.limits[limit];
+    return max !== undefined && used >= max
+      ? Promise.reject(new PlanLimitReachedError(limit, max))
+      : Promise.resolve();
+  }
+
+  ensureFeature(feature: PlanFeature): Promise<void> {
+    return this.missing.has(feature)
+      ? Promise.reject(new PlanFeatureUnavailableError(feature))
+      : Promise.resolve();
   }
 }

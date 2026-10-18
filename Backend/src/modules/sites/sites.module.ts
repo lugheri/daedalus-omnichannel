@@ -20,6 +20,7 @@ import { SITE_ACCOUNT, SITE_SOURCES } from './application/ports/site-sources';
 import { SITE_TEMPLATE_REPOSITORY } from './application/ports/site-template.repository';
 import { SITE_REPOSITORY } from './application/ports/site.repository';
 import { SiteComposer } from './application/site-composer';
+import { SitesFacade } from './application/sites.facade';
 import { SITES_QUEUE } from './application/sites-jobs';
 import {
   AddLandingVariantUseCase,
@@ -126,6 +127,7 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
     UploadSiteAssetUseCase,
     DeleteSiteAssetUseCase,
     SiteComposer,
+    SitesFacade,
     LandingComposer,
     LandingRelocator,
     ListLandingPagesUseCase,
@@ -172,6 +174,7 @@ import { SITES_SETTINGS, type SitesSettings } from './infra/sites-settings';
     },
   ],
   exports: [
+    SitesFacade,
     ProcessSiteUseCase,
     GiveUpSiteUseCase,
     CheckSiteDomainUseCase,

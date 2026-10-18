@@ -96,6 +96,7 @@ describe('Role management', () => {
       s.settings,
       s.ids,
       s.unitOfWork,
+      s.entitlements,
     );
     await invite.execute({ email: 'x@empresa.com', roleId: roleId('supervisor') });
 

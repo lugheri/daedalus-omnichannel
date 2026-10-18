@@ -14,6 +14,8 @@ export interface MembershipRepository {
   listByTenant(tenantId: string): Promise<Membership[]>;
   /** Quantos vínculos ATIVOS usam o cargo (ex.: garantir que sobra um Owner). */
   countActiveWithRole(tenantId: string, roleId: string): Promise<number>;
+  /** Membros ATIVOS da conta, sem os acessos da conta-mãe (o que conta no plano). */
+  countActiveMembers(tenantId: string): Promise<number>;
   /** Ids de todos os vínculos (qualquer status) com o cargo. */
   listIdsWithRole(tenantId: string, roleId: string): Promise<string[]>;
   /**

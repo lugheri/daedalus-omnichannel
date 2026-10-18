@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  PLAN_ENTITLEMENTS,
+  type PlanEntitlements,
+} from '../../../../shared/application/plan-entitlements';
 import { ACTOR_CONTEXT, type ActorContext } from '../../../../shared/application/actor-context';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/id-generator';
 import { JOB_QUEUE, type JobQueue } from '../../../../shared/application/job-queue';
@@ -79,9 +83,11 @@ export class CreateCampaignUseCase {
     @Inject(ACTOR_CONTEXT) private readonly actors: ActorContext,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
+    @Inject(PLAN_ENTITLEMENTS) private readonly plan: PlanEntitlements,
   ) {}
 
   async execute(input: CampaignInput & { channel: MessagingChannel }): Promise<Campaign> {
+    await this.plan.ensureFeature('campaigns');
     const campaign = Campaign.draft(this.ids.generate(), {
       ...input,
       tenantId: this.tenant.tenantId,

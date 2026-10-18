@@ -11,6 +11,7 @@ import type {
 import type { InvitationRepository } from '../application/ports/invitation.repository';
 import type { InvitationTokenGenerator } from '../application/ports/invitation-token-generator';
 import type { MembershipRepository } from '../application/ports/membership.repository';
+import type { PlanRepository } from '../application/ports/plan.repository';
 import type {
   ParentAccessEntry,
   ParentAccessRepository,
@@ -19,6 +20,7 @@ import type { RoleRepository } from '../application/ports/role.repository';
 import type { TenantRepository } from '../application/ports/tenant.repository';
 import type { Invitation } from '../domain/invitation.entity';
 import type { Membership } from '../domain/membership.entity';
+import type { Plan } from '../domain/plan.entity';
 import type { Role } from '../domain/role.entity';
 import type { Slug } from '../domain/slug.vo';
 import { Tenant } from '../domain/tenant.entity';
@@ -66,6 +68,10 @@ export class InMemoryTenantRepository implements TenantRepository {
 
   findRoot(): Promise<Tenant | null> {
     return Promise.resolve(this.store.find((t) => t.isRoot));
+  }
+
+  countChildren(tenantId: string): Promise<number> {
+    return Promise.resolve(this.tenants.filter((t) => t.parentId === tenantId).length);
   }
 
   listDescendants(tenantId: string): Promise<Tenant[]> {
@@ -187,6 +193,13 @@ export class InMemoryMembershipRepository implements MembershipRepository {
     );
   }
 
+  countActiveMembers(tenantId: string): Promise<number> {
+    return Promise.resolve(
+      this.memberships.filter((m) => m.tenantId === tenantId && m.isActive && !m.isDelegated)
+        .length,
+    );
+  }
+
   listIdsWithRole(tenantId: string, roleId: string): Promise<string[]> {
     return Promise.resolve(
       this.memberships
@@ -231,6 +244,12 @@ export class InMemoryInvitationRepository implements InvitationRepository {
   listPending(tenantId: string): Promise<Invitation[]> {
     return Promise.resolve(
       this.invitations.filter((i) => i.tenantId === tenantId && i.status === 'pending'),
+    );
+  }
+
+  countPending(tenantId: string): Promise<number> {
+    return Promise.resolve(
+      this.invitations.filter((i) => i.tenantId === tenantId && i.status === 'pending').length,
     );
   }
 
@@ -385,5 +404,46 @@ export class SequentialApiKeySecretGenerator implements ApiKeySecretGenerator {
 
   matches(secret: string, hash: string): boolean {
     return this.hash(secret) === hash;
+  }
+}
+
+/** Catálogo de planos em memória; `tenants` para contar quem usa. */
+export class InMemoryPlanRepository implements PlanRepository {
+  private readonly store = new Store<Plan>();
+
+  constructor(private readonly tenants?: InMemoryTenantRepository) {}
+
+  get plans() {
+    return this.store.items;
+  }
+
+  save(plan: Plan): Promise<void> {
+    this.store.upsert(plan);
+    return Promise.resolve();
+  }
+
+  findById(id: string): Promise<Plan | null> {
+    return Promise.resolve(this.store.find((p) => p.id === id));
+  }
+
+  findDefault(): Promise<Plan | null> {
+    return Promise.resolve(this.store.find((p) => p.isDefault));
+  }
+
+  list(): Promise<Plan[]> {
+    return Promise.resolve([...this.plans].sort((a, b) => a.name.localeCompare(b.name)));
+  }
+
+  delete(plan: Plan): Promise<void> {
+    this.store.items = this.plans.filter((p) => p.id !== plan.id);
+    return Promise.resolve();
+  }
+
+  countAccountsUsing(plan: Plan): Promise<number> {
+    const all = this.tenants?.tenants ?? [];
+    return Promise.resolve(
+      all.filter((t) => t.planId === plan.id || (plan.isDefault && t.planId === null && !t.isRoot))
+        .length,
+    );
   }
 }

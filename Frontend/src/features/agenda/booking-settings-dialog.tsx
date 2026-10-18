@@ -27,6 +27,7 @@ import { env } from '@/lib/env'
 import { agendaApi, agendaKeys, type BookingSettings } from './api'
 import { bookingSnippet, NOTICE_OPTIONS, WINDOW_OPTIONS } from './booking-options'
 import { SLOT_STEPS, TIMEZONES } from './time'
+import { NOT_IN_PLAN, usePlanFeature } from '@/features/plans/use-plan-feature'
 
 /** Fuso da agenda e agendamento online (o widget no site). */
 export function BookingSettingsDialog({
@@ -36,6 +37,7 @@ export function BookingSettingsDialog({
   settings: BookingSettings
   onOpenChange: (open: boolean) => void
 }) {
+  const canBook = usePlanFeature('onlineBooking')
   const queryClient = useQueryClient()
   const [enabled, setEnabled] = useState(settings.enabled)
   const [timezone, setTimezone] = useState(settings.timezone)
@@ -108,6 +110,9 @@ export function BookingSettingsDialog({
               <Checkbox
                 id="booking-enabled"
                 checked={enabled}
+                // Sem o recurso no plano, dá para desligar mas não ligar.
+                disabled={!enabled && !canBook}
+                title={!enabled && !canBook ? NOT_IN_PLAN : undefined}
                 onCheckedChange={(checked) => setEnabled(checked === true)}
               />
               <div className="grid gap-1">

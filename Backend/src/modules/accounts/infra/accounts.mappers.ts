@@ -23,6 +23,7 @@ export const TenantMapper = {
       ancestors: row.ancestors,
       isRoot: row.isRoot,
       allowsChildren: row.allowsChildren,
+      planId: row.planId,
     });
   },
 
@@ -36,6 +37,7 @@ export const TenantMapper = {
       ancestors: [...tenant.ancestors],
       isRoot: tenant.isRoot,
       allowsChildren: tenant.canCreateChildren,
+      planId: tenant.planId,
       createdAt: tenant.createdAt,
     };
   },

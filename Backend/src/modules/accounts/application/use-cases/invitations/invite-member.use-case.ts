@@ -6,6 +6,7 @@ import { RoleNotFoundError } from '../../../domain/errors/role-not-found.error';
 import { Invitation } from '../../../domain/invitation.entity';
 import { assertCanGrant } from '../../account-access';
 import { CurrentAccess } from '../../current-access';
+import { TenantEntitlements } from '../../tenant-entitlements';
 import { ACCOUNTS_SETTINGS, type AccountsSettings } from '../../ports/accounts-settings';
 import { IDENTITY_GATEWAY, type IdentityGateway } from '../../ports/identity.gateway';
 import {
@@ -45,6 +46,7 @@ export class InviteMemberUseCase {
     @Inject(ACCOUNTS_SETTINGS) private readonly settings: AccountsSettings,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
+    private readonly entitlements: TenantEntitlements,
   ) {}
 
   async execute(input: { email: string; roleId: string }): Promise<InviteMemberResult> {
@@ -69,6 +71,12 @@ export class InviteMemberUseCase {
       if (membership?.isActive) throw new AlreadyMemberError();
 
       const previous = await this.invitations.findPendingByEmail(access.tenantId, invitation.email);
+      // Plano: membros ativos + convites pendentes (o convite substituído não conta).
+      const used =
+        (await this.memberships.countActiveMembers(access.tenantId)) +
+        (await this.invitations.countPending(access.tenantId)) -
+        (previous ? 1 : 0);
+      await this.entitlements.roomFor(access.tenantId, 'members', used);
       if (previous) {
         previous.revoke();
         await this.invitations.save(previous);

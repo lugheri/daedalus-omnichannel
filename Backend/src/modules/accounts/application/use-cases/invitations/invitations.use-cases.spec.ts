@@ -29,6 +29,7 @@ describe('Invitations', () => {
       s.settings,
       s.ids,
       s.unitOfWork,
+      s.entitlements,
     );
     lookUp = new LookUpInvitationUseCase(s.invitations, s.tokens, s.tenants, s.roles, s.identity);
     accept = new AcceptInvitationUseCase(

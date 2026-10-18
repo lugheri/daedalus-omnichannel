@@ -57,6 +57,10 @@ export class PrismaTenantRepository implements TenantRepository {
     return row ? TenantMapper.toDomain(row) : null;
   }
 
+  countChildren(tenantId: string): Promise<number> {
+    return this.txHost.tx.tenant.count({ where: { parentId: tenantId } });
+  }
+
   async listDescendants(tenantId: string): Promise<Tenant[]> {
     const rows = await this.txHost.tx.tenant.findMany({
       where: { ancestors: { has: tenantId } },
@@ -189,6 +193,12 @@ export class PrismaMembershipRepository implements MembershipRepository {
     return this.txHost.tx.membership.count({ where: { tenantId, roleId, status: 'active' } });
   }
 
+  countActiveMembers(tenantId: string): Promise<number> {
+    return this.txHost.tx.membership.count({
+      where: { tenantId, status: 'active', delegatedFromMembershipId: null },
+    });
+  }
+
   async listIdsWithRole(tenantId: string, roleId: string): Promise<string[]> {
     const rows = await this.txHost.tx.membership.findMany({
       where: { tenantId, roleId },
@@ -244,6 +254,10 @@ export class PrismaInvitationRepository implements InvitationRepository {
 
   countPendingWithRole(tenantId: string, roleId: string): Promise<number> {
     return this.txHost.tx.invitation.count({ where: { tenantId, roleId, status: 'pending' } });
+  }
+
+  countPending(tenantId: string): Promise<number> {
+    return this.txHost.tx.invitation.count({ where: { tenantId, status: 'pending' } });
   }
 }
 

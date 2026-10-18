@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  PLAN_ENTITLEMENTS,
+  type PlanEntitlements,
+} from '../../../../shared/application/plan-entitlements';
 import { EVENT_BUS, type EventBus } from '../../../../shared/application/event-bus';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/id-generator';
 import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/application/tenant-context';
@@ -53,12 +57,17 @@ export class UpdateBookingSettingsUseCase {
     @Inject(BOOKING_SETTINGS_REPOSITORY) private readonly repository: BookingSettingsRepository,
     @Inject(BOOKING_KEY_GENERATOR) private readonly keys: BookingKeyGenerator,
     private readonly settings: AgendaSettings,
+    @Inject(PLAN_ENTITLEMENTS) private readonly plan: PlanEntitlements,
   ) {}
 
   async execute(
     changes: Partial<BookingSettingsValues> & { rotateKey?: boolean },
   ): Promise<BookingSettings> {
     const settings = await this.settings.current();
+    // Ligar é o que o plano barra; o que já está ligado continua (ADR 0015).
+    if (changes.enabled === true && !settings.enabled) {
+      await this.plan.ensureFeature('onlineBooking');
+    }
     const { rotateKey, ...values } = changes;
     settings.update(values);
     if (rotateKey) settings.rotateKey(this.keys.generate());

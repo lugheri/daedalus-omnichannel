@@ -4,6 +4,7 @@ import {
   StopWhatsAppSession,
 } from '../../../../contracts/whatsapp-connector.contract';
 import {
+  FakePlanEntitlements,
   FakeTenantContext,
   ImmediateUnitOfWork,
   RecordingEventBus,
@@ -44,6 +45,7 @@ import {
 } from './web-chat.use-cases';
 
 describe('Channels', () => {
+  let plan: FakePlanEntitlements;
   let tenant: FakeTenantContext;
   let channels: InMemoryChannelRepository;
   let jobs: RecordingJobQueue;
@@ -53,6 +55,7 @@ describe('Channels', () => {
   let ids: SequentialIdGenerator;
 
   beforeEach(() => {
+    plan = new FakePlanEntitlements();
     tenant = new FakeTenantContext('tenant-a');
     channels = new InMemoryChannelRepository(tenant);
     jobs = new RecordingJobQueue();
@@ -63,7 +66,9 @@ describe('Channels', () => {
   });
 
   const createChannel = () =>
-    new CreateWhatsAppChannelUseCase(channels, tenant, ids, jobs).execute({ name: 'Suporte' });
+    new CreateWhatsAppChannelUseCase(channels, tenant, ids, jobs, plan).execute({
+      name: 'Suporte',
+    });
 
   const report = (status: 'connected' | 'awaiting_qr', at = '2030-01-01T10:00:00Z') =>
     new ApplyConnectionReportUseCase(channels, events, new ImmediateUnitOfWork()).execute({
@@ -114,6 +119,22 @@ describe('Channels', () => {
     );
 
     expect(jobs.of(StopWhatsAppSession)).toEqual([{ channelId: channel.id, logout: true }]);
+  });
+
+  it('the plan limits the WhatsApp numbers (and the web chats)', async () => {
+    plan.limits.whatsappChannels = 1;
+    await createChannel();
+    await expect(createChannel()).rejects.toMatchObject({ code: 'PLAN_LIMIT_WHATSAPP_CHANNELS' });
+    plan.limits.webChatChannels = 0;
+    await expect(
+      new CreateWebChatChannelUseCase(
+        channels,
+        new SequentialPublicKeyGenerator(),
+        tenant,
+        ids,
+        plan,
+      ).execute({ name: 'Site' }),
+    ).rejects.toMatchObject({ code: 'PLAN_LIMIT_WEB_CHAT_CHANNELS' });
   });
 
   describe('sending', () => {
@@ -213,7 +234,7 @@ describe('Channels', () => {
   describe('web chat', () => {
     const keys = new SequentialPublicKeyGenerator();
     const createWebChat = () =>
-      new CreateWebChatChannelUseCase(channels, keys, tenant, ids).execute({ name: 'Site' });
+      new CreateWebChatChannelUseCase(channels, keys, tenant, ids, plan).execute({ name: 'Site' });
     const toggle = (enabled: boolean, channelId: string) =>
       enabled
         ? new ConnectChannelUseCase(channels, jobs, events, new ImmediateUnitOfWork()).execute(

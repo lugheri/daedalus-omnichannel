@@ -42,6 +42,17 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/', ...page(() => import('@/features/home/home-page'), 'HomePage') },
+          // Qualquer membro vê o plano da conta (como o /v1/me).
+          {
+            path: '/settings/plan',
+            ...page(() => import('@/features/plans/my-plan-page'), 'MyPlanPage'),
+          },
+          {
+            element: <RequirePermission anyOf={['plans:manage']} />,
+            children: [
+              { path: '/plans', ...page(() => import('@/features/plans/plans-page'), 'PlansPage') },
+            ],
+          },
           {
             element: <RequirePermission anyOf={CONVERSATION_SCOPES} />,
             children: [

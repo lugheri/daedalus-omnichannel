@@ -27,7 +27,7 @@ Detalhes e justificativas nos ADRs [0002](docs/adr/0002-multitenancy.md), [0003]
 - Cargos padrão: Owner (de sistema, intocável), Admin, Supervisor, Agent.
 - Administração da plataforma (`platformRole` no User) é separada dos cargos de tenant.
 - **Hierarquia de contas:** toda conta tem uma conta-mãe (menos a raiz, a da plataforma); cadastro público nasce abaixo da raiz. Só a raiz e contas **revendedoras** criam contas abaixo. Quem está acima vê a subárvore inteira e entra nela como **acesso da conta-mãe** (Admin sem `account:manage`), registrado para a conta ver. Os dados continuam por conta: a hierarquia só controla quem entra.
-- Limites de plano são _entitlements_ do tenant, não permissões.
+- Limites de plano são _entitlements_ do tenant, não permissões ([ADR 0015](docs/adr/0015-planos-e-limites.md)): catálogo de planos editável pela conta da plataforma; a conta aponta para um plano (sem plano = o padrão); a plataforma dá qualquer plano e o revendedor os liberados para revenda. Cada módulo verifica pela porta `PLAN_ENTITLEMENTS` só na **criação** (passar do limite bloqueia o novo; nada é desligado). A conta da plataforma não tem limite. Cobrança ainda fora do sistema.
 - **Sessão no navegador:** access token no corpo (o front guarda só em memória); refresh token em cookie `HttpOnly` + `SameSite=Strict` restrito a `/v1/auth`. Por isso **front e API precisam estar no mesmo site** (ex.: `app.dominio.com` e `api.dominio.com`) e o front usa `credentials: 'include'` nas rotas de auth.
 
 ## Infraestrutura

@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useCampaigns, type Campaign } from './api'
+import { NOT_IN_PLAN, usePlanFeature } from '@/features/plans/use-plan-feature'
 import { CampaignStatusBadge } from './campaign-status'
 
 const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
@@ -25,6 +26,7 @@ function when(campaign: Campaign): string {
 }
 
 export function CampaignsPage() {
+  const canCampaign = usePlanFeature('campaigns')
   const campaigns = useCampaigns()
 
   return (
@@ -33,12 +35,19 @@ export function CampaignsPage() {
         title="Campanhas"
         description="E-mails e SMS em massa para um público de contatos."
         actions={
-          <Button asChild>
-            <Link to="/campaigns/new">
+          canCampaign ? (
+            <Button asChild>
+              <Link to="/campaigns/new">
+                <Plus />
+                Nova campanha
+              </Link>
+            </Button>
+          ) : (
+            <Button disabled title={NOT_IN_PLAN}>
               <Plus />
               Nova campanha
-            </Link>
-          </Button>
+            </Button>
+          )
         }
       />
       <div className="rounded-md border">

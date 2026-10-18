@@ -1,5 +1,6 @@
 import type { Actor } from '../../../../../shared/application/actor-context';
 import {
+  FakeTenantContext,
   ImmediateUnitOfWork,
   RecordingEventBus,
   SequentialIdGenerator,
@@ -23,11 +24,13 @@ import {
   InMemoryInvitationRepository,
   InMemoryMembershipRepository,
   InMemoryParentAccessRepository,
+  InMemoryPlanRepository,
   InMemoryRoleRepository,
   InMemoryTenantRepository,
   SequentialInvitationTokenGenerator,
 } from '../../../testing/fakes';
 import { ListMyAccountsUseCase, SwitchAccountUseCase } from '../my-accounts/my-accounts.use-cases';
+import { TenantEntitlements } from '../../tenant-entitlements';
 import { ResolveAccessUseCase } from '../resolve-access/resolve-access.use-case';
 import {
   CreateChildAccountUseCase,
@@ -53,6 +56,8 @@ describe('Account hierarchy', () => {
   let events: RecordingEventBus;
   const ids = new SequentialIdGenerator();
   const uow = new ImmediateUnitOfWork();
+  let plans: InMemoryPlanRepository;
+  const entitlements = () => new TenantEntitlements(new FakeTenantContext(), tenants, plans);
 
   let root: Tenant;
   let partner: Tenant;
@@ -121,6 +126,7 @@ describe('Account hierarchy', () => {
     accessLog = new InMemoryParentAccessRepository();
     identity = new FakeIdentityGateway();
     events = new RecordingEventBus();
+    plans = new InMemoryPlanRepository(tenants);
 
     root = await account('Daedalus', null);
     root.markRoot();
@@ -140,7 +146,7 @@ describe('Account hierarchy', () => {
 
     it('lists the whole subtree, with the parent name and depth', async () => {
       const ana = await member('ana', root, 'owner');
-      const all = await new ListChildAccountsUseCase(tenants).execute(actorOf(ana));
+      const all = await new ListChildAccountsUseCase(tenants, plans).execute(actorOf(ana));
       expect(all.map((c) => [c.tenant.name, c.parentName, c.depth])).toEqual([
         ['Cliente', 'Revenda', 2],
         ['Outra', 'Daedalus', 1],
@@ -148,7 +154,7 @@ describe('Account hierarchy', () => {
       ]);
 
       const rafa = await member('rafa', partner, 'admin');
-      const mine = await new ListChildAccountsUseCase(tenants).execute(actorOf(rafa));
+      const mine = await new ListChildAccountsUseCase(tenants, plans).execute(actorOf(rafa));
       expect(mine.map((c) => [c.tenant.name, c.depth])).toEqual([['Cliente', 1]]);
     });
 
@@ -163,6 +169,8 @@ describe('Account hierarchy', () => {
         ids,
         events,
         uow,
+        plans,
+        entitlements(),
       ).execute(actorOf(rafa), { accountName: 'Padaria Nova', ownerEmail: 'Dono@Padaria.com' });
 
       expect(tenant.ancestors).toEqual([root.id, partner.id]);
@@ -185,6 +193,8 @@ describe('Account hierarchy', () => {
           ids,
           events,
           uow,
+          plans,
+          entitlements(),
         ).execute(actorOf(from), { accountName: 'Sub cliente', ownerEmail: 's@x.com' });
       const cli = await member('cli', client, 'owner');
       await expect(create(cli)).rejects.toMatchObject({ code: 'CHILD_ACCOUNTS_NOT_ALLOWED' });

@@ -7,10 +7,12 @@ import {
   CalendarDays,
   Contact,
   FlaskConical,
+  Gauge,
   Headset,
   Home,
   Inbox,
   KeyRound,
+  Layers,
   LayoutTemplate,
   Mail,
   Megaphone,
@@ -199,6 +201,7 @@ export const NAV_MODULES: NavModule[] = [
             icon: Plug,
             anyOf: ['integrations:manage'],
           },
+          { to: '/settings/plan', label: 'Meu plano', icon: Gauge, anyOf: [] },
         ],
       },
     ],
@@ -220,6 +223,14 @@ export const NAV_MODULES: NavModule[] = [
             anyOf: ['accounts:children'],
             // Só revendedor (ou a plataforma) tem contas abaixo para gerenciar.
             when: (me) => !!me.tenant.canCreateChildren,
+          },
+          {
+            to: '/plans',
+            label: 'Planos',
+            icon: Layers,
+            anyOf: ['plans:manage'],
+            // O catálogo é da conta da plataforma (ADR 0015).
+            when: (me) => !!me.tenant.isRoot,
           },
           { to: '/settings/teams', label: 'Equipes', icon: Network, anyOf: ['teams:manage'] },
           {
