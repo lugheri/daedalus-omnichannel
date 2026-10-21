@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ContactReach } from '@/features/contacts/contact-reach'
 import { useMemberNames } from '@/features/members/api'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
@@ -120,13 +121,23 @@ export function DealCardContent({
           )}
         </div>
       </div>
-      <div className="flex items-center justify-between gap-2 text-xs">
+      <div className="flex items-center gap-2 text-xs">
         <Link
           to={`/contacts/${deal.contactId}`}
-          className="text-muted-foreground truncate hover:underline"
+          className="text-muted-foreground min-w-0 flex-1 truncate hover:underline"
         >
           {deal.title === contact ? 'Ver contato' : contact}
         </Link>
+        {/* Atender o lead direto do card: WhatsApp, ligação, e-mail (só o que existir). */}
+        {deal.contact && (
+          <ContactReach
+            compact
+            phone={deal.contact.phone}
+            email={deal.contact.email}
+            name={contact}
+            className="-my-1 shrink-0"
+          />
+        )}
         {deal.valueCents !== null && (
           <span className="shrink-0 font-semibold tabular-nums">
             {formatMoney(deal.valueCents)}

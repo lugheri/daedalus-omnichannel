@@ -37,6 +37,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useMe } from '@/features/auth/session-context'
 import { ContactPicker } from '@/features/contacts/contact-picker'
+import { ContactReach } from '@/features/contacts/contact-reach'
 import { useMemberDirectory } from '@/features/members/api'
 import { errorMessage } from '@/lib/api/api-error'
 import { formatMoney, moneyToInput, parseMoney } from '@/lib/money'
@@ -374,6 +375,13 @@ function DealForm({
           </span>
         )}
       </div>
+      {deal.contact && (
+        <ContactReach
+          phone={deal.contact.phone}
+          email={deal.contact.email}
+          name={deal.contact.name}
+        />
+      )}
       {deal.status === 'lost' && deal.lostReason && (
         <p className="text-muted-foreground text-sm">Motivo da perda: {deal.lostReason}</p>
       )}

@@ -1,4 +1,4 @@
-import { ArrowLeft, Mail, Pencil, Phone } from 'lucide-react'
+import { ArrowLeft, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -10,12 +10,12 @@ import { ContactDeals } from '@/features/boards/contact-deals'
 import { ContactAppointments } from '@/features/agenda/contact-appointments'
 import { ContactSubmissions } from '@/features/forms/contact-submissions'
 import { errorMessage } from '@/lib/api/api-error'
-import { formatPhone } from '@/lib/phone'
 import { ContactMessages, ContactSendButtons } from '@/features/messaging/contact-messaging'
 import { useContact } from './api'
 import { ContactEditDialog } from './contact-edit-dialog'
 import { ContactHistory } from './contact-history'
 import { ContactNotes } from './contact-notes'
+import { ContactReach } from './contact-reach'
 import { LEAD_SOURCE_LABELS } from './lead-source'
 
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' })
@@ -48,18 +48,8 @@ export function ContactPage() {
           </Avatar>
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-semibold">{data.name ?? 'Sem nome'}</h1>
-            <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              {data.phone && (
-                <span className="flex items-center gap-1">
-                  <Phone className="size-3.5" /> {formatPhone(data.phone)}
-                </span>
-              )}
-              {data.email && (
-                <span className="flex items-center gap-1">
-                  <Mail className="size-3.5" /> {data.email}
-                </span>
-              )}
-            </div>
+            {/* Atender o lead por fora do sistema: WhatsApp, ligação, e-mail. */}
+            <ContactReach phone={data.phone} email={data.email} name={data.name} className="mt-2" />
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
               <Badge variant="secondary">Origem: {LEAD_SOURCE_LABELS[data.source]}</Badge>
               {data.sourceDetail && <Badge variant="outline">{data.sourceDetail}</Badge>}
