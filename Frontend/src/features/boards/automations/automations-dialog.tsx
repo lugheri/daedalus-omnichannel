@@ -76,7 +76,7 @@ export function AutomationsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Automações de “{column.name}”</DialogTitle>
           <DialogDescription>

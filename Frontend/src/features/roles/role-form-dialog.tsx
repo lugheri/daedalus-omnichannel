@@ -58,7 +58,7 @@ export function RoleFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{role ? `Editar ${role.name}` : 'Novo cargo'}</DialogTitle>
           <DialogDescription>

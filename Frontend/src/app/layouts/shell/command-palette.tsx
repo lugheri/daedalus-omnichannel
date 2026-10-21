@@ -83,7 +83,7 @@ export function CommandPalette({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
         showCloseButton={false}
-        className="top-[68px] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-xl"
+        className="top-[68px] flex max-h-[calc(100%-84px)] translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
       >
         <DialogTitle className="sr-only">Buscar tela</DialogTitle>
         <DialogDescription className="sr-only">
@@ -105,7 +105,11 @@ export function CommandPalette({
           aria-activedescendant={results[selected] ? `command-${selected}` : undefined}
           className="placeholder:text-faint border-b px-4 py-3.5 text-[15px] outline-none"
         />
-        <div id="command-palette-results" role="listbox" className="max-h-80 overflow-y-auto p-1.5">
+        <div
+          id="command-palette-results"
+          role="listbox"
+          className="max-h-80 min-h-0 overflow-y-auto p-1.5"
+        >
           {results.length === 0 ? (
             <p className="text-faint p-5 text-center text-sm">Nenhuma tela com esse nome.</p>
           ) : (

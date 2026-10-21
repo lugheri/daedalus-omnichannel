@@ -82,7 +82,7 @@ export function PlanDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{plan ? `Plano ${plan.name}` : 'Novo plano'}</DialogTitle>
           <DialogDescription>

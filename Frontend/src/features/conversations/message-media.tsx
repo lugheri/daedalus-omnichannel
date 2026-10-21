@@ -75,7 +75,11 @@ export function MessageMedia({ message, outbound }: { message: Message; outbound
       <Dialog open={zoomed} onOpenChange={setZoomed}>
         <DialogContent className="max-w-[90vw] sm:max-w-4xl">
           <DialogTitle className="sr-only">Imagem</DialogTitle>
-          <img src={url} alt="Imagem ampliada" className="max-h-[80vh] w-full object-contain" />
+          <img
+            src={url}
+            alt="Imagem ampliada"
+            className="max-h-[calc(100svh-4rem)] w-full object-contain"
+          />
         </DialogContent>
       </Dialog>
     </>

@@ -102,7 +102,7 @@ export function ProfessionalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{professional ? 'Editar profissional' : 'Novo profissional'}</DialogTitle>
           <DialogDescription>
