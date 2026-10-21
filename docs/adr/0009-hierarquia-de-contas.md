@@ -39,7 +39,11 @@ entrou.
   Sem a marca, todo Admin de cliente poderia abrir contas à vontade.
 - **Quem está acima enxerga a subárvore inteira** (filhas, netas...) e pode
   criar, suspender, reativar e marcar/desmarcar revendedor. Conta suspensa: ninguém
-  entra, nem de cima.
+  entra, nem de cima. Desde 20/10/2026 ela também **não recebe nada pelas
+  rotas públicas** (formulário, agendamento, chat do site, visitas das landing
+  pages), pelo port `ACCOUNT_STANDING` — como a chave de API dela, que já
+  parava de valer. Os **sites publicados continuam no ar** (só o que eles
+  enviam é recusado): ver ADR 0010, "Conta suspensa".
 - **Entrar numa conta abaixo é acesso delegado, registrado.** A troca de conta
   normal (`POST /v1/auth/switch-account`) cria, na conta de destino, um vínculo
   `Membership` com `delegatedFromMembershipId` = o vínculo de origem e o cargo
@@ -89,3 +93,6 @@ entrou.
   *entitlements*, para o passo de planos.
 - Depois do primeiro deploy, o comando `designate-root` precisa ser rodado uma
   vez (`docs/deploy.md`).
+  Desde 20/10/2026, até lá o cadastro público aceita só a primeira conta do
+  banco (a futura raiz) e recusa as demais (`SIGNUP_PLATFORM_NOT_READY`):
+  nenhuma conta nasce sem mãe por descuido (ADR 0004, adendo).
