@@ -612,6 +612,50 @@ describe('Kanban (sales pipelines)', () => {
       expect(all[0].conversationId).toBe('conv-5');
     });
 
+    it('two events of the same contact at once open ONE deal; the loser links its conversation', async () => {
+      const board = await create();
+      await update(board.id, { autoAdd: { mode: 'all' }, autoAddLeads: true });
+      contacts.add('contact-conv-6', 'Lead e WhatsApp');
+      await lead('contact-conv-6'); // o "vencedor" já gravou...
+      // ...mas o perdedor leu "não tem negócio" antes do commit dele: a
+      // primeira leitura vem vazia; a gravação esbarra no índice único
+      // parcial (que o fake reproduz) e a releitura acha o negócio.
+      const original = deals.findOpenOnBoard.bind(deals);
+      let reads = 0;
+      deals.findOpenOnBoard = (boardId, contactId) =>
+        ++reads === 1 ? Promise.resolve(null) : original(boardId, contactId);
+
+      await started(6, null);
+
+      const all = await deals.listByContact('contact-conv-6');
+      expect(all).toHaveLength(1);
+      expect(all[0].conversationId).toBe('conv-6');
+      expect(reads).toBe(2);
+    });
+
+    it('the unique guard covers only automatic entries: manual deals and reopening still work', async () => {
+      const board = await create();
+      await update(board.id, { autoAddLeads: true });
+      await lead('lead-1');
+      const [auto] = await deals.listByContact('lead-1');
+      expect(auto.autoEntry).toBe(true);
+
+      // À mão, o mesmo contato pode ter outro negócio em aberto no funil.
+      const manual = await open(board.id, { contactId: 'lead-1', title: 'Upsell' });
+      expect(manual.autoEntry).toBe(false);
+
+      // Fecha o automático, entra um automático novo, e o antigo é reaberto:
+      // reabrir tira a marca, então não colide com o novo.
+      await setStatus(auto.id, { status: 'lost' });
+      await lead('lead-1'); // o manual em aberto segura a entrada
+      await setStatus(manual.id, { status: 'won' });
+      await lead('lead-1');
+      const reopened = await setStatus(auto.id, { status: 'open' });
+
+      expect(reopened.autoEntry).toBe(false);
+      expect((await deals.listByContact('lead-1')).filter((d) => d.isOpen)).toHaveLength(2);
+    });
+
     it('a deleted team stops feeding its pipelines', async () => {
       const sales = await create('Vendas');
       await update(sales.id, { autoAdd: { mode: 'team', teamId: 'team-sales' } });

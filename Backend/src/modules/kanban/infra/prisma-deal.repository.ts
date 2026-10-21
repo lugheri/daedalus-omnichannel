@@ -2,11 +2,12 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import type { TransactionalAdapterPrisma } from '@nestjs-cls/transactional-adapter-prisma';
 import { Inject, Injectable } from '@nestjs/common';
 import { TENANT_CONTEXT, type TenantContext } from '../../../shared/application/tenant-context';
-import type { Prisma } from '../../../shared/infra/prisma/generated/client';
+import { Prisma } from '../../../shared/infra/prisma/generated/client';
 import type { DealModel } from '../../../shared/infra/prisma/generated/models';
 import type { PrismaService } from '../../../shared/infra/prisma/prisma.service';
 import type { DealKey, DealRepository } from '../application/ports/deal.repository';
 import { Deal, type DealStatus } from '../domain/deal.entity';
+import { DealAutoEntryTakenError } from '../domain/errors/deal-auto-entry-taken.error';
 import { isUuid } from './uuid';
 
 const ORDER = [{ position: 'asc' }, { id: 'asc' }] satisfies Prisma.DealOrderByWithRelationInput[];
@@ -48,24 +49,31 @@ export class PrismaDealRepository implements DealRepository {
       position: deal.position,
       enteredColumnAt: deal.enteredColumnAt,
       createdAt: deal.createdAt,
+      autoEntry: deal.autoEntry,
     };
-    await this.db.deal.upsert({
-      where: { id: deal.id, tenantId: this.tenantId },
-      create: data,
-      // Funil, contato e criação não mudam depois de aberto.
-      update: {
-        columnId: data.columnId,
-        conversationId: data.conversationId,
-        title: data.title,
-        valueCents: data.valueCents,
-        ownerId: data.ownerId,
-        status: data.status,
-        lostReason: data.lostReason,
-        closedAt: data.closedAt,
-        position: data.position,
-        enteredColumnAt: data.enteredColumnAt,
-      },
-    });
+    try {
+      await this.db.deal.upsert({
+        where: { id: deal.id, tenantId: this.tenantId },
+        create: data,
+        // Funil, contato e criação não mudam depois de aberto.
+        update: {
+          columnId: data.columnId,
+          conversationId: data.conversationId,
+          title: data.title,
+          valueCents: data.valueCents,
+          ownerId: data.ownerId,
+          status: data.status,
+          lostReason: data.lostReason,
+          closedAt: data.closedAt,
+          position: data.position,
+          enteredColumnAt: data.enteredColumnAt,
+          autoEntry: data.autoEntry,
+        },
+      });
+    } catch (error) {
+      if (isUniqueViolation(error, AUTO_ENTRY_INDEX)) throw new DealAutoEntryTakenError();
+      throw error;
+    }
   }
 
   async delete(deal: Deal): Promise<void> {
@@ -200,5 +208,21 @@ export function toDomain(row: DealModel): Deal {
     position: row.position,
     enteredColumnAt: row.enteredColumnAt,
     createdAt: row.createdAt,
+    autoEntry: row.autoEntry,
   });
+}
+
+/**
+ * Índice único parcial da entrada automática (só na migration
+ * `20261020150000_deals_auto_entry`: o Prisma não modela índice parcial).
+ * Pelo nome: o adapter do Postgres põe o nome do índice no `meta` do P2002.
+ */
+const AUTO_ENTRY_INDEX = 'deals_auto_entry_open_key';
+
+function isUniqueViolation(error: unknown, index: string): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002' &&
+    JSON.stringify(error.meta ?? {}).includes(index)
+  );
 }

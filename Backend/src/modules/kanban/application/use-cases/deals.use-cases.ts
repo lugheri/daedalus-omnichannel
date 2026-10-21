@@ -455,6 +455,8 @@ export async function openOnTop(
     valueCents?: number | null;
     ownerId: string | null;
     by: string | null;
+    /** Entrada automática: ocupa a vaga única do contato no funil (ver `DealProps.autoEntry`). */
+    autoEntry?: boolean;
   },
 ): Promise<Deal> {
   const first = await deals.first(input.columnId);
@@ -469,6 +471,7 @@ export async function openOnTop(
       title: input.title,
       valueCents: input.valueCents ?? null,
       ownerId: input.ownerId,
+      autoEntry: input.autoEntry ?? false,
       position: positionBetween(null, first?.position ?? null)!,
     },
     input.by,

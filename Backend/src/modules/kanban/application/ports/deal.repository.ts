@@ -8,6 +8,11 @@ export interface DealKey {
 
 /** Negócios dos funis. Tudo restrito ao tenant atual (TenantContext). */
 export interface DealRepository {
+  /**
+   * Grava (cria ou atualiza). Lança `DealAutoEntryTakenError` se já houver
+   * outro negócio em aberto com `autoEntry` para o mesmo (funil, contato) —
+   * garantia do banco (índice único parcial), não de leitura prévia.
+   */
   save(deal: Deal): Promise<void>;
   delete(deal: Deal): Promise<void>;
   findById(id: string): Promise<Deal | null>;

@@ -66,6 +66,12 @@ model Deal {
   // Quando entrou na etapa atual ("parado há X" nas automações).
   enteredColumnAt DateTime    @map("entered_column_at") @db.Timestamptz(3)
   createdAt       DateTime    @map("created_at") @db.Timestamptz(3)
+  // Aberto pela entrada automática (DealEntry). Há um índice único PARCIAL
+  // `deals_auto_entry_open_key` (tenant_id, board_id, contact_id) WHERE
+  // status = 'open' AND auto_entry, só na migration 20261020150000 — o Prisma
+  // não modela índice parcial (mesmo caso do `plans_single_default`). Um
+  // `migrate diff` a partir deste schema propõe apagá-lo: não aceite.
+  autoEntry       Boolean     @default(false) @map("auto_entry")
 
   @@index([tenantId, columnId, position])
   @@index([tenantId, conversationId])

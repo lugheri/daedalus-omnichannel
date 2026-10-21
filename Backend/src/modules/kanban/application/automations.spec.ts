@@ -450,6 +450,7 @@ describe('Automations', () => {
           position: card.position,
           enteredColumnAt: minutes(-3 * 24 * 60),
           createdAt: card.createdAt,
+          autoEntry: false,
         }),
       );
       const rule = await create('Lead', { type: 'card_idle', minutes: 60 }, [

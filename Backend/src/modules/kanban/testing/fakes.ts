@@ -21,6 +21,7 @@ import type {
 import type { TeamDirectory } from '../application/ports/team-directory';
 import { Board } from '../domain/board.entity';
 import { Deal } from '../domain/deal.entity';
+import { DealAutoEntryTakenError } from '../domain/errors/deal-auto-entry-taken.error';
 
 /** Cópia do agregado: salvar e carregar não compartilham a instância (como no banco). */
 const copyBoard = (b: Board) =>
@@ -120,6 +121,7 @@ const copyDeal = (d: Deal, changes: Partial<{ columnId: string; position: number
     enteredColumnAt:
       changes.columnId && changes.columnId !== d.columnId ? new Date() : d.enteredColumnAt,
     createdAt: d.createdAt,
+    autoEntry: d.autoEntry,
   });
 
 const byKey = (a: DealKey, b: DealKey) => a.position - b.position || a.id.localeCompare(b.id);
@@ -154,7 +156,21 @@ export class InMemoryDealRepository implements DealRepository {
     this.items = this.items.filter((d) => d.boardId !== boardId);
   }
 
+  /** Reproduz o índice único parcial `deals_auto_entry_open_key` do banco. */
   save(deal: Deal): Promise<void> {
+    const taken =
+      deal.isOpen &&
+      deal.autoEntry &&
+      this.items.some(
+        (d) =>
+          d.id !== deal.id &&
+          d.tenantId === deal.tenantId &&
+          d.boardId === deal.boardId &&
+          d.contactId === deal.contactId &&
+          d.isOpen &&
+          d.autoEntry,
+      );
+    if (taken) return Promise.reject(new DealAutoEntryTakenError());
     this.replace(copyDeal(deal));
     return Promise.resolve();
   }

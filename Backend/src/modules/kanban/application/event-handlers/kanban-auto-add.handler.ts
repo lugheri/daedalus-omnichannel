@@ -12,6 +12,7 @@ import { ConversationStartedEvent } from '../../../conversations';
 import { FormSubmittedEvent } from '../../../forms';
 import { AppointmentBookedEvent } from '../../../scheduling';
 import type { Board } from '../../domain/board.entity';
+import { DealAutoEntryTakenError } from '../../domain/errors/deal-auto-entry-taken.error';
 import { BOARD_REPOSITORY, type BoardRepository } from '../ports/board.repository';
 import {
   CONTACT_DIRECTORY,
@@ -22,10 +23,26 @@ import { DEAL_REPOSITORY, type DealRepository } from '../ports/deal.repository';
 import { CreateDefaultBoardUseCase } from '../use-cases/boards.use-cases';
 import { openOnTop } from '../use-cases/deals.use-cases';
 
+interface DealEntryInput {
+  contactId: string;
+  conversationId: string | null;
+  /** Ausente = o nome do contato. */
+  title?: (contactName: string) => string;
+  valueCents?: number | null;
+}
+
+/** Recusado pelo índice único: uma releitura basta (o vencedor já confirmou). */
+const MAX_ATTEMPTS = 2;
+
 /**
  * Entrada automática nos funis: abre um negócio na primeira etapa, a não ser
  * que o contato já tenha um em aberto naquele funil. Idempotente — evento
- * repetido não duplica.
+ * repetido não duplica (a releitura acha o negócio). Sob concorrência, quem
+ * garante é o banco: índice único parcial `deals_auto_entry_open_key`.
+ *
+ * Sem dedup pelo `eventId` de propósito: a duplicata que importa vem de
+ * eventos DIFERENTES do mesmo contato (conversa + lead + formulário), que o
+ * `eventId` não pegaria; e a repetição do mesmo evento já cai na releitura.
  */
 @Injectable()
 export class DealEntry {
@@ -42,42 +59,48 @@ export class DealEntry {
    * conversa (ex.: lead do formulário que agora chamou no WhatsApp), ela é
    * ligada a ele em vez de abrir outro.
    */
-  async enter(
-    tenantId: string,
-    board: Board,
-    input: {
-      contactId: string;
-      conversationId: string | null;
-      /** Ausente = o nome do contato. */
-      title?: (contactName: string) => string;
-      valueCents?: number | null;
-    },
-  ): Promise<void> {
-    await this.unitOfWork.run(async () => {
-      const existing = await this.deals.findOpenOnBoard(board.id, input.contactId);
-      if (existing) {
-        if (input.conversationId && !existing.conversationId) {
-          existing.linkConversation(input.conversationId);
-          await this.deals.save(existing);
-          await this.events.publish(existing.pullEvents());
-        }
+  async enter(tenantId: string, board: Board, input: DealEntryInput): Promise<void> {
+    // Dois eventos do mesmo contato processados juntos (a fila roda em
+    // concorrência) leem "não tem negócio" ao mesmo tempo; o índice único
+    // parcial do banco recusa o segundo, cuja transação é desfeita inteira.
+    // Na segunda tentativa a leitura já vê o negócio do vencedor — e liga a
+    // conversa a ele, se for o caso. Recusado de novo = já existe.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.unitOfWork.run(() => this.enterOnce(tenantId, board, input));
         return;
+      } catch (error) {
+        if (!(error instanceof DealAutoEntryTakenError)) throw error;
+        if (attempt >= MAX_ATTEMPTS) return;
       }
-      const contact = await this.contacts.findById(input.contactId);
-      if (!contact) return;
-      const deal = await openOnTop(this.deals, this.ids, {
-        tenantId,
-        board,
-        columnId: board.firstColumn.id,
-        contactId: contact.id,
-        conversationId: input.conversationId,
-        title: (input.title ?? ((name) => name))(defaultDealTitle(contact)),
-        valueCents: input.valueCents ?? null,
-        ownerId: null,
-        by: null,
-      });
-      await this.events.publish(deal.pullEvents());
+    }
+  }
+
+  private async enterOnce(tenantId: string, board: Board, input: DealEntryInput): Promise<void> {
+    const existing = await this.deals.findOpenOnBoard(board.id, input.contactId);
+    if (existing) {
+      if (input.conversationId && !existing.conversationId) {
+        existing.linkConversation(input.conversationId);
+        await this.deals.save(existing);
+        await this.events.publish(existing.pullEvents());
+      }
+      return;
+    }
+    const contact = await this.contacts.findById(input.contactId);
+    if (!contact) return;
+    const deal = await openOnTop(this.deals, this.ids, {
+      tenantId,
+      board,
+      columnId: board.firstColumn.id,
+      contactId: contact.id,
+      conversationId: input.conversationId,
+      title: (input.title ?? ((name) => name))(defaultDealTitle(contact)),
+      valueCents: input.valueCents ?? null,
+      ownerId: null,
+      by: null,
+      autoEntry: true,
     });
+    await this.events.publish(deal.pullEvents());
   }
 }
 

@@ -28,13 +28,22 @@ export interface DealProps {
   position: number;
   enteredColumnAt: Date;
   createdAt: Date;
+  /**
+   * Aberto pela entrada automática e ainda ocupando a "vaga" dela no funil.
+   * O banco garante no máximo UM negócio em aberto com esta marca por
+   * (funil, contato) — índice único parcial `deals_auto_entry_open_key` —, o
+   * que fecha a corrida entre dois eventos simultâneos do mesmo contato. Não
+   * vale para os abertos à mão: o produto permite vários negócios do mesmo
+   * contato no mesmo funil.
+   */
+  autoEntry: boolean;
 }
 
 export type OpenDealInput = Pick<
   DealProps,
   'tenantId' | 'boardId' | 'columnId' | 'contactId' | 'title' | 'position'
 > &
-  Partial<Pick<DealProps, 'conversationId' | 'valueCents' | 'ownerId'>>;
+  Partial<Pick<DealProps, 'conversationId' | 'valueCents' | 'ownerId' | 'autoEntry'>>;
 
 /**
  * Negócio (oportunidade de venda) de um contato num funil. Em aberto ele fica
@@ -50,6 +59,7 @@ export class Deal extends AggregateRoot<DealProps> {
       conversationId: input.conversationId ?? null,
       valueCents: validValue(input.valueCents ?? null),
       ownerId: input.ownerId ?? null,
+      autoEntry: input.autoEntry ?? false,
       status: 'open',
       lostReason: null,
       closedAt: null,
@@ -111,10 +121,16 @@ export class Deal extends AggregateRoot<DealProps> {
     this.close('lost', text, by);
   }
 
-  /** Volta para o funil, na mesma etapa (o "parado há" recomeça). */
+  /**
+   * Volta para o funil, na mesma etapa (o "parado há" recomeça). Reabrir é
+   * decisão de alguém, não entrada automática: perde a marca `autoEntry` —
+   * senão bateria no índice único com o negócio automático aberto depois do
+   * fechamento (a entrada abre outro quando o contato não tem nenhum aberto).
+   */
   reopen(): void {
     if (this.props.status === 'open') throw new InvalidDealError('DEAL_NOT_CLOSED');
     this.props.status = 'open';
+    this.props.autoEntry = false;
     this.props.lostReason = null;
     this.props.closedAt = null;
     this.props.enteredColumnAt = new Date();
@@ -178,6 +194,9 @@ export class Deal extends AggregateRoot<DealProps> {
   }
   get createdAt() {
     return this.props.createdAt;
+  }
+  get autoEntry() {
+    return this.props.autoEntry;
   }
 
   private close(status: 'won' | 'lost', reason: string | null, by: string | null): void {
