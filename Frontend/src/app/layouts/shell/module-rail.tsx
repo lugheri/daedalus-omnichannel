@@ -1,6 +1,8 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { NavModule } from '../../navigation'
+import { attentionLabel } from '@/features/attention/api'
+import { itemsOf, type NavModule } from '../../navigation'
+import { NavCountBadge } from './nav-count-badge'
 
 /**
  * Trilho de módulos. Nasce com o nome embaixo do ícone (ícone sozinho se
@@ -13,12 +15,15 @@ export function ModuleRail({
   compact,
   onCompactChange,
   onSelect,
+  counts = {},
 }: {
   modules: NavModule[]
   current: string | undefined
   compact: boolean
   onCompactChange: (compact: boolean) => void
   onSelect: (module: NavModule) => void
+  /** O que pede ação, por tela (`to`); o módulo mostra a soma. */
+  counts?: Record<string, number>
 }) {
   return (
     <nav
@@ -31,6 +36,7 @@ export function ModuleRail({
       {modules.map((module) => {
         const Icon = module.icon
         const active = module.key === current
+        const count = itemsOf(module).reduce((sum, item) => sum + (counts[item.to] ?? 0), 0)
         return (
           <button
             key={module.key}
@@ -46,6 +52,11 @@ export function ModuleRail({
             )}
           >
             <Icon className="size-[18px]" />
+            <NavCountBadge
+              count={count}
+              label={attentionLabel(null, count)}
+              className="absolute top-0.5 right-0.5"
+            />
             {compact ? (
               <span className="sr-only">{module.label}</span>
             ) : (

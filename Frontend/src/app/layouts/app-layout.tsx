@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatches, useNavigate } from 'react-router'
+import { useAttentionCounts } from '@/features/attention/api'
 import { useMe, usePermissions } from '@/features/auth/session-context'
 import { RealtimeProvider } from '@/features/realtime/realtime-provider'
 import { cn } from '@/lib/utils'
@@ -11,6 +12,9 @@ import { ModuleRail } from './shell/module-rail'
 import { DelegationBanner } from './shell/delegation-banner'
 import { TopBar } from './shell/top-bar'
 import { useStoredFlag } from './shell/use-stored-flag'
+
+/** Título da aba sem contador (o do index.html). */
+const BASE_TITLE = 'Daedalus Omnichannel'
 
 /** Abaixo disto (o `md` do Tailwind), trilho e painel viram gaveta. */
 const MOBILE_QUERY = '(max-width: 767px)'
@@ -39,6 +43,17 @@ export function AppLayout() {
   // Na gaveta, tocar num módulo mostra as telas dele antes de navegar.
   const [drawerModule, setDrawerModule] = useState<NavModule | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // O que pede ação (conversas esperando resposta, leads sem responsável): no
+  // menu e no título da aba, para quem está em outra aba ver que chegou novidade.
+  const attention = useAttentionCounts()
+  useEffect(() => {
+    document.title = attention.total > 0 ? `(${attention.total}) ${BASE_TITLE}` : BASE_TITLE
+    // Ao sair da área logada (logout), o título volta ao normal.
+    return () => {
+      document.title = BASE_TITLE
+    }
+  }, [attention.total])
 
   // Voltar a um módulo reabre a última tela vista nele (nesta aba e nesta conta:
   // depois de trocar de conta, a tela da anterior não existe mais).
@@ -91,7 +106,11 @@ export function AppLayout() {
   return (
     <RealtimeProvider key={me.tenant.id}>
       <div className="flex h-svh flex-col">
-        <TopBar onMenu={toggleMenu} onSearch={() => setPaletteOpen(true)} />
+        <TopBar
+          onMenu={toggleMenu}
+          onSearch={() => setPaletteOpen(true)}
+          attention={attention.total}
+        />
         <DelegationBanner />
 
         <div className="relative flex min-h-0 flex-1">
@@ -108,6 +127,7 @@ export function AppLayout() {
               compact={railCompact}
               onCompactChange={setRailCompact}
               onSelect={openModule}
+              counts={attention.byPath}
             />
             {panelModule && panelUseful && (
               <div className={cn(panelCollapsed && 'md:hidden')}>
@@ -115,6 +135,7 @@ export function AppLayout() {
                   module={panelModule}
                   onCollapse={drawerOpen ? undefined : () => setPanelCollapsed(true)}
                   onNavigate={closeDrawer}
+                  counts={attention.byPath}
                 />
               </div>
             )}

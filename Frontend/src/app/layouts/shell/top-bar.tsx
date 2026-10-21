@@ -1,20 +1,36 @@
 import { Menu, Search } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { AccountSwitcher } from './account-switcher'
+import { attentionLabel } from '@/features/attention/api'
 import { Kbd } from './command-palette'
+import { NavCountBadge } from './nav-count-badge'
 import { UserMenu } from './user-menu'
 
 /** Barra escura do topo: menu, marca, busca de telas, conta, tema e usuário. */
-export function TopBar({ onMenu, onSearch }: { onMenu: () => void; onSearch: () => void }) {
+export function TopBar({
+  onMenu,
+  onSearch,
+  attention = 0,
+}: {
+  onMenu: () => void
+  onSearch: () => void
+  /** Total do que pede ação: no celular o menu fica fechado, então o aviso vai no botão. */
+  attention?: number
+}) {
   return (
     <header className="bg-rail flex h-12 shrink-0 items-center gap-2.5 overflow-hidden pr-2.5 pl-1.5 text-white">
       <button
         type="button"
         onClick={onMenu}
         title="Menu"
-        className="text-rail-foreground flex size-9 shrink-0 items-center justify-center rounded-md hover:bg-white/12 hover:text-white"
+        className="text-rail-foreground relative flex size-9 shrink-0 items-center justify-center rounded-md hover:bg-white/12 hover:text-white"
       >
         <Menu className="size-[18px]" />
+        <NavCountBadge
+          count={attention}
+          label={attentionLabel(null, attention)}
+          className="absolute top-0.5 right-0.5 md:hidden"
+        />
         <span className="sr-only">Menu</span>
       </button>
 

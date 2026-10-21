@@ -1,18 +1,23 @@
 import { ChevronsLeft } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { cn } from '@/lib/utils'
+import { attentionLabel } from '@/features/attention/api'
 import { itemsOf, type NavModule } from '../../navigation'
+import { NavCountBadge } from './nav-count-badge'
 
 /** Painel com as telas do módulo aberto, por grupo. */
 export function ModulePanel({
   module,
   onCollapse,
   onNavigate,
+  counts = {},
 }: {
   module: NavModule
   /** Ausente na gaveta do celular (lá quem fecha é o fundo escurecido). */
   onCollapse?: () => void
   onNavigate?: () => void
+  /** O que pede ação, por tela (`to`). */
+  counts?: Record<string, number>
 }) {
   const count = itemsOf(module).length
 
@@ -67,6 +72,11 @@ export function ModulePanel({
               >
                 <Icon className="size-4 shrink-0 opacity-80" />
                 <span className="truncate">{label}</span>
+                <NavCountBadge
+                  count={counts[to] ?? 0}
+                  label={attentionLabel(to, counts[to] ?? 0)}
+                  className="ml-auto"
+                />
               </NavLink>
             ))}
           </div>
