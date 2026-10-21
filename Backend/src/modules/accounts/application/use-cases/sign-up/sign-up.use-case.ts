@@ -17,6 +17,7 @@ import {
 } from '../../ports/membership.repository';
 import { ROLE_REPOSITORY, type RoleRepository } from '../../ports/role.repository';
 import { TENANT_REPOSITORY, type TenantRepository } from '../../ports/tenant.repository';
+import { SignUpGate } from '../../sign-up-gate';
 import { uniqueSlugFor } from '../../unique-slug';
 
 export interface SignUpInput {
@@ -36,6 +37,9 @@ export interface SignUpResult {
  * Cadastro de uma conta nova: cria o tenant, os cargos padrão, o usuário e o
  * vínculo de Owner — tudo ou nada, numa única transação — e já devolve os
  * tokens, para a pessoa entrar direto.
+ *
+ * Passa antes pelo `SignUpGate`: cadastro desligado (`PUBLIC_SIGNUP_ENABLED`)
+ * ou raiz ainda não designada recusam com 403, antes de criar qualquer coisa.
  */
 @Injectable()
 export class SignUpUseCase {
@@ -47,15 +51,20 @@ export class SignUpUseCase {
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(EVENT_BUS) private readonly events: EventBus,
+    private readonly gate: SignUpGate,
   ) {}
 
   execute(input: SignUpInput): Promise<SignUpResult> {
     return this.unitOfWork.run(async () => {
+      // Dentro da transação, para a decisão e a gravação verem o mesmo banco.
+      // Não serializa dois cadastros simultâneos no `bootstrap` (ver ADR 0004).
+      const parent = await this.gate.ensureOpen();
       const tenant = Tenant.create(this.ids.generate(), {
         name: input.accountName,
         slug: await uniqueSlugFor(this.tenants, this.ids, input.accountName),
-        // Cadastro público: cliente direto da plataforma (ADR 0009).
-        parent: await this.tenants.findRoot(),
+        // Cadastro público: cliente direto da plataforma (ADR 0009). Só fica
+        // sem mãe a primeira conta do banco, a futura raiz.
+        parent,
       });
       const roles = DEFAULT_ROLES.map((template) =>
         Role.fromTemplate(this.ids.generate(), tenant.id, template),

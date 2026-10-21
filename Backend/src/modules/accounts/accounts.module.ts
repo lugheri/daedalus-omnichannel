@@ -70,7 +70,10 @@ import {
   ListRolesUseCase,
   UpdateRoleUseCase,
 } from './application/use-cases/roles/manage-roles.use-case';
+import { GetSignUpAvailabilityUseCase } from './application/use-cases/sign-up/get-sign-up-availability.use-case';
 import { SignUpUseCase } from './application/use-cases/sign-up/sign-up.use-case';
+import { SIGN_UP_SETTINGS, type SignUpSettings } from './application/ports/sign-up-settings';
+import { SignUpGate } from './application/sign-up-gate';
 import { AccessGuard } from './http/access.guard';
 import { AccountSwitchController } from './http/account-switch.controller';
 import { AuthController } from './http/auth.controller';
@@ -122,6 +125,8 @@ import { RedisAccessCache } from './infra/redis-access-cache';
   providers: [
     // Autenticação e acesso
     SignUpUseCase,
+    SignUpGate,
+    GetSignUpAvailabilityUseCase,
     LogInUseCase,
     ResolveAccessUseCase,
     GetMeUseCase,
@@ -184,6 +189,13 @@ import { RedisAccessCache } from './infra/redis-access-cache';
       provide: ACCOUNTS_SETTINGS,
       inject: [AppConfig],
       useFactory: (config: AppConfig): AccountsSettings => ({ appUrl: config.appUrl }),
+    },
+    {
+      provide: SIGN_UP_SETTINGS,
+      inject: [AppConfig],
+      useFactory: (config: AppConfig): SignUpSettings => ({
+        publicSignupEnabled: config.publicSignupEnabled,
+      }),
     },
   ],
   // ApiKeyGuard e o use case que ele usa: rotas de outros módulos usam @ApiKeyAuth().

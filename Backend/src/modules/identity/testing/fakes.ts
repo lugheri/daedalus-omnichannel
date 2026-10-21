@@ -54,6 +54,12 @@ export class InMemorySessionRepository implements SessionRepository {
       ),
     );
   }
+
+  findUnrevokedByUserId(userId: string): Promise<Session[]> {
+    return Promise.resolve(
+      [...this.sessions.values()].filter((s) => s.userId === userId && s.revokedAt === null),
+    );
+  }
 }
 
 /** "Hash" legível e reversível — só para testes. Conta as verificações. */

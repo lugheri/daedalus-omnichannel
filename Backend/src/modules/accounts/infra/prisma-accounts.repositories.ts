@@ -57,6 +57,13 @@ export class PrismaTenantRepository implements TenantRepository {
     return row ? TenantMapper.toDomain(row) : null;
   }
 
+  async existsAny(): Promise<boolean> {
+    // findFirst com select mínimo: para quando acha a primeira linha (count
+    // varreria a tabela inteira).
+    const row = await this.txHost.tx.tenant.findFirst({ select: { id: true } });
+    return row !== null;
+  }
+
   countChildren(tenantId: string): Promise<number> {
     return this.txHost.tx.tenant.count({ where: { parentId: tenantId } });
   }

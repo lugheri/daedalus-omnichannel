@@ -26,6 +26,11 @@ export class PrismaSessionRepository implements SessionRepository {
     return rows.map(toDomain);
   }
 
+  async findUnrevokedByUserId(userId: string): Promise<Session[]> {
+    const rows = await this.db.session.findMany({ where: { userId, revokedAt: null } });
+    return rows.map(toDomain);
+  }
+
   async findById(id: string): Promise<Session | null> {
     // O id vem do cliente (dentro do refresh token): se não for um UUID,
     // o Postgres recusaria a consulta. Tratamos como "não encontrado".

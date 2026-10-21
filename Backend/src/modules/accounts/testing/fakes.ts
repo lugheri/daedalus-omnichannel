@@ -70,6 +70,10 @@ export class InMemoryTenantRepository implements TenantRepository {
     return Promise.resolve(this.store.find((t) => t.isRoot));
   }
 
+  existsAny(): Promise<boolean> {
+    return Promise.resolve(this.tenants.length > 0);
+  }
+
   countChildren(tenantId: string): Promise<number> {
     return Promise.resolve(this.tenants.filter((t) => t.parentId === tenantId).length);
   }

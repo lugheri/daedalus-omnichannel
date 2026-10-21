@@ -113,13 +113,45 @@ O primeiro acesso a `https://app.<domínio>` pode levar alguns segundos: o Traef
 
 ### Conta da plataforma (uma vez, no primeiro deploy)
 
-Cadastre a conta da Daedalus pelo painel (`https://app.<domínio>/signup`) e marque-a como **raiz** da hierarquia de contas ([ADR 0009](adr/0009-hierarquia-de-contas.md)) (o slug está em `SELECT name, slug FROM accounts.tenants`, na VM de dados):
+O cadastro público é controlado por `PUBLIC_SIGNUP_ENABLED` no `.env.prod` (padrão da stack: `false`, fechado). Regras ([ADR 0004](adr/0004-autenticacao.md), adendo de 20/10/2026):
+
+| Situação do banco | `PUBLIC_SIGNUP_ENABLED=false` | `=true` |
+| --- | --- | --- |
+| nenhuma conta | aceita **só a primeira** (a da plataforma) | idem |
+| contas, mas sem raiz | recusa (`SIGNUP_PLATFORM_NOT_READY`) | recusa (`SIGNUP_PLATFORM_NOT_READY`) |
+| raiz designada | recusa (`SIGNUP_DISABLED`); convites e contas filhas funcionam | aceita, abaixo da raiz, **no plano padrão** |
+
+O painel pergunta à API (`GET /v1/auth/signup` → `{ enabled }`) e esconde o link "Criar conta" e a tela de cadastro quando a resposta é `false`.
+
+**Ordem, sem pular passos:**
+
+1. Deploy (seção anterior), com `PUBLIC_SIGNUP_ENABLED=false`.
+2. **Logo em seguida**, cadastre a conta da Daedalus pelo painel (`https://app.<domínio>/signup`). Enquanto o banco está vazio, qualquer um que chegar primeiro à tela cria essa conta — não deixe o ambiente no ar sem fazer este passo.
+3. Marque-a como **raiz** da hierarquia de contas ([ADR 0009](adr/0009-hierarquia-de-contas.md)) (o slug está em `SELECT name, slug FROM accounts.tenants`, na VM de dados):
+
+   ```bash
+   docker exec -it $(docker ps -q -f name=omnichannel_api | head -n1) node dist/designate-root.js <slug>
+   ```
+
+   Confira que a saída diz **"Contas sem mãe que passaram para debaixo dela: 0"**. Qualquer número acima de zero quer dizer que outra conta foi criada antes (alguém chegou primeiro, ou dois cadastros simultâneos no banco vazio — a regra não os serializa): investigue antes de seguir.
+4. Só então, **se for o caso**, abra o cadastro público: confira antes o plano padrão (hoje libera tudo — ADR 0015; crie um plano básico e torne-o padrão), ponha `PUBLIC_SIGNUP_ENABLED=true` no `.env.prod` e rode o `deploy.sh` de novo. (Um `docker service update --env-add` direto funciona, mas o próximo `deploy.sh` volta ao que está no `.env.prod`.)
+
+Sintoma: se no passo 2 o painel mostrar **"Cadastro fechado"** em vez do formulário, já existe outra conta no banco (a API responde `SIGNUP_PLATFORM_NOT_READY`) — não rode o `designate-root` em conta que você não reconhece. Com a raiz definida, o comando recusa qualquer outra conta (a raiz é uma só).
+
+### Redefinir a senha de alguém (procedimento manual)
+
+Ainda **não há** recuperação de senha por e-mail nem troca da própria senha no painel. Quem esqueceu a senha pede a quem opera o ambiente, que roda:
 
 ```bash
-docker exec -it $(docker ps -q -f name=omnichannel_api | head -n1) node dist/designate-root.js <slug>
+docker exec -it $(docker ps -q -f name=omnichannel_api | head -n1) node dist/reset-password.js <email>
 ```
 
-A partir daí, todo cadastro público nasce abaixo dela, e as contas que já existiam passam a ser filhas dela. Com a raiz definida, o comando recusa qualquer outra conta (a raiz é uma só).
+O comando gera uma senha temporária forte (20 caracteres, sem os ambíguos 0/O/1/l/I), grava o hash com o mesmo algoritmo do cadastro (Argon2id), **encerra todas as sessões da pessoa, em todas as contas** (o refresh token deixa de valer; os access tokens em circulação são recusados pela lista de revogadas no Redis) e imprime a senha **uma única vez**, no seu terminal.
+
+- **Confirme a identidade por outro canal** antes (quem pede pelo WhatsApp é mesmo o dono do e-mail?). O comando não pergunta nada: quem tem o shell do Swarm entrega a conta.
+- Repasse a senha por um canal seguro e não a guarde. Ela não vai para log nenhum — mas o `docker exec -it` fica no histórico do shell só com o e-mail, não com a senha.
+- A pessoa continua com essa senha até haver troca no painel (pendente): oriente a guardá-la num gerenciador de senhas.
+- Erros: `USER_NOT_FOUND` (e-mail sem cadastro) e `USER_INVALID_EMAIL` (e-mail malformado) não mudam nada.
 
 ## Sites dos clientes
 

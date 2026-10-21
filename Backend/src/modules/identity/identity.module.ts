@@ -10,12 +10,14 @@ import { IDENTITY_SETTINGS, type IdentitySettings } from './application/ports/id
 import { PASSWORD_HASHER } from './application/ports/password-hasher';
 import { REFRESH_SECRET_GENERATOR } from './application/ports/refresh-secret-generator';
 import { REVOKED_SESSION_LIST } from './application/ports/revoked-session-list';
+import { TEMPORARY_PASSWORD_GENERATOR } from './application/ports/temporary-password-generator';
 import { SESSION_REPOSITORY } from './application/ports/session.repository';
 import { USER_REPOSITORY } from './application/ports/user.repository';
 import { AuthenticateAccessTokenUseCase } from './application/use-cases/authenticate-access-token/authenticate-access-token.use-case';
 import { EndSessionUseCase } from './application/use-cases/end-session/end-session.use-case';
 import { RefreshSessionUseCase } from './application/use-cases/refresh-session/refresh-session.use-case';
 import { RegisterUserUseCase } from './application/use-cases/register-user/register-user.use-case';
+import { ResetPasswordUseCase } from './application/use-cases/reset-password/reset-password.use-case';
 import { RevokeMembershipSessionsUseCase } from './application/use-cases/revoke-membership-sessions/revoke-membership-sessions.use-case';
 import { RevokeSessionUseCase } from './application/use-cases/revoke-session/revoke-session.use-case';
 import { StartSessionUseCase } from './application/use-cases/start-session/start-session.use-case';
@@ -25,6 +27,7 @@ import { JwtAuthGuard } from './http/jwt-auth.guard';
 import { RefreshTokenCookie } from './http/refresh-token-cookie';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
 import { CryptoRefreshSecretGenerator } from './infra/crypto-refresh-secret-generator';
+import { CryptoTemporaryPasswordGenerator } from './infra/crypto-temporary-password-generator';
 import { JwtAccessTokenIssuer } from './infra/jwt-access-token-issuer';
 import { JwtAccessTokenVerifier } from './infra/jwt-access-token-verifier';
 import { PrismaSessionRepository } from './infra/prisma-session.repository';
@@ -52,6 +55,8 @@ import { RedisRevokedSessionList } from './infra/redis-revoked-session-list';
     AuthenticateAccessTokenUseCase,
     RevokeMembershipSessionsUseCase,
     RevokeSessionUseCase,
+    // Só o comando de operação reset-password usa (src/reset-password.ts).
+    ResetPasswordUseCase,
     AuthTokensFactory,
     IdentityFacade,
     RefreshTokenCookie,
@@ -70,10 +75,11 @@ import { RedisRevokedSessionList } from './infra/redis-revoked-session-list';
     { provide: SESSION_REPOSITORY, useClass: PrismaSessionRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: REFRESH_SECRET_GENERATOR, useClass: CryptoRefreshSecretGenerator },
+    { provide: TEMPORARY_PASSWORD_GENERATOR, useClass: CryptoTemporaryPasswordGenerator },
     { provide: ACCESS_TOKEN_ISSUER, useClass: JwtAccessTokenIssuer },
     { provide: ACCESS_TOKEN_VERIFIER, useClass: JwtAccessTokenVerifier },
     { provide: REVOKED_SESSION_LIST, useClass: RedisRevokedSessionList },
   ],
-  exports: [IdentityFacade, RefreshTokenCookie],
+  exports: [IdentityFacade, RefreshTokenCookie, ResetPasswordUseCase],
 })
 export class IdentityModule {}

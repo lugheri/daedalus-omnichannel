@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { api, type AuthTokensResponse } from '@/lib/api/client'
 
 export interface Tenant {
@@ -60,6 +61,13 @@ export interface InvitationPreview {
 }
 
 export const authApi = {
+  /**
+   * O cadastro público aceita conta nova agora? Desligado por configuração
+   * (`PUBLIC_SIGNUP_ENABLED`) ou com a conta da plataforma ainda não
+   * designada, vem `false` — a API recusa o cadastro de qualquer jeito.
+   */
+  signUpAvailability: () => api<{ enabled: boolean }>('/v1/auth/signup'),
+
   signUp: (input: { accountName: string; name: string; email: string; password: string }) =>
     api<SessionStart>('/v1/auth/signup', { method: 'POST', body: input }),
 
@@ -82,4 +90,13 @@ export const authApi = {
 
   acceptInvitation: (input: { token: string; password: string; name?: string }) =>
     api<SessionStart>('/v1/invitations/accept', { method: 'POST', body: input }),
+}
+
+export const authKeys = {
+  signUpAvailability: ['auth', 'signup-availability'] as const,
+}
+
+/** Só para montar a tela (link e página de cadastro); quem decide é a API. */
+export function useSignUpAvailability() {
+  return useQuery({ queryKey: authKeys.signUpAvailability, queryFn: authApi.signUpAvailability })
 }

@@ -9,6 +9,8 @@ export interface TenantRepository {
   findBySlug(slug: string): Promise<Tenant | null>;
   /** A conta da plataforma (mãe dos cadastros públicos), se já foi definida. */
   findRoot(): Promise<Tenant | null>;
+  /** Se existe ao menos uma conta (o cadastro só cria a primeira antes da raiz). */
+  existsAny(): Promise<boolean>;
   /** Quantas contas estão diretamente abaixo desta (o limite do plano do revendedor). */
   countChildren(tenantId: string): Promise<number>;
   /** Todas as contas abaixo desta (filhas, netas...), por nome. */

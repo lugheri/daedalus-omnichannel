@@ -9,6 +9,8 @@ export interface SessionRepository {
   findById(id: string): Promise<Session | null>;
   /** Sessões ainda não revogadas de um vínculo (para derrubá-las quando ele é desativado). */
   findUnrevokedByMembershipId(membershipId: string): Promise<Session[]>;
+  /** Sessões ainda não revogadas da pessoa, em todas as contas (senha redefinida). */
+  findUnrevokedByUserId(userId: string): Promise<Session[]>;
 }
 
 export const SESSION_REPOSITORY = Symbol('SessionRepository');

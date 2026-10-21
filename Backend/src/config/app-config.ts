@@ -47,6 +47,10 @@ export class AppConfig {
     return this.env.CORS_ORIGINS;
   }
 
+  get publicSignupEnabled() {
+    return this.env.PUBLIC_SIGNUP_ENABLED;
+  }
+
   get trustProxy() {
     return this.env.TRUST_PROXY;
   }

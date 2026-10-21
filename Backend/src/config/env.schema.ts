@@ -54,6 +54,12 @@ export const envSchema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(z.url()).min(1)),
+  // Cadastro público de contas (POST /v1/auth/signup). false = só entra quem
+  // for convidado (convites e contas filhas continuam funcionando). Padrão true
+  // para não mudar o dev; homologação e produção começam fechadas (ADR 0004).
+  // Sem nenhuma conta no banco, a PRIMEIRA (a da plataforma) é aceita mesmo
+  // com false — senão não haveria como criar a raiz (docs/deploy.md).
+  PUBLIC_SIGNUP_ENABLED: z.stringbool().default(true),
   // true atrás de um reverse proxy (Traefik), para o IP real vir do X-Forwarded-For.
   // Nunca true com a API exposta direto: o cliente poderia forjar o próprio IP.
   TRUST_PROXY: z.stringbool().default(false),

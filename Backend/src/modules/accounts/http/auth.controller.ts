@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { FastifyReply } from 'fastify';
 import { Public } from '../../../shared/http/public.decorator';
@@ -6,6 +6,7 @@ import { TrustedOriginGuard } from '../../../shared/http/trusted-origin.guard';
 import { ZodValidationPipe } from '../../../shared/http/zod-validation.pipe';
 import { AuthTokensPresenter, RefreshTokenCookie } from '../../identity';
 import { LogInUseCase } from '../application/use-cases/log-in/log-in.use-case';
+import { GetSignUpAvailabilityUseCase } from '../application/use-cases/sign-up/get-sign-up-availability.use-case';
 import { SignUpUseCase } from '../application/use-cases/sign-up/sign-up.use-case';
 import { logInSchema, type LogInDto } from './dto/log-in.dto';
 import { signUpSchema, type SignUpDto } from './dto/sign-up.dto';
@@ -19,11 +20,26 @@ const MINUTE = 60_000;
 export class AuthController {
   constructor(
     private readonly signUpUseCase: SignUpUseCase,
+    private readonly signUpAvailabilityUseCase: GetSignUpAvailabilityUseCase,
     private readonly logInUseCase: LogInUseCase,
     private readonly refreshTokenCookie: RefreshTokenCookie,
   ) {}
 
-  /** Cria uma conta nova (tenant) com a pessoa como Owner, já autenticada. */
+  /**
+   * O cadastro público aceita conta nova agora? `{ enabled }`, sem o motivo.
+   * Público e barato (duas consultas por índice): o front decide se mostra o
+   * link e a tela de cadastro. Fica no limite padrão de requisições.
+   */
+  @Get('signup')
+  signUpAvailability() {
+    return this.signUpAvailabilityUseCase.execute();
+  }
+
+  /**
+   * Cria uma conta nova (tenant) com a pessoa como Owner, já autenticada.
+   * 403 `SIGNUP_DISABLED` (cadastro desligado) ou `SIGNUP_PLATFORM_NOT_READY`
+   * (falta designar a conta da plataforma).
+   */
   @Post('signup')
   @Throttle({ default: { limit: 5, ttl: 60 * MINUTE } })
   async signUp(

@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
 import { z } from 'zod'
@@ -8,7 +9,8 @@ import { TextField } from '@/components/form/text-field'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup } from '@/components/ui/field'
-import { authApi } from '../api'
+import { ApiError } from '@/lib/api/api-error'
+import { authApi, authKeys, useSignUpAvailability } from '../api'
 import { useSession } from '../session-context'
 
 /** Espelha as regras do backend para dar feedback imediato; a API valida de novo. */
@@ -20,9 +22,47 @@ const schema = z.object({
 })
 type SignUpForm = z.infer<typeof schema>
 
+/** Recusas do cadastro fechado (403): a tela troca o formulário pelo aviso. */
+const CLOSED_CODES = new Set(['SIGNUP_DISABLED', 'SIGNUP_PLATFORM_NOT_READY'])
+
 export function SignUpPage() {
+  const availability = useSignUpAvailability()
+
+  if (availability.isPending) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="text-muted-foreground size-6 animate-spin" aria-label="Carregando" />
+      </div>
+    )
+  }
+  // Com erro na consulta, mostra o formulário: o POST responde o motivo.
+  if (availability.data?.enabled === false) return <SignUpClosed />
+  return <SignUpFormCard />
+}
+
+/** Cadastro fechado: só entra quem foi convidado. */
+function SignUpClosed() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Cadastro fechado</CardTitle>
+        <CardDescription>
+          Novas contas são criadas por convite. Se você recebeu um, abra o link do convite.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button asChild className="w-full">
+          <Link to="/login">Entrar</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SignUpFormCard() {
   const { start } = useSession()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const form = useForm<SignUpForm>({
     resolver: zodResolver(schema),
     defaultValues: { accountName: '', name: '', email: '', password: '' },
@@ -32,6 +72,12 @@ export function SignUpPage() {
     mutationFn: async (values: SignUpForm) => {
       await start(await authApi.signUp(values))
       navigate('/', { replace: true })
+    },
+    onError: (error) => {
+      // Fechou entre abrir a tela e enviar: mostra o aviso em vez de um erro genérico.
+      if (error instanceof ApiError && CLOSED_CODES.has(error.code)) {
+        queryClient.setQueryData(authKeys.signUpAvailability, { enabled: false })
+      }
     },
   })
 

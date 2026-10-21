@@ -10,7 +10,7 @@ import { TextField } from '@/components/form/text-field'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup } from '@/components/ui/field'
-import { authApi, type Tenant } from '../api'
+import { authApi, useSignUpAvailability, type Tenant } from '../api'
 import { useSession } from '../session-context'
 
 const schema = z.object({
@@ -28,6 +28,9 @@ export function LoginPage() {
   const navigate = useNavigate()
   const from = (useLocation().state as { from?: string } | null)?.from ?? '/'
   const [choice, setChoice] = useState<{ credentials: Credentials; tenants: Tenant[] } | null>(null)
+  // O link só aparece com a resposta positiva: carregando ou com erro, some
+  // (melhor faltar o link por um instante do que oferecer um cadastro fechado).
+  const signUpOpen = useSignUpAvailability().data?.enabled === true
 
   const form = useForm<Credentials>({
     resolver: zodResolver(schema),
@@ -106,12 +109,14 @@ export function LoginPage() {
             <Button type="submit" disabled={logIn.isPending}>
               {logIn.isPending ? 'Entrando…' : 'Entrar'}
             </Button>
-            <p className="text-muted-foreground text-center text-sm">
-              Ainda não tem conta?{' '}
-              <Link to="/signup" className="text-primary underline-offset-4 hover:underline">
-                Criar conta
-              </Link>
-            </p>
+            {signUpOpen && (
+              <p className="text-muted-foreground text-center text-sm">
+                Ainda não tem conta?{' '}
+                <Link to="/signup" className="text-primary underline-offset-4 hover:underline">
+                  Criar conta
+                </Link>
+              </p>
+            )}
           </FieldGroup>
         </form>
       </CardContent>

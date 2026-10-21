@@ -20,6 +20,8 @@ x-backend-env: &backend-env
   APP_URL: https://${APP_DOMAIN}
   PUBLIC_API_URL: https://${API_DOMAIN}
   CORS_ORIGINS: https://${APP_DOMAIN}
+  # Cadastro público (ADR 0004): fechado se o .env.prod não disser o contrário.
+  PUBLIC_SIGNUP_ENABLED: ${PUBLIC_SIGNUP_ENABLED:-false}
   LOG_LEVEL: info
   DATABASE_URL_FILE: /run/secrets/database_url
   REDIS_URL_FILE: /run/secrets/redis_url

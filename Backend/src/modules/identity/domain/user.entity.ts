@@ -44,6 +44,14 @@ export class User extends AggregateRoot<UserProps> {
     return new User(id, props);
   }
 
+  /**
+   * Troca o hash da senha. Recebe o hash, não a senha: a validação do formato
+   * (`Password`) e o hash ficam no use case, que tem o `PasswordHasher`.
+   */
+  changePassword(passwordHash: string): void {
+    this.props.passwordHash = passwordHash;
+  }
+
   get email() {
     return this.props.email;
   }
