@@ -42,6 +42,15 @@ export interface ConversationProps {
  * mensagem, não lidas); as mensagens são um agregado à parte.
  */
 export class Conversation extends AggregateRoot<ConversationProps> {
+  /**
+   * Campos alterados desde que foi criada/carregada. O repositório grava só
+   * estes: a conversa é escrita por processos diferentes ao mesmo tempo (o
+   * worker grava a mensagem recebida, a API transfere ou tabula), e gravar a
+   * linha inteira lida antes faria um desfazer o outro — ex.: a mensagem do
+   * cliente devolvendo o responsável antigo de uma transferência recém-feita.
+   */
+  private readonly dirty = new Set<keyof ConversationProps>();
+
   static start(
     id: string,
     input: { tenantId: string; channelId: string; contactId: string; teamId: string | null },
@@ -84,13 +93,16 @@ export class Conversation extends AggregateRoot<ConversationProps> {
     if (message.sentAt >= this.props.lastMessageAt || this.props.lastMessagePreview === null) {
       this.props.lastMessageAt = message.sentAt;
       this.props.lastMessagePreview = message.preview;
+      this.touch('lastMessageAt', 'lastMessagePreview');
     }
 
     if (message.direction === 'inbound') {
       this.props.unreadCount += 1;
+      this.touch('unreadCount');
       if (this.props.status !== 'open') this.changeStatus('open');
     } else if (message.senderMembershipId) {
       this.props.unreadCount = 0;
+      this.touch('unreadCount');
       if (!this.props.assigneeId) this.assign(message.senderMembershipId);
     }
 
@@ -109,8 +121,12 @@ export class Conversation extends AggregateRoot<ConversationProps> {
     const previous = this.props.status;
     if (previous === status) return;
     this.props.status = status;
+    this.touch('status');
     // Resolvida e reaberta = atendimento novo, ainda sem tabulação.
-    if (previous === 'resolved') this.props.dispositionId = null;
+    if (previous === 'resolved') {
+      this.props.dispositionId = null;
+      this.touch('dispositionId');
+    }
     this.addEvent(
       new ConversationStatusChangedEvent(this.id, this.props.tenantId, status, previous),
     );
@@ -120,6 +136,7 @@ export class Conversation extends AggregateRoot<ConversationProps> {
     const previous = this.props.assigneeId;
     if (previous === assigneeId) return;
     this.props.assigneeId = assigneeId;
+    this.touch('assigneeId');
     this.addEvent(
       new ConversationAssignedEvent(this.id, this.props.tenantId, assigneeId, previous),
     );
@@ -140,6 +157,7 @@ export class Conversation extends AggregateRoot<ConversationProps> {
     const previous = this.props.teamId;
     if (previous === teamId) return;
     this.props.teamId = teamId;
+    this.touch('teamId');
     this.addEvent(new ConversationTeamChangedEvent(this.id, this.props.tenantId, teamId, previous));
   }
 
@@ -147,6 +165,7 @@ export class Conversation extends AggregateRoot<ConversationProps> {
   setDisposition(dispositionId: string, membershipId: string): void {
     const previous = this.props.dispositionId;
     this.props.dispositionId = dispositionId;
+    this.touch('dispositionId');
     this.addEvent(
       new ConversationDispositionSetEvent(
         this.id,
@@ -160,6 +179,12 @@ export class Conversation extends AggregateRoot<ConversationProps> {
 
   markRead(): void {
     this.props.unreadCount = 0;
+    this.touch('unreadCount');
+  }
+
+  /** O que mudou desde que foi criada/carregada (ver `dirty`). */
+  get changedFields(): ReadonlySet<keyof ConversationProps> {
+    return this.dirty;
   }
 
   get tenantId() {
@@ -194,5 +219,9 @@ export class Conversation extends AggregateRoot<ConversationProps> {
   }
   get createdAt() {
     return this.props.createdAt;
+  }
+
+  private touch(...fields: (keyof ConversationProps)[]): void {
+    for (const field of fields) this.dirty.add(field);
   }
 }

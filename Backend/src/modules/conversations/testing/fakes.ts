@@ -27,9 +27,25 @@ export class InMemoryConversationRepository implements ConversationRepository {
     return this.items.filter((c) => c.tenantId === this.tenant.tenantId);
   }
 
+  /**
+   * Responsável como está "no banco", à parte do objeto: aqui os use cases
+   * recebem a mesma instância guardada, então só este mapa mostra o que já
+   * foi gravado quando a instância já foi alterada em memória.
+   */
+  private readonly storedAssignee = new Map<string, string | null>();
+
   save(conversation: Conversation): Promise<void> {
     this.items = [...this.items.filter((c) => c.id !== conversation.id), conversation];
+    this.storedAssignee.set(conversation.id, conversation.assigneeId);
     return Promise.resolve();
+  }
+
+  /** Reproduz o UPDATE condicional (`assignee_id IS NULL`) do repositório real. */
+  claimUnassigned(conversationId: string, membershipId: string): Promise<boolean> {
+    const stored = this.ofTenant().some((c) => c.id === conversationId);
+    if (!stored || this.storedAssignee.get(conversationId)) return Promise.resolve(false);
+    this.storedAssignee.set(conversationId, membershipId);
+    return Promise.resolve(true);
   }
 
   findById(id: string): Promise<Conversation | null> {

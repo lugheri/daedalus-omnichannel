@@ -11,7 +11,10 @@ import { EmptyAttachmentError } from '../../domain/errors/empty-attachment.error
 import { MediaNotFoundError } from '../../domain/errors/media-not-found.error';
 import { InvalidAssigneeError } from '../../domain/errors/invalid-assignee.error';
 import { InvalidTeamError } from '../../domain/errors/invalid-team.error';
+import { Conversation } from '../../domain/conversation.entity';
+import { ConversationAlreadyAssignedError } from '../../domain/errors/conversation-already-assigned.error';
 import {
+  ConversationAssignedEvent,
   ConversationMessageAddedEvent,
   ConversationMessageStatusChangedEvent,
 } from '../../domain/events/conversation-events';
@@ -416,6 +419,48 @@ describe('Conversations', () => {
       await expect(claim(conversation.id)).rejects.toThrow(ConversationNotFoundError);
     });
 
+    it('two members claiming at once: only the first wins, the second gets a conflict', async () => {
+      await record();
+      const { id } = await onlyConversation();
+      // Cada leitura devolve uma cópia do que está "gravado", como o banco:
+      // os dois atendentes leem "sem responsável" antes de qualquer um gravar.
+      const reads = new (class extends InMemoryConversationRepository {
+        override async findById(conversationId: string) {
+          const stored = await conversations.findById(conversationId);
+          return stored && copyOf(stored);
+        }
+      })(tenant);
+      const claimAs = (membershipId: string) => {
+        const memberAccess = new FakeMemberAccess({
+          membershipId,
+          permissions: ['conversations:view:own'],
+          teamIds: [],
+        });
+        return new ClaimConversationUseCase(
+          conversations,
+          events,
+          uow,
+          new VisibleConversations(reads, memberAccess),
+        ).execute(id);
+      };
+      events.published.length = 0;
+
+      const [first, second] = await Promise.allSettled([claimAs('agent-1'), claimAs('agent-2')]);
+
+      expect(first.status).toBe('fulfilled');
+      expect(second.status).toBe('rejected');
+      expect((second as PromiseRejectedResult).reason).toBeInstanceOf(
+        ConversationAlreadyAssignedError,
+      );
+      // Só o vencedor anuncia a troca de responsável.
+      expect(events.published.filter((e) => e instanceof ConversationAssignedEvent)).toEqual([
+        expect.objectContaining({ assigneeId: 'agent-1' }),
+      ]);
+      // A garantia real é o UPDATE ... WHERE assignee_id IS NULL do
+      // PrismaConversationRepository; o fake reproduz essa condição.
+      expect(await conversations.claimUnassigned(id, 'agent-3')).toBe(false);
+    });
+
     it('transferring to a team sends it to that queue, unassigned', async () => {
       channels.teams.set('channel-1', 'team-sales');
       await record();
@@ -650,3 +695,20 @@ describe('Conversations', () => {
     });
   });
 });
+
+/** Uma leitura independente da conversa (o que o banco devolveria). */
+function copyOf(c: Conversation): Conversation {
+  return Conversation.restore(c.id, {
+    tenantId: c.tenantId,
+    channelId: c.channelId,
+    contactId: c.contactId,
+    status: c.status,
+    assigneeId: c.assigneeId,
+    teamId: c.teamId,
+    dispositionId: c.dispositionId,
+    lastMessageAt: c.lastMessageAt,
+    lastMessagePreview: c.lastMessagePreview,
+    unreadCount: c.unreadCount,
+    createdAt: c.createdAt,
+  });
+}

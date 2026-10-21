@@ -192,6 +192,38 @@ describe('assigning', () => {
     expect(() => conversation.claim('agent-2')).toThrow(ConversationAlreadyAssignedError);
   });
 
+  it('tracks only the fields it changed, so a save does not undo a concurrent transfer', () => {
+    const loaded = Conversation.restore('conv-1', {
+      tenantId: 't-1',
+      channelId: 'ch-1',
+      contactId: 'c-1',
+      status: 'resolved',
+      assigneeId: 'agent-1',
+      teamId: 'team-sales',
+      dispositionId: 'disp-1',
+      lastMessageAt: new Date('2030-01-01T09:00:00Z'),
+      lastMessagePreview: 'antes',
+      unreadCount: 0,
+      createdAt: new Date('2030-01-01T08:00:00Z'),
+    });
+    expect([...loaded.changedFields]).toEqual([]);
+
+    // Mensagem do cliente (worker): resumo, não lidas e a reabertura.
+    loaded.addMessage(inbound('Oi de novo'));
+
+    expect([...loaded.changedFields].sort()).toEqual(
+      ['dispositionId', 'lastMessageAt', 'lastMessagePreview', 'status', 'unreadCount'].sort(),
+    );
+    // Responsável e equipe não foram tocados: o repositório não os regrava.
+    expect(loaded.changedFields.has('assigneeId')).toBe(false);
+    expect(loaded.changedFields.has('teamId')).toBe(false);
+
+    loaded.assign('agent-2');
+    loaded.moveToTeam(null);
+    expect(loaded.changedFields.has('assigneeId')).toBe(true);
+    expect(loaded.changedFields.has('teamId')).toBe(true);
+  });
+
   it('moving to another team announces the change', () => {
     const conversation = start();
     conversation.moveToTeam('team-support');

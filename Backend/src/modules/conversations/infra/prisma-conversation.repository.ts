@@ -28,11 +28,29 @@ export class PrismaConversationRepository implements ConversationRepository {
 
   async save(conversation: Conversation): Promise<void> {
     const data = toPersistence(conversation);
+    // Na atualização, só as colunas que este processo mudou (ver
+    // `Conversation.changedFields`): gravar a linha inteira desfazia o que
+    // outro processo gravou entre a leitura e esta escrita.
+    const changed = Object.fromEntries(
+      [...conversation.changedFields].map((field) => [field, data[field]]),
+    ) as Prisma.ConversationUpdateInput;
     await this.db.conversation.upsert({
       where: { id: data.id, tenantId: this.tenant.tenantId },
       create: data,
-      update: data,
+      update: changed,
     });
+  }
+
+  async claimUnassigned(conversationId: string, membershipId: string): Promise<boolean> {
+    if (!isUuid(conversationId)) return false;
+    // Condicional no banco: o UPDATE trava a linha, e o segundo que chega
+    // reavalia o WHERE depois do commit do primeiro e não acha mais "sem
+    // responsável" — conta 0. Ler e depois gravar deixava os dois vencerem.
+    const { count } = await this.db.conversation.updateMany({
+      where: { id: conversationId, tenantId: this.tenant.tenantId, assigneeId: null },
+      data: { assigneeId: membershipId },
+    });
+    return count === 1;
   }
 
   async findById(id: string): Promise<Conversation | null> {

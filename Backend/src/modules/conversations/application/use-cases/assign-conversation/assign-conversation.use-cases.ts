@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { EVENT_BUS, type EventBus } from '../../../../../shared/application/event-bus';
 import { UNIT_OF_WORK, type UnitOfWork } from '../../../../../shared/application/unit-of-work';
 import type { Conversation } from '../../../domain/conversation.entity';
+import { ConversationAlreadyAssignedError } from '../../../domain/errors/conversation-already-assigned.error';
 import { InvalidAssigneeError } from '../../../domain/errors/invalid-assignee.error';
 import { InvalidTeamError } from '../../../domain/errors/invalid-team.error';
 import {
@@ -41,8 +42,18 @@ export class ClaimConversationUseCase extends ChangesConversation {
 
   async execute(conversationId: string): Promise<void> {
     const { conversation, member } = await this.visible.load(conversationId);
-    conversation.claim(member.membershipId);
-    await this.persist(conversation);
+    const me = member.membershipId;
+    if (conversation.assigneeId === me) return; // já é minha: nada a fazer
+    conversation.claim(me); // já tem outro responsável (na leitura) → 409
+
+    // A leitura acima pode estar velha: dois atendentes clicando juntos leem
+    // "sem responsável" os dois. Quem decide é o UPDATE condicional; o
+    // segundo recebe o mesmo 409 e nada dele é gravado nem publicado.
+    await this.unitOfWork.run(async () => {
+      const won = await this.conversations.claimUnassigned(conversation.id, me);
+      if (!won) throw new ConversationAlreadyAssignedError();
+      await this.events.publish(conversation.pullEvents());
+    });
   }
 }
 
