@@ -1,4 +1,4 @@
-import { FakeTenantContext } from '../../../shared/testing/fakes';
+import { FakeAccountStanding, FakeTenantContext } from '../../../shared/testing/fakes';
 import { InvalidVisitorError } from '../domain/errors/invalid-visitor.error';
 import { VisitorTokenInvalidError } from '../domain/errors/visitor-token-invalid.error';
 import { WebChatNotFoundError } from '../domain/errors/web-chat-not-found.error';
@@ -9,17 +9,20 @@ import {
   GetWidgetConfigUseCase,
   SendVisitorMessageUseCase,
   StartVisitorSessionUseCase,
+  VisitorHistoryUseCase,
 } from './web-chat.use-cases';
 
 describe('Web chat (widget)', () => {
   let backend: FakeWebChatBackend;
   let tokens: FakeVisitorTokens;
   let tenant: FakeTenantContext;
+  let standing: FakeAccountStanding;
 
   beforeEach(() => {
     backend = new FakeWebChatBackend();
     tokens = new FakeVisitorTokens();
     tenant = new FakeTenantContext(null);
+    standing = new FakeAccountStanding();
     backend.channels.set('chave-1', {
       channelId: 'chat-1',
       tenantId: 'tenant-a',
@@ -32,14 +35,14 @@ describe('Web chat (widget)', () => {
   });
 
   const start = (input: { name: string; phone?: string | null; email?: string | null }) =>
-    new StartVisitorSessionUseCase(backend, tokens, tenant).execute('chave-1', {
+    new StartVisitorSessionUseCase(backend, tokens, tenant, standing).execute('chave-1', {
       phone: null,
       email: null,
       ...input,
     });
 
   it('the config comes by key; an unknown key is 404', async () => {
-    const config = new GetWidgetConfigUseCase(backend);
+    const config = new GetWidgetConfigUseCase(backend, standing);
     expect((await config.execute('chave-1')).title).toBe('Fale com a gente');
     await expect(config.execute('outra')).rejects.toThrow(WebChatNotFoundError);
   });
@@ -71,6 +74,36 @@ describe('Web chat (widget)', () => {
     );
   });
 
+  it('a suspended account: the widget hides, no new visitor, no message, no history', async () => {
+    const { token } = await start({ name: 'Ana', phone: '11999998888' });
+    const visitor = new AuthenticateVisitorUseCase(tokens, tenant).execute(token);
+    standing.suspended.add('tenant-a');
+
+    expect((await new GetWidgetConfigUseCase(backend, standing).execute('chave-1')).active).toBe(
+      false,
+    );
+    await expect(start({ name: 'Bia', phone: '11999997777' })).rejects.toThrow(
+      WebChatUnavailableError,
+    );
+    expect(backend.identified).toHaveLength(1); // só a Ana, de antes da suspensão
+    // O token de antes ainda é válido, mas a conta é conferida a cada mensagem.
+    await expect(
+      new SendVisitorMessageUseCase(backend, standing).execute(visitor, {
+        id: 'f3b1c2d4-0000-4000-8000-000000000009',
+        text: 'Oi',
+      }),
+    ).rejects.toThrow(WebChatUnavailableError);
+    expect(backend.received).toEqual([]);
+    await expect(new VisitorHistoryUseCase(backend, standing).execute(visitor)).rejects.toThrow(
+      WebChatUnavailableError,
+    );
+
+    standing.suspended.delete('tenant-a');
+    expect((await new GetWidgetConfigUseCase(backend, standing).execute('chave-1')).active).toBe(
+      true,
+    );
+  });
+
   it('messages need a valid token, text and the widget id (kept for idempotency)', async () => {
     const { token } = await start({ name: 'Ana', phone: '11999998888' });
     const authenticate = new AuthenticateVisitorUseCase(tokens, tenant);
@@ -78,7 +111,7 @@ describe('Web chat (widget)', () => {
     expect(() => authenticate.execute('lixo')).toThrow(VisitorTokenInvalidError);
 
     const visitor = authenticate.execute(token);
-    const send = new SendVisitorMessageUseCase(backend);
+    const send = new SendVisitorMessageUseCase(backend, standing);
     await send.execute(visitor, { id: 'f3b1c2d4-0000-4000-8000-000000000001', text: '  Oi!  ' });
     expect(backend.received).toEqual([
       expect.objectContaining({

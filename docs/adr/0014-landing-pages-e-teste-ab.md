@@ -55,7 +55,9 @@ Decisões de produto:
   (`form_submissions.source_ref`, opaca para ele) e a repassa no
   `form.submitted.v1`; o módulo sites grava a conversão com o id do envio
   como chave (evento repetido não conta duas vezes) e confere que a variante
-  é da conta do envio.
+  é da conta do envio. Conta suspensa (20/10/2026): a visita não conta
+  (`ACCOUNT_STANDING`) e a conversão também não, porque o forms recusa o
+  envio — a página pode seguir no ar (ADR 0010).
 - **Comparação.** Cada variante é comparada com a A por um teste de duas
   proporções (z, bicaudal): "poucas visitas" abaixo de 100 por variante,
   "confiável" com p < 0,05. A conta escolhe a vencedora: ela fica com peso

@@ -50,6 +50,17 @@ e-mail na caixa de entrada fica para depois da escolha do provedor de e-mail.
   cada 5 s com o painel aberto.
 - **CORS por rota:** só `/v1/public/chat/*` aceita qualquer origem, sem
   credenciais; o resto da API continua só com as origens do painel.
+- **Conta suspensa** (20/10/2026, P0 8 da revisão pré-homologação): para o
+  visitante, o chat fica como desligado. `GET :key` devolve `active: false`
+  (o widget não aparece), abrir sessão dá 409 `WEB_CHAT_UNAVAILABLE` antes
+  de criar contato, e — como o token do visitante vale 30 dias e não sabe da
+  suspensão — **cada** mensagem e cada leitura do histórico conferem a conta
+  de novo (mesmo 409; o widget já mostra "o chat está fechado"). A
+  conferência é o port compartilhado `ACCOUNT_STANDING`, nos casos de uso do
+  módulo webchat — o único chamador de `ChannelsFacade.receiveWebChatMessage`.
+  O WebSocket do visitante não confere: só entrega sinais, e ninguém da conta
+  suspensa consegue entrar para responder. Reativada, tudo volta com os
+  mesmos tokens.
 - **Site:** o conteúdo do site ganha `chatChannelId`; ao gerar o HTML, o
   compositor põe o `<script>` do widget antes do `</body>` (na prévia, em modo
   prévia, que não identifica nem envia). Qualquer modelo ganha o chat sem

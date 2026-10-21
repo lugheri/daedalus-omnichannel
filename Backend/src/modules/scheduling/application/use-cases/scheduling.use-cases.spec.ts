@@ -1,10 +1,16 @@
 import {
+  FakeAccountStanding,
   FakePlanEntitlements,
   FakeTenantContext,
   ImmediateUnitOfWork,
   RecordingEventBus,
   SequentialIdGenerator,
 } from '../../../../shared/testing/fakes';
+import { Appointment } from '../../domain/appointment.entity';
+import {
+  MAX_ACTIVE_ONLINE_BOOKINGS_PER_CONTACT,
+  MAX_ONLINE_BOOKINGS_PER_DAY,
+} from '../../domain/booking-limits';
 import { AppointmentConflictError } from '../../domain/errors/appointment-conflict.error';
 import { BookingNotFoundError } from '../../domain/errors/booking-not-found.error';
 import { AppointmentBookedEvent } from '../../domain/events/appointment-booked.event';
@@ -70,6 +76,7 @@ describe('Scheduling', () => {
   let catalog: FakeSchedulingCatalog;
   let contacts: FakeSchedulingContacts;
   let events: RecordingEventBus;
+  let standing: FakeAccountStanding;
   const ids = new SequentialIdGenerator();
   let keys: SequentialBookingKeys;
   const uow = new ImmediateUnitOfWork();
@@ -88,6 +95,7 @@ describe('Scheduling', () => {
     catalog = new FakeSchedulingCatalog(tenant);
     contacts = new FakeSchedulingContacts();
     events = new RecordingEventBus();
+    standing = new FakeAccountStanding();
     contacts.contacts.push({ id: 'contact-1', name: 'Carlos', phone: '+5515999990000' });
     catalog.byTenant.set('tenant-a', {
       services: [
@@ -267,8 +275,16 @@ describe('Scheduling', () => {
   });
 
   describe('online booking (site)', () => {
-    const resolve = () => new ResolveBookingKey(settingsRepo, tenant);
-    const publicBook = (input: { startsAt: Date; professionalId?: string | null }) =>
+    const resolve = () => new ResolveBookingKey(settingsRepo, tenant, standing);
+    const publicBook = (
+      input: {
+        startsAt: Date;
+        professionalId?: string | null;
+        phone?: string | null;
+        email?: string | null;
+      },
+      unitOfWork: ImmediateUnitOfWork = uow,
+    ) =>
       new PublicBookUseCase(
         resolve(),
         availability(),
@@ -277,15 +293,52 @@ describe('Scheduling', () => {
         contacts,
         ids,
         events,
-        uow,
+        unitOfWork,
       ).execute('agenda-1', {
         serviceId: SERVICE,
         professionalId: input.professionalId ?? null,
         startsAt: input.startsAt,
         name: 'Joana',
-        phone: '(15) 98888-1111',
-        email: null,
+        phone: input.phone === undefined ? '(15) 98888-1111' : input.phone,
+        email: input.email ?? null,
         notes: null,
+      });
+
+    /**
+     * Imita o rollback do banco para o que importa aqui: o contato criado
+     * dentro de `run` some se o trabalho lançar erro. Prova que a captura do
+     * contato acontece DENTRO da transação do agendamento.
+     */
+    class RollbackUnitOfWork extends ImmediateUnitOfWork {
+      override async run<T>(work: () => Promise<T>): Promise<T> {
+        const before = contacts.contacts.length;
+        try {
+          return await super.run(work);
+        } catch (error) {
+          contacts.contacts.splice(before);
+          throw error;
+        }
+      }
+    }
+
+    /** Agendamento pelo site já gravado, de outro contato, criado em `createdAt`. */
+    const siteAppointment = (n: number, createdAt: Date) =>
+      Appointment.restore(`old-${n}`, {
+        tenantId: 'tenant-a',
+        professionalId: `pro-outro-${n}`,
+        serviceId: SERVICE,
+        serviceName: 'Corte',
+        priceCents: 5000,
+        contactId: `contact-outro-${n}`,
+        startsAt: at('09:00', addDays(monday, 1)),
+        endsAt: at('10:00', addDays(monday, 1)),
+        status: 'canceled', // cancelado conta: o teto é de marcações
+        source: 'site',
+        notes: null,
+        cancelReason: null,
+        createdBy: null,
+        createdAt,
+        updatedAt: createdAt,
       });
 
     it('is off until the account turns it on; the key finds the account', async () => {
@@ -353,6 +406,112 @@ describe('Scheduling', () => {
           notes: null,
         }),
       ).rejects.toMatchObject({ code: 'APPOINTMENT_CONTACT_REQUIRED' });
+    });
+
+    describe('limits (P0 7)', () => {
+      it('the same phone holds at most N upcoming site bookings; nothing is written past it', async () => {
+        await enableOnline();
+        expect(MAX_ACTIVE_ONLINE_BOOKINGS_PER_CONTACT).toBe(2);
+        await publicBook({ startsAt: at('09:00') });
+        // Mesmo número digitado de outro jeito: é o mesmo contato.
+        await publicBook({ startsAt: at('10:00'), phone: '15988881111' });
+        const before = appointments.items.length;
+        await expect(publicBook({ startsAt: at('11:00') })).rejects.toMatchObject({
+          code: 'BOOKING_CONTACT_LIMIT',
+          limit: MAX_ACTIVE_ONLINE_BOOKINGS_PER_CONTACT,
+        });
+        expect(appointments.items).toHaveLength(before);
+        expect(events.published.filter((e) => e instanceof AppointmentBookedEvent)).toHaveLength(2);
+
+        // Outro telefone marca normalmente.
+        await publicBook({ startsAt: at('11:00'), phone: '(15) 97777-2222' });
+      });
+
+      it('appointments booked by the team do not count against the site limit', async () => {
+        await enableOnline();
+        contacts.contacts.push({ id: 'contact-joana', name: 'Joana', phone: '+5515988881111' });
+        for (const time of ['09:00', '10:00', '11:00']) {
+          await new BookAppointmentUseCase(
+            appointments,
+            catalog,
+            contacts,
+            new FakeSchedulingMembers(),
+            tenant,
+            ids,
+            events,
+            uow,
+          ).execute({
+            professionalId: ANA,
+            serviceId: SERVICE,
+            contactId: 'contact-joana',
+            startsAt: at(time),
+            notes: null,
+          });
+        }
+        const { appointment } = await publicBook({ startsAt: at('14:00') });
+        expect(appointment.contactId).toBe('contact-joana');
+      });
+
+      it('the account takes at most M site bookings a day (canceled ones count, yesterday does not)', async () => {
+        await enableOnline();
+        const yesterday = new Date(Date.now() - 36 * 3_600_000);
+        appointments.items.push(siteAppointment(0, yesterday));
+        for (let n = 1; n < MAX_ONLINE_BOOKINGS_PER_DAY; n++) {
+          appointments.items.push(siteAppointment(n, new Date()));
+        }
+        // Falta uma para o teto: esta passa.
+        await publicBook({ startsAt: at('09:00') });
+        const captured = contacts.captured.length;
+        await expect(
+          publicBook({ startsAt: at('10:00'), phone: '(15) 97777-2222' }),
+        ).rejects.toMatchObject({ code: 'BOOKING_DAILY_LIMIT', limit: MAX_ONLINE_BOOKINGS_PER_DAY });
+        // Recusado antes de procurar ou criar o contato.
+        expect(contacts.captured).toHaveLength(captured);
+      });
+
+      it('the contact is created inside the booking transaction: no booking, no contact', async () => {
+        await enableOnline();
+        const rollback = new RollbackUnitOfWork();
+        const contactsBefore = contacts.contacts.length;
+        // O horário foi tomado entre o cálculo e a gravação, nos dois profissionais.
+        jest.spyOn(appointments, 'save').mockRejectedValue(new AppointmentConflictError());
+        await expect(publicBook({ startsAt: at('09:00') }, rollback)).rejects.toThrow(
+          AppointmentConflictError,
+        );
+        expect(contacts.captured.length).toBeGreaterThan(0); // tentou, dentro da transação
+        expect(contacts.contacts).toHaveLength(contactsBefore); // e o rollback levou
+        expect(rollback.runs).toBe(2); // Ana e Bia, cada uma na sua transação
+      });
+
+      it('every attempt takes the account lock before counting (concurrent bookings line up)', async () => {
+        await enableOnline();
+        await publicBook({ startsAt: at('09:00') });
+        expect(appointments.locks).toBe(1);
+      });
+    });
+
+    describe('suspended account (P0 8)', () => {
+      it('the widget, the slots and the booking answer as if online booking were off', async () => {
+        const enabled = await enableOnline();
+        standing.suspended.add('tenant-a');
+        tenant.switchTo(null);
+        await expect(
+          new GetBookingPageUseCase(resolve(), catalog).execute(enabled.publicKey),
+        ).rejects.toThrow(BookingNotFoundError);
+        await expect(
+          new PublicSlotsUseCase(resolve(), availability()).execute(enabled.publicKey, {
+            serviceId: SERVICE,
+            professionalId: null,
+            date: monday,
+          }),
+        ).rejects.toThrow(BookingNotFoundError);
+        await expect(publicBook({ startsAt: at('09:00') })).rejects.toThrow(BookingNotFoundError);
+        expect(contacts.captured).toEqual([]);
+
+        // Reativada: a mesma chave volta a funcionar, nada foi perdido.
+        standing.suspended.delete('tenant-a');
+        await publicBook({ startsAt: at('09:00') });
+      });
     });
   });
 });

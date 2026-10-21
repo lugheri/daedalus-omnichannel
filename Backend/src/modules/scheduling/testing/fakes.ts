@@ -11,7 +11,11 @@ import type {
   SchedulingMembers,
 } from '../application/ports/scheduling-sources';
 import type { TimeOffRepository } from '../application/ports/time-off.repository';
-import { Appointment, type AppointmentStatus } from '../domain/appointment.entity';
+import {
+  Appointment,
+  type AppointmentSource,
+  type AppointmentStatus,
+} from '../domain/appointment.entity';
 import { BookingSettings } from '../domain/booking-settings.entity';
 import { AppointmentConflictError } from '../domain/errors/appointment-conflict.error';
 import type { TimeOff } from '../domain/time-off';
@@ -93,6 +97,32 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
         .sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime())
         .slice(0, limit)
         .map(copy),
+    );
+  }
+
+  /** Quantas vezes o lock foi pedido (o teste confere que a marcação o usa). */
+  locks = 0;
+
+  lockOnlineBookings(): Promise<void> {
+    this.locks++;
+    return Promise.resolve();
+  }
+
+  countUpcoming(query: { contactId: string; source: AppointmentSource; after: Date }) {
+    return Promise.resolve(
+      this.mine().filter(
+        (a) =>
+          a.contactId === query.contactId &&
+          a.source === query.source &&
+          a.status === 'scheduled' &&
+          a.startsAt > query.after,
+      ).length,
+    );
+  }
+
+  countCreatedSince(query: { source: AppointmentSource; since: Date }) {
+    return Promise.resolve(
+      this.mine().filter((a) => a.source === query.source && a.createdAt >= query.since).length,
     );
   }
 }
@@ -195,12 +225,26 @@ export class FakeSchedulingContacts implements SchedulingContacts {
     return Promise.resolve(this.contacts.filter((c) => ids.includes(c.id)));
   }
 
+  /**
+   * Como o contacts: o mesmo telefone (só os dígitos, aqui) ou e-mail acha o
+   * contato que já existe, em vez de criar outro.
+   */
   captureBookingLead(input: { name: string; phone: string | null; email: string | null }) {
     this.captured.push(input);
+    const digits = input.phone?.replace(/\D/g, '') || null;
+    const found = this.contacts.find(
+      (c) =>
+        (digits && c.phone?.replace(/\D/g, '').endsWith(digits)) ||
+        (input.email && this.emails.get(c.id) === input.email),
+    );
+    if (found) return Promise.resolve({ contactId: found.id });
     const contact = { id: `lead-${this.captured.length}`, name: input.name, phone: input.phone };
     this.contacts.push(contact);
+    if (input.email) this.emails.set(contact.id, input.email);
     return Promise.resolve({ contactId: contact.id });
   }
+
+  private readonly emails = new Map<string, string>();
 }
 
 export class FakeSchedulingMembers implements SchedulingMembers {

@@ -1,4 +1,5 @@
 import {
+  FakeAccountStanding,
   FakePlanEntitlements,
   FakeTenantContext,
   InMemoryFileStorage,
@@ -455,8 +456,9 @@ describe('Landing pages', () => {
       ).execute(page.id, { copyFrom: null });
       return { page: details.page, a: details.page.variants[0], b: details.page.variants[1] };
     };
+    const standing = new FakeAccountStanding();
     const view = (variantId: string, day = '2026-10-19') =>
-      new RecordLandingViewUseCase(pages, stats, tenant).execute(
+      new RecordLandingViewUseCase(pages, stats, tenant, standing).execute(
         variantId,
         new Date(`${day}T12:00:00Z`),
       );
@@ -513,6 +515,23 @@ describe('Landing pages', () => {
 
       await new ResetLandingStatsUseCase(pages, stats).execute(page.id);
       expect((await stats.totals([a.id, b.id])).size).toBe(0);
+    });
+
+    it('a suspended account: the page may still be up, but views do not count', async () => {
+      const { page, a } = await live();
+      await publication().execute(page.id, 'publish');
+      await runJobs();
+      standing.suspended.add('tenant-a');
+      tenant.switchTo(null);
+      await view(a.id);
+      tenant.switchTo('tenant-a');
+      expect((await stats.totals([a.id])).size).toBe(0);
+
+      standing.suspended.delete('tenant-a');
+      tenant.switchTo(null);
+      await view(a.id);
+      tenant.switchTo('tenant-a');
+      expect((await stats.totals([a.id])).get(a.id)).toMatchObject({ views: 1 });
     });
 
     it('the comparison says when the difference is reliable', () => {

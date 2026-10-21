@@ -81,3 +81,22 @@ Serviços, profissionais e formulários já existem no CRM (catálogo e forms).
   (ADR 0008): fica para o próximo passo, com o certificado emitido pelo DNS da
   Cloudflare.
 - Em dev, o compose sobe o mesmo nginx em `http://<slug>.localhost:8088`.
+- **Conta suspensa** (20/10/2026, P0 8 da revisão pré-homologação): os sites e
+  as landing pages publicados **continuam no ar**; o que muda é que as rotas
+  públicas da conta recusam (formulário, agendamento, chat do site, visitas).
+  Tirar do ar automaticamente foi avaliado e **não** foi feito, porque não é
+  reversível sem perda com o que existe hoje:
+  - não há evento de suspensão/reativação — o `SetChildAccountStatusUseCase`
+    (accounts) só grava o status; seria preciso publicar
+    `account.suspended.v1`/`account.reactivated.v1` lá;
+  - `unpublish` zera `publishedSlug`/`publishedDomain`: na reativação não
+    sobra registro de QUEM estava no ar — seria preciso um campo novo (ex.:
+    `suspended_while_live`, migration) no site e na landing page;
+  - o mais grave: **republicar gera o HTML do conteúdo ATUAL**, não do que
+    estava no ar. Rascunho não publicado (`hasUnpublishedChanges`) iria ao
+    ar sozinho na reativação. "Sem perder nada" exigiria guardar o HTML
+    publicado (ou o conteúdo da última publicação) e repor exatamente ele —
+    ou trocar a suspensão por uma página "site indisponível" servida pelo
+    nginx para os slugs/domínios da conta, sem mexer nos arquivos;
+  - o worker teria de entrar em cada tenant suspenso e enfileirar um job por
+    site e por landing page, com a mesma idempotência da publicação normal.

@@ -112,6 +112,42 @@ export class PrismaAppointmentRepository implements AppointmentRepository {
     });
     return rows.map(toAppointment);
   }
+
+  async lockOnlineBookings(): Promise<void> {
+    // Lock consultivo de TRANSAÇÃO (solto sozinho no commit/rollback), com
+    // duas chaves: o "assunto" e a conta. Serializa só as marcações pelo site
+    // da mesma conta — volume baixo, então a fila é imperceptível — e não
+    // segura nada do painel. `$executeRaw` porque a função devolve `void`,
+    // que o `$queryRaw` não sabe desserializar.
+    await this.db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('scheduling.online-booking'), hashtext(${this.tenant.tenantId}))`;
+  }
+
+  countUpcoming(query: {
+    contactId: string;
+    source: AppointmentSource;
+    after: Date;
+  }): Promise<number> {
+    if (!UUID.test(query.contactId)) return Promise.resolve(0);
+    return this.db.appointment.count({
+      where: {
+        tenantId: this.tenant.tenantId,
+        contactId: query.contactId,
+        source: query.source,
+        status: 'scheduled',
+        startsAt: { gt: query.after },
+      },
+    });
+  }
+
+  countCreatedSince(query: { source: AppointmentSource; since: Date }): Promise<number> {
+    return this.db.appointment.count({
+      where: {
+        tenantId: this.tenant.tenantId,
+        source: query.source,
+        createdAt: { gte: query.since },
+      },
+    });
+  }
 }
 
 function toAppointment(row: AppointmentModel): Appointment {

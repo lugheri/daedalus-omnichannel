@@ -8,6 +8,7 @@ import type { Redis } from 'ioredis';
 import { ClsModule } from 'nestjs-cls';
 import type { IncomingMessage } from 'node:http';
 import { AppConfig } from '../../config/app-config';
+import { ACCOUNT_STANDING } from '../application/account-standing';
 import { ACTOR_CONTEXT } from '../application/actor-context';
 import { EVENT_BUS } from '../application/event-bus';
 import { FILE_STORAGE } from '../application/file-storage';
@@ -26,6 +27,7 @@ import { UuidV7IdGenerator } from './id/uuid-v7.id-generator';
 import { AppLoggerModule } from './logger/logger.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PrismaService } from './prisma/prisma.service';
+import { PrismaAccountStanding } from './prisma/prisma-account-standing';
 import { PrismaUnitOfWork } from './prisma/prisma-unit-of-work';
 import { bullConnectionFrom } from './queue/bull-connection';
 import { BullJobQueue } from './queue/bull-job-queue';
@@ -91,6 +93,8 @@ import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
     { provide: REALTIME_NOTIFIER, useClass: RedisRealtimeNotifier },
     { provide: FILE_STORAGE, useClass: S3FileStorage },
     { provide: SECRET_CIPHER, useClass: SecretBoxCipher },
+    // Provisório aqui (ver o arquivo): o dono da regra é o accounts.
+    { provide: ACCOUNT_STANDING, useClass: PrismaAccountStanding },
     // Registrado antes do guard de autenticação: rejeita excesso de
     // requisições sem gastar verificação de token.
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
@@ -105,6 +109,7 @@ import { REDIS_CLIENT, RedisModule } from './redis/redis.module';
     REALTIME_NOTIFIER,
     FILE_STORAGE,
     SECRET_CIPHER,
+    ACCOUNT_STANDING,
   ],
 })
 export class SharedInfraModule {}

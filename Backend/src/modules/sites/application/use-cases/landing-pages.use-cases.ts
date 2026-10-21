@@ -5,6 +5,10 @@ import {
 } from '../../../../shared/application/plan-entitlements';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/id-generator';
 import { JOB_QUEUE, type JobQueue } from '../../../../shared/application/job-queue';
+import {
+  ACCOUNT_STANDING,
+  type AccountStanding,
+} from '../../../../shared/application/account-standing';
 import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/application/tenant-context';
 import {
   compareVariants,
@@ -581,11 +585,16 @@ export class RecordLandingViewUseCase {
     @Inject(LANDING_PAGE_REPOSITORY) private readonly pages: LandingPageRepository,
     @Inject(LANDING_STATS_REPOSITORY) private readonly stats: LandingStatsRepository,
     @Inject(TENANT_CONTEXT) private readonly tenant: TenantContext,
+    @Inject(ACCOUNT_STANDING) private readonly standing: AccountStanding,
   ) {}
 
   async execute(variantId: string, at = new Date()): Promise<void> {
     const owner = await this.pages.findVariantOwnerAsSystem(variantId);
     if (!owner?.live) return;
+    // Conta suspensa: a página pode continuar no bucket (o site não sai do ar
+    // sozinho), mas a visita não conta — nem a conversão, que depende do
+    // envio do formulário, recusado pelo forms.
+    if (!(await this.standing.acceptsPublicTraffic(owner.tenantId))) return;
     this.tenant.enter(owner.tenantId);
     await this.stats.recordView(variantId, at.toISOString().slice(0, 10));
   }

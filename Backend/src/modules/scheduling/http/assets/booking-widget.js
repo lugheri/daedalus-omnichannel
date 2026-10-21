@@ -206,6 +206,11 @@
         return 'Muitas tentativas seguidas. Aguarde um minuto e tente de novo.';
       case 'BOOKING_NOT_FOUND':
         return 'O agendamento online foi desligado. Entre em contato por outro canal.';
+      // Limites do agendamento pelo site (booking-limits.ts no backend).
+      case 'BOOKING_CONTACT_LIMIT':
+        return 'Você já tem horários marcados conosco. Para marcar outro, fale com a gente por outro canal.';
+      case 'BOOKING_DAILY_LIMIT':
+        return 'A agenda online atingiu o limite de marcações de hoje. Tente amanhã ou fale com a gente por outro canal.';
       default:
         return 'Não foi possível agendar agora. Tente de novo em instantes.';
     }

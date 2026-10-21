@@ -1,3 +1,4 @@
+import type { AccountStanding } from '../application/account-standing';
 import type { SecretCipher } from '../application/secret-cipher';
 import type { Actor, ActorContext } from '../application/actor-context';
 import { Readable } from 'node:stream';
@@ -184,5 +185,14 @@ export class FakePlanEntitlements implements PlanEntitlements {
     return this.missing.has(feature)
       ? Promise.reject(new PlanFeatureUnavailableError(feature))
       : Promise.resolve();
+  }
+}
+
+/** Situação das contas: todas recebem até o teste suspender uma (`suspended.add`). */
+export class FakeAccountStanding implements AccountStanding {
+  readonly suspended = new Set<string>();
+
+  acceptsPublicTraffic(tenantId: string): Promise<boolean> {
+    return Promise.resolve(!this.suspended.has(tenantId));
   }
 }

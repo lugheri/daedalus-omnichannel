@@ -1,4 +1,5 @@
 import {
+  FakeAccountStanding,
   FakePlanEntitlements,
   FakeTenantContext,
   ImmediateUnitOfWork,
@@ -32,6 +33,7 @@ describe('Forms', () => {
   let forms: InMemoryFormRepository;
   let leads: FakeLeadGateway;
   let events: RecordingEventBus;
+  let standing: FakeAccountStanding;
   const ids = new SequentialIdGenerator();
   const keys = new SequentialKeys();
   const catalog = new FakeServiceCatalog([
@@ -46,6 +48,7 @@ describe('Forms', () => {
     forms = new InMemoryFormRepository(tenant, submissions);
     leads = new FakeLeadGateway();
     events = new RecordingEventBus();
+    standing = new FakeAccountStanding();
   });
 
   const create = (
@@ -80,6 +83,7 @@ describe('Forms', () => {
       ids,
       events,
       new ImmediateUnitOfWork(),
+      standing,
     ).execute(formId, fields, sourceRef);
   };
 
@@ -120,6 +124,22 @@ describe('Forms', () => {
       await expect(submit(rotated.publicKey, { phone: '11999990000' })).rejects.toMatchObject({
         code: 'FORM_INACTIVE',
       });
+    });
+
+    it('a suspended account receives nothing: no contact, no submission, no event', async () => {
+      const form = await create();
+      standing.suspended.add('tenant-a');
+      await expect(submit(form.publicKey, { phone: '11999990000' })).rejects.toMatchObject({
+        code: 'FORM_INACTIVE',
+      });
+      expect(leads.captured).toEqual([]);
+      expect(submissions.items).toHaveLength(0);
+      expect(events.published).toEqual([]);
+
+      // Reativada, volta a receber pela mesma chave.
+      standing.suspended.delete('tenant-a');
+      await submit(form.publicKey, { phone: '11999990000' });
+      expect(submissions.items).toHaveLength(1);
     });
 
     it('another account does not see it; deleting takes its submissions', async () => {

@@ -3,6 +3,10 @@ import {
   PLAN_ENTITLEMENTS,
   type PlanEntitlements,
 } from '../../../../shared/application/plan-entitlements';
+import {
+  ACCOUNT_STANDING,
+  type AccountStanding,
+} from '../../../../shared/application/account-standing';
 import { EVENT_BUS, type EventBus } from '../../../../shared/application/event-bus';
 import { ID_GENERATOR, type IdGenerator } from '../../../../shared/application/id-generator';
 import { TENANT_CONTEXT, type TenantContext } from '../../../../shared/application/tenant-context';
@@ -169,6 +173,7 @@ export class SubmitFormUseCase {
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(EVENT_BUS) private readonly events: EventBus,
     @Inject(UNIT_OF_WORK) private readonly unitOfWork: UnitOfWork,
+    @Inject(ACCOUNT_STANDING) private readonly standing: AccountStanding,
   ) {}
 
   async execute(
@@ -179,6 +184,14 @@ export class SubmitFormUseCase {
     const sourceRef = cleanSourceRef(rawSourceRef);
     const form = await load(this.forms, formId);
     if (!form.active) throw new InvalidFormError('FORM_INACTIVE');
+    // Conta suspensa não recebe (como a chave de API dela). Conferido aqui, e
+    // não no FormKeyGuard, para o visitante ver a página "não está recebendo"
+    // (o erro do guard sairia em JSON) — e sem dizer que a conta foi suspensa.
+    // Sem envio, também não há `form.submitted.v1`: a conversão da landing
+    // page não conta.
+    if (!(await this.standing.acceptsPublicTraffic(form.tenantId))) {
+      throw new InvalidFormError('FORM_INACTIVE');
+    }
 
     const fields = cleanFields(raw);
     // Serviço só no formulário de serviço, e só um que aparece no site.

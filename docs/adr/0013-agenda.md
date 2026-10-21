@@ -59,6 +59,34 @@ Decisões de produto:
   `website`. O visitante informa nome e WhatsApp ou e-mail e vira contato
   (origem `web_booking`). O widget é um script sem dependências servido pela
   API, desenhado num Shadow DOM dentro de `<div data-omni-booking>`.
+- **Limites do agendamento pelo site** (20/10/2026, P0 7 da revisão
+  pré-homologação). O limite por IP (10/min) e o campo isca não bastavam: um
+  IP marcava ~600 horários por hora, já confirmados, cada um abrindo negócio.
+  Agora o `PublicBookUseCase` aplica dois limites de negócio, constantes em
+  `scheduling/domain/booking-limits.ts`:
+  - **2 agendamentos futuros ativos pelo site por contato**
+    (`MAX_ACTIVE_ONLINE_BOOKINGS_PER_CONTACT`) — o contato é o que a captura
+    acha pelo telefone normalizado (E.164) ou pelo e-mail, a mesma regra que
+    evita contato duplicado. Os marcados pela equipe não contam (quem decide
+    esses é a empresa). Recusa: 422 `BOOKING_CONTACT_LIMIT`.
+  - **50 agendamentos pelo site por conta por dia**, no fuso da conta
+    (`MAX_ONLINE_BOOKINGS_PER_DAY`), contando os já cancelados (o teto é de
+    marcações: marcar-e-cancelar não o contorna). Recusa: 422
+    `BOOKING_DAILY_LIMIT`.
+  - O erro leva `limit`; o widget mostra uma mensagem por código e sugere
+    falar com a empresa por outro canal.
+  - **Uma transação por tentativa**, com limites, contato e agendamento:
+    `pg_advisory_xact_lock(hashtext('scheduling.online-booking'),
+    hashtext(tenantId))` serializa as marcações pelo site da conta; depois
+    conta o dia, captura o contato, conta os futuros dele e grava. Duas
+    marcações simultâneas do mesmo telefone contam uma depois da outra. O
+    contato é criado DENTRO da transação: limite estourado ou horário tomado
+    = rollback, e nenhum contato fica para trás (antes, o contato nascia
+    mesmo sem agendamento).
+- **Conta suspensa** (P0 8): `ResolveBookingKey` confere a conta pelo port
+  compartilhado `ACCOUNT_STANDING` e responde o mesmo 404
+  `BOOKING_NOT_FOUND` do agendamento desligado (página, horários e
+  marcação). Reativada, a mesma chave volta a valer.
 - **No site da conta (ADR 0010):** seção `booking` no conteúdo (ligada por
   padrão). Com o agendamento ligado na agenda, o compositor injeta o script e,
   se o modelo não tiver o `<div data-omni-booking>`, cria uma seção antes do
@@ -83,6 +111,19 @@ Decisões de produto:
 - **Solicitação de agendamento** (a equipe confirma): mais controle, mas o
   cliente final não sai da página com o horário garantido. Fica a opção de
   desligar o agendamento online e usar o formulário de solicitação de serviço.
+- **Limites do site só pela constraint existente:** a EXCLUDE
+  (`appointments_no_overlap`) barra o mesmo profissional no mesmo horário,
+  não o mesmo contato em horários diferentes — não serve para contar. Uma
+  unique parcial também não expressa "no máximo 2". Por isso o lock
+  consultivo: aqui, ao contrário da sobreposição, só existe UM caminho de
+  escrita (o site), então "lembrar de travar" é um lugar só.
+- **Lock por telefone em vez de por conta:** precisaria do telefone
+  normalizado antes do contato (regra do contacts) e não protegeria o teto
+  diário. Por conta é mais simples; o volume de marcações pelo site de uma
+  conta é baixo, a fila é imperceptível.
+- **Limites como campo da conta ou do plano:** são proteção, não
+  preferência; ficaram constantes. Se algum cliente precisar de mais, vira
+  campo do `booking_settings` ou limite do plano.
 - **Biblioteca de fuso (Luxon, date-fns-tz):** `Intl` resolve com poucas
   linhas e sem dependência, no backend e no widget.
 
@@ -95,5 +136,12 @@ Decisões de produto:
 - Mudar o fuso da conta muda o relógio dos horários semanais (os minutos são
   os mesmos, no fuso novo); agendamentos já marcados ficam no instante em que
   foram marcados.
+- **Nunca rodou contra o Postgres** (20/10/2026): o lock consultivo, o
+  rollback do contato junto com o agendamento e a contagem só têm teste
+  unitário com fakes (o rollback é simulado). A transação interativa do
+  Prisma expira em 5 s por padrão: com muita marcação simultânea na mesma
+  conta, a fila do lock pode estourar isso — improvável no volume esperado.
+  A contagem do dia filtra por `created_at`, que não tem índice (usa o de
+  `tenant_id`); se pesar, um índice `(tenant_id, source, created_at)`.
 - Lembretes (WhatsApp/e-mail antes do horário), recorrência e visão semanal
   ficam para depois. Os lembretes dependem do provedor de e-mail (passo 7).

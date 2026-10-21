@@ -9,6 +9,9 @@ export type FormKeyRequest = FastifyRequest & { formId?: string };
 /**
  * Autentica o envio público pela chave do formulário (`:key` na URL) e fixa
  * o tenant dele — como o guard da chave de API. Chave inexistente: 404.
+ * Conta suspensa NÃO é barrada aqui, e sim no `SubmitFormUseCase`
+ * (`FORM_INACTIVE`): erro de guard sai em JSON, e o visitante de um
+ * `<form method="post">` precisa ver a página HTML com o motivo.
  */
 @Injectable()
 export class FormKeyGuard implements CanActivate {
