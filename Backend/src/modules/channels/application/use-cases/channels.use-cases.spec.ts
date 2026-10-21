@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   SendWhatsAppText,
   StartWhatsAppSession,
@@ -192,6 +193,34 @@ describe('Channels', () => {
       expect(event).toBeInstanceOf(ChannelMessageReceivedEvent);
       expect(event.tenantId).toBe('tenant-a');
       expect(event.message).toMatchObject({ externalId: 'WA-123', text: 'Oi, preciso de ajuda' });
+    });
+
+    it('never logs the contact phone, JID or name (LGPD)', async () => {
+      await createChannel();
+      const levels = ['log', 'debug', 'verbose', 'warn', 'error'] as const;
+      const spies = levels.map((level) =>
+        jest.spyOn(Logger.prototype, level).mockImplementation(() => undefined),
+      );
+      try {
+        await new RecordInboundMessageUseCase(channels, events, new ImmediateUnitOfWork()).execute({
+          channelId: 'id-1',
+          tenantId: 'tenant-a',
+          externalId: 'WA-124',
+          contactPhone: '+5511912345678',
+          contactJid: '5511912345678@s.whatsapp.net',
+          contactName: 'Maria Cliente',
+          fromMe: false,
+          kind: 'text',
+          text: 'Oi',
+          sentAt: '2030-01-01T10:00:00Z',
+        });
+
+        const logged = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+        expect(logged).not.toContain('912345678');
+        expect(logged).not.toContain('Maria');
+      } finally {
+        spies.forEach((spy) => spy.mockRestore());
+      }
     });
   });
   describe('removing a channel', () => {

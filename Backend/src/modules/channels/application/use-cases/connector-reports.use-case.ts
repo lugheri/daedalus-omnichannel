@@ -61,9 +61,13 @@ export class RecordInboundMessageUseCase {
       const channel = await this.channels.findById(message.channelId);
       if (!channel) return;
 
-      this.logger.log(
-        `Mensagem ${message.fromMe ? 'enviada pelo celular para' : 'recebida de'} ` +
-          `${message.contactPhone ?? message.contactJid} (${message.kind}) no canal ${channel.name}`,
+      // Sem telefone, JID nem nome do contato: é dado pessoal (LGPD) e o log
+      // vai para agregadores com retenção e acesso fora do controle da conta.
+      // O externalId basta para rastrear (é a chave da mensagem no canal); e
+      // `debug` porque uma linha por mensagem recebida é ruído em produção.
+      this.logger.debug(
+        `Mensagem ${message.externalId} (${message.kind}) ` +
+          `${message.fromMe ? 'enviada pelo celular' : 'recebida'} no canal ${channel.id}`,
       );
       await this.events.publish([
         new ChannelMessageReceivedEvent(channel.id, channel.tenantId, {

@@ -219,6 +219,9 @@ export class RecordInboundSmsUseCase {
       source: 'sms_reply',
       createdAt: new Date(),
     });
-    this.logger.log(`Descadastro por SMS: ${address.slice(0, -4)}****`);
+    // Só os 4 últimos dígitos: a máscara anterior escondia os 4 últimos e
+    // mostrava DDI + DDD + prefixo, o que praticamente identifica o número.
+    // Telefone no log é dado pessoal (LGPD).
+    this.logger.log(`Descadastro por SMS: ****${address.slice(-4)}`);
   }
 }
